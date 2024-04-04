@@ -1,0 +1,37 @@
+name: Red de pruebas
+nodes:
+  - switch1:
+      type: switch
+      num_leafs: 5 #TODO: Calcular el número de nodos dinámicamnte, leyendo fichero
+      mem_noise_model: PEND
+      num_memories: 10
+  - switch2:
+      type: switch
+      num_leafs: 5
+      mem_noise_model: PEND
+      num_memories: 10
+  - Alice:
+      type: endNode
+      mem_noise_model: PEND2
+  - Bob:
+      type: endNode
+      mem_noise_model: PEND3
+
+links:
+  - link1:
+      end1: Alice
+      end2: switch1
+      distance: 10
+      source_frequency: 2000
+  - link2:
+      end1: switch2
+      end2: Bob
+      distance: 20
+      source_frequency: 2000
+  - link3:
+      end1: switch1
+      end2: switch2
+      distance: 5
+      number_links: 4
+      noise_model: DepolarizingChannel
+      source_frequency: 2000
