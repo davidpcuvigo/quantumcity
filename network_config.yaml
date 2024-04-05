@@ -22,7 +22,8 @@ links:
       end1: Alice
       end2: switch1
       distance: 10
-      source_frequency: 2000
+      source_frequency: 2000 #TODO: Realmente no estaremos generando continuamente. Se disparará por una señal externa que le solicite EPR (ya sea por fallo de distil o por qubit a teleportar)
+      bell_prob: 1 #TODO: ponerle otro nombre a la probabilidad de generar EPR en la fuente
   - link2:
       end1: switch2
       end2: Bob
@@ -35,3 +36,12 @@ links:
       number_links: 4
       noise_model: DepolarizingChannel
       source_frequency: 2000
+
+requests:
+  - request_1:
+      origin: Alice
+      destination: Bob
+      fidelity: 0.95
+      maxtime: 100 # nanoseconds
+      alpha: 0 #alpha|0> + beta|1> Estado a teleportar
+      beta: 1 
