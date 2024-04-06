@@ -1,4 +1,4 @@
-<mxfile host="Electron" modified="2024-04-06T15:54:28.636Z" agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/24.1.0 Chrome/120.0.6099.109 Electron/28.1.0 Safari/537.36" etag="98sLW3fZQUjvE8hd9CL2" version="24.1.0" type="device">
+<mxfile host="Electron" modified="2024-04-06T16:03:59.580Z" agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/24.1.0 Chrome/120.0.6099.109 Electron/28.1.0 Safari/537.36" etag="dxySqo-9_kT3WECld62A" version="24.1.0" type="device">
   <diagram name="Página-1" id="eLkDxXY-62TLMYeRFwhm">
     <mxGraphModel dx="810" dy="454" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
       <root>
@@ -340,11 +340,6 @@
         <mxCell id="9aIz3eH4mraqbj3gu_Gu-149" value="M3" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" parent="1" vertex="1">
           <mxGeometry x="339.5" y="234" width="30" height="30" as="geometry" />
         </mxCell>
-        <mxCell id="z7Oy1StXTTE89CD6nLSr-1" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="9aIz3eH4mraqbj3gu_Gu-150">
-          <mxGeometry relative="1" as="geometry">
-            <mxPoint x="275" y="321" as="targetPoint" />
-          </mxGeometry>
-        </mxCell>
         <mxCell id="9aIz3eH4mraqbj3gu_Gu-150" value="&lt;div&gt;&lt;font style=&quot;font-size: 11px;&quot;&gt;EntangleNode&lt;/font&gt;&lt;br&gt;&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;rotation=-90;fillColor=none;labelPosition=center;verticalLabelPosition=top;align=center;verticalAlign=bottom;labelBackgroundColor=default;" parent="1" vertex="1">
           <mxGeometry x="321" y="287" width="70.5" height="39" as="geometry" />
         </mxCell>
@@ -636,6 +631,9 @@
             <mxPoint x="910" y="60" as="sourcePoint" />
             <mxPoint x="1000" y="70" as="targetPoint" />
           </mxGeometry>
+        </mxCell>
+        <mxCell id="z7Oy1StXTTE89CD6nLSr-4" value="" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#66B2FF;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="265" y="316" width="10" height="10" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>
