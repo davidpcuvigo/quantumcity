@@ -22,7 +22,7 @@ class NetworkManager():
         self._create_network()
 
     def _validate_file(self):
-        ic(self._config)
+        #ic(self._config)
         pass #TODO
         #TODO: realiza validaciones del contenido del fichero 
         '''
