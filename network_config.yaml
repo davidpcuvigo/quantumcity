@@ -2,27 +2,28 @@ name: Red de pruebas
 nodes:
   - switch1:
       type: switch
-      num_leafs: 5 #TODO: Calcular el número de nodos dinámicamnte, leyendo fichero
       mem_noise_model: PEND
       num_memories: 10
+      gate_duration: 1
   - switch2:
       type: switch
-      num_leafs: 5
       mem_noise_model: PEND
       num_memories: 10
+      gate_duration: 2
   - Alice:
       type: endNode
       mem_noise_model: PEND2
+      gate_duration: 3
   - Bob:
       type: endNode
       mem_noise_model: PEND3
+      gate_duration: 1
 
 links:
   - link1:
       end1: Alice
       end2: switch1
       distance: 10
-      source_frequency: 2000 #TODO: Realmente no estaremos generando continuamente. Se disparará por una señal externa que le solicite EPR (ya sea por fallo de distil o por qubit a teleportar)
       source_fidelity_sq: 1
       source_delay: 1e5
       photon_speed_fibre: 200e3
@@ -30,7 +31,6 @@ links:
       end1: switch2
       end2: Bob
       distance: 20
-      source_frequency: 2000
       source_fidelity_sq: 0.9
       source_delay: 1e5
       photon_speed_fibre: 200e3
@@ -40,7 +40,6 @@ links:
       distance: 5
       number_links: 4
       noise_model: DepolarizingChannel
-      source_frequency: 2000
       source_fidelity_sq: 0.8
       source_delay: 1e5
       photon_speed_fibre: 200e3
@@ -49,7 +48,7 @@ requests:
   - request_1:
       origin: Alice
       destination: Bob
-      fidelity: 0.95
+      minfidelity: 0.95
       maxtime: 100 # nanoseconds
-      alpha: 0 #alpha|0> + beta|1> Estado a teleportar
-      beta: 1 
+      teleport: [(1,0),(0,1)] #Lista de (alpha, beta). alpha|0> + beta|1> Estados a teleportar
+ 
