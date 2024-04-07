@@ -1,6 +1,6 @@
 name: Red de pruebas
 nodes:
-  - switch1:
+  - switch1: #name of switch
       type: switch
       mem_noise_model: PEND
       num_memories: 10
@@ -10,7 +10,7 @@ nodes:
       mem_noise_model: PEND
       num_memories: 10
       gate_duration: 2
-  - Alice:
+  - Alice: #name of endNode
       type: endNode
       mem_noise_model: PEND2
       gate_duration: 3
@@ -20,7 +20,7 @@ nodes:
       gate_duration: 1
 
 links:
-  - link1:
+  - link1: #name of link
       end1: Alice
       end2: switch1
       distance: 10
@@ -45,7 +45,7 @@ links:
       photon_speed_fibre: 200e3
 
 requests:
-  - request_1:
+  - request1: #name of request
       origin: Alice
       destination: Bob
       minfidelity: 0.95
