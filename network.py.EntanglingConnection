@@ -4,12 +4,6 @@ from netsquid.nodes import Node, Connection, Network
 from netsquid.components import Message, QuantumProcessor, QuantumProgram, PhysicalInstruction
 from netsquid.protocols import LocalProtocol, NodeProtocol, Signals
 from netsquid.examples.teleportation import EntanglingConnection, ClassicalConnection
-from netsquid.qubits import ketstates as ks
-from netsquid.qubits.state_sampler import StateSampler
-from netsquid.components.qsource import QSource, SourceStatus
-from netsquid.components.models.delaymodels import FixedDelayModel, FibreDelayModel
-from netsquid.components.models import DepolarNoiseModel
-from netsquid.components import ClassicalChannel, QuantumChannel
 
 with open('network_config.yaml','r') as config_file:
     config = yaml.safe_load(config_file)
@@ -58,7 +52,7 @@ for node in config['nodes']:
         switch = Node(name, qmemory=create_qprocessor(f"qproc_{name}",props['num_memories']))
         switches.append(switch)
     elif props['type'] == 'endNode':
-        props['num_memories'] = 4 #In an end node we always have 4 memories
+        props['num_memories'] = 2 #In an end node we always have 2 memories
         endnode = Node(name, qmemory=create_qprocessor(f"qproc_{name}",props['num_memories']))
         end_nodes.append(endnode)
     else:
@@ -67,47 +61,40 @@ for node in config['nodes']:
 network_nodes = switches+end_nodes
 network.add_nodes(network_nodes)
 
-#ic(config)
-#ic(network_nodes)
-
+ic(config)
+ic(network_nodes)
 #links creation
 for link in config['links']:
     name = list(link.keys())[0]
     props = list(link.values())[0]
     nodeA = network.get_node(props['end1'])
     nodeB = network.get_node(props['end2'])
-    # Add Quantum Sources to nodes
-    num_qsource = props['number_links'] if 'number_links' in props.keys() else 2
-    state_sampler = StateSampler(
-        qs_reprs=[ks.b01, ks.s00],
-        probabilities=[props['source_fidelity_sq'], 1 - props['source_fidelity_sq']])
-    for index_qsource in range(num_qsource):
-        source = QSource(
-            f"qsource_{props['end1']}_{index_qsource}", state_sampler=state_sampler, num_ports=2, status=SourceStatus.EXTERNAL,
-            models={"emission_delay_model": FixedDelayModel(delay=float(props['source_delay']))})
-        nodeA.add_subcomponent(source)
-    
-        # Setup Classical connections: To be done in protocol Preparation, depends on paths
+    # Setup entangling connection between nodes:
+    qconn1 = EntanglingConnection(name=f"qconn1_{name}_{props['end1']}-{props['end2']}", length=props['distance'],
+                                     source_frequency=props['source_frequency'])
+    qconn2 = EntanglingConnection(name=f"qconn2_{name}_{props['end1']}-{props['end2']}", length=props['distance'],
+                                     source_frequency=props['source_frequency'])
+    #TODO: Añadir modelo de ruido al canal. Admás, de momento solo hay 1 par de entangling connection, hacen falta las que se indiquen
+    #Connect entangling souce to both ends  
+    port_name1, port_r_name1 = network.add_connection(
+            nodeA, nodeB, connection=qconn1, label=f"qconn1_{name}_{props['end1']}-{props['end2']}")
+    port_name2, port_r_name2 = network.add_connection(
+            nodeA, nodeB, connection=qconn2, label=f"qconn2_{name}_{props['end1']}-{props['end2']}")
+    # Forward qconn directly to quantum memories for right and left inputs:
+    nodeA.ports[port_name1].forward_input(nodeA.qmemory.ports["qin0"])  # left node
+    nodeA.ports[port_name2].forward_input(nodeA.qmemory.ports["qin1"])  # left node
+    nodeB.ports[port_r_name1].forward_input(nodeB.qmemory.ports["qin0"])  # right node
+    nodeB.ports[port_r_name2].forward_input(nodeB.qmemory.ports["qin1"])  # right node
+    #TODO: Cuando sea un switch y haya varios links, los índices no siempre son 0/1
 
-        # Setup Quantum Channels
-        qchannel = QuantumChannel(f"qchannel_{props['end1']}_{props['end2']}_{name}_{index_qsource}", 
-                                    length = props['distance'],
-                                    models={"quantum_loss_model": None, "delay_model": FibreDelayModel(c=props['photon_speed_fibre'])})
-        port_name_a, port_name_b = network.add_connection(
-            nodeA, nodeB, channel_to=qchannel, 
-            label=f"qconn_{props['end1']}_{props['end2']}_{name}_{index_qsource}")
-
-        #Setup quantum ports
-        nodeA.subcomponents[f"qsource_{props['end1']}_{index_qsource}"].ports["qout1"].forward_output(
-            nodeA.ports[port_name_a])
-        nodeA.subcomponents[f"qsource_{props['end1']}_{index_qsource}"].ports["qout0"].connect(
-            nodeA.qmemory.ports[f"qin{str(2*index_qsource)}"])
-        nodeB.ports[port_name_b].forward_input(nodeB.qmemory.ports[f"qin{str(2*index_qsource+1)}"])
-
-
-    #TODO: Configurar bien los modelos de ruido en los canales cuánticos, según lo que queramos implementar 
- 
-
+    # Create classical connection from end1 to end2 end viceversa
+    cconn = ClassicalConnection(name=f"cconn_{name}_{props['end1']}-{props['end2']}", length=props['distance'])
+    port_name, port_r_name = network.add_connection(nodeA, nodeB, connection=cconn, label="classical",
+            port_name_node1=f"ccon_R_{name}_{props['end1']}_{props['end2']}", port_name_node2=f"ccon_L_{name}_{props['end2']}_{props['end1']}")
+    cconn2 = ClassicalConnection(name=f"cconn_{name}_{props['end2']}-{props['end1']}", length=props['distance'])
+    port_name, port_r_name = network.add_connection(nodeB, nodeA, connection=cconn2, label="classical2",
+            port_name_node1=f"ccon_R_{name}_{props['end2']}_{props['end1']}", port_name_node2=f"ccon_L_{name}_{props['end1']}_{props['end2']}")
+    #TODO: Ver las conexiones clásicas necesarias para implementar Distil
 
 print('Salida temporal para verificar red creada')
 for node in network.nodes.values():

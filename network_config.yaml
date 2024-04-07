@@ -23,12 +23,17 @@ links:
       end2: switch1
       distance: 10
       source_frequency: 2000 #TODO: Realmente no estaremos generando continuamente. Se disparará por una señal externa que le solicite EPR (ya sea por fallo de distil o por qubit a teleportar)
-      bell_prob: 1 #TODO: ponerle otro nombre a la probabilidad de generar EPR en la fuente
+      source_fidelity_sq: 1
+      source_delay: 1e5
+      photon_speed_fibre: 200e3
   - link2:
       end1: switch2
       end2: Bob
       distance: 20
       source_frequency: 2000
+      source_fidelity_sq: 0.9
+      source_delay: 1e5
+      photon_speed_fibre: 200e3
   - link3:
       end1: switch1
       end2: switch2
@@ -36,6 +41,9 @@ links:
       number_links: 4
       noise_model: DepolarizingChannel
       source_frequency: 2000
+      source_fidelity_sq: 0.8
+      source_delay: 1e5
+      photon_speed_fibre: 200e3
 
 requests:
   - request_1:
