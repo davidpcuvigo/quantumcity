@@ -10,16 +10,88 @@ from netsquid.components.qsource import QSource, SourceStatus
 from netsquid.components.models.delaymodels import FixedDelayModel, FibreDelayModel
 from netsquid.components.models import DepolarNoiseModel
 from netsquid.components import ClassicalChannel, QuantumChannel
+from netsquid.nodes.connections import DirectConnection
 
 
 class NetworkManager():
     network=""
+    paths = []
 
     def __init__(self, file):
-        with open('network_config.yaml','r') as config_file:
+        with open(file,'r') as config_file:
             self._config = yaml.safe_load(config_file)
         self._validate_file()
         self._create_network()
+        self._temporal_red() #Temporal mientras no está implementada la etapa 1 de cálculo de rutas
+
+    def _temporal_red(self):
+        '''
+        Se utiliza para crear rutas mientas no esté implementada la fase 1
+        '''
+        self.paths = [(['node1','switch1','switch2','node3'],0),(['node2','switch1','switch3','switch2','node4'],2)]
+        node1 = self.network.get_node('node1')
+        node2 = self.network.get_node('node2')
+        node3 = self.network.get_node('node3')
+        node4 = self.network.get_node('node4')
+        switch1 = self.network.get_node('switch1')
+        switch2 = self.network.get_node('switch2')
+        switch3 = self.network.get_node('switch3')
+        # Conexiones clásicas path1. No tiene Distil
+        conns = [('ccon_R_node1_request1_1','ccon_L_switch1_request1_1'),
+                 ('ccon_R_switch1_request1_1','ccon_L_switch2_request1_1'),
+                 ('ccon_R_switch2_request1_1','ccon_L_node3_request1_1')]
+        for con in conns:
+            cconn = ClassicalConnection(name=f"ccon_{con[0].split('_')[2]}_{con[1].split('_')[2]}_{con[0].split('_')[3]}_1", length=5)
+            node_origin = self.network.get_node(con[0].split('_')[2])
+            node_dest = self.network.get_node(con[1].split('_')[2])
+            port_name, port_r_name = self.network.add_connection(
+                node_origin, node_dest, connection=cconn, label="classical",
+                port_name_node1=con[0], port_name_node2=con[1])
+        # Forward cconn to right most node
+        switch1.ports['ccon_L_switch1_request1_1'].bind_input_handler(
+            lambda message, _node=switch1: _node.ports["ccon_R_switch1_request1_1"].tx_output(message))
+        switch2.ports['ccon_L_switch2_request1_1'].bind_input_handler(
+            lambda message, _node=switch1: _node.ports["ccon_R_switch2_request1_1"].tx_output(message))
+        
+        # Conexiones clásicas path2. Tiene Distil
+        conns = [('ccon_R_node2_request2_1','ccon_L_switch1_request2_1'),
+                 ('ccon_R_node2_request2_2','ccon_L_switch1_request2_2'),
+                 ('ccon_R_switch1_request2_1','ccon_L_switch3_request2_1'),
+                 ('ccon_R_switch1_request2_2','ccon_L_switch3_request2_2'),
+                 ('ccon_R_switch3_request2_1','ccon_L_switch2_request2_1'),
+                 ('ccon_R_switch3_request2_2','ccon_L_switch2_request2_2'),
+                 ('ccon_R_switch2_request2_1','ccon_L_node4_request2_1'),
+                 ('ccon_R_switch2_request2_2','ccon_L_node4_request2_2')]
+        for con in conns:
+            cconn = ClassicalConnection(name=f"ccon_{con[0].split('_')[2]}_{con[1].split('_')[2]}_{con[0].split('_')[3]}_{con[0].split('_')[4]}", length=5)
+            node_origin = self.network.get_node(con[0].split('_')[2])
+            node_dest = self.network.get_node(con[1].split('_')[2])
+            port_name, port_r_name = self.network.add_connection(
+                node_origin, node_dest, connection=cconn, label=f"ccon_{con[0].split('_')[2]}_{con[1].split('_')[2]}_{con[0].split('_')[3]}_{con[0].split('_')[4]}",
+                port_name_node1=con[0], port_name_node2=con[1])
+        # Forward cconn to right most node
+        switch1.ports['ccon_L_switch1_request2_1'].bind_input_handler(
+            lambda message, _node=switch1: _node.ports["ccon_R_switch1_request2_1"].tx_output(message))
+        switch1.ports['ccon_L_switch1_request2_2'].bind_input_handler(
+            lambda message, _node=switch1: _node.ports["ccon_R_switch1_request2_2"].tx_output(message))
+        switch3.ports['ccon_L_switch3_request2_1'].bind_input_handler(
+            lambda message, _node=switch3: _node.ports["ccon_R_switch3_request2_1"].tx_output(message))
+        switch3.ports['ccon_L_switch3_request2_2'].bind_input_handler(
+            lambda message, _node=switch3: _node.ports["ccon_R_switch3_request2_2"].tx_output(message))
+        switch2.ports['ccon_L_switch2_request2_1'].bind_input_handler(
+            lambda message, _node=switch2: _node.ports["ccon_R_switch2_request2_1"].tx_output(message))
+        switch2.ports['ccon_L_switch2_request2_2'].bind_input_handler(
+            lambda message, _node=switch2: _node.ports["ccon_R_switch2_request2_2"].tx_output(message))
+        # Conexión para el Distil
+        conn_distil = DirectConnection("Distil_Node2Node4",
+            ClassicalChannel("ccon_distil_node1_request2", length=5,
+                                models={"delay_model": FibreDelayModel(c=200e3)}),
+            ClassicalChannel("ccon_distil_node2_request2", length=5,
+                                models={"delay_model": FibreDelayModel(c=200e3)}))
+        self.network.add_connection(node2, node4, connection=conn_distil,
+                                    port_name_node1="ccon_distil_node1_request2", port_name_node2="ccon_distil_node2_request2")
+
+
 
     def _validate_file(self):
         #ic(self._config)
