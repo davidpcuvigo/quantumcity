@@ -229,10 +229,7 @@ class NetworkManager():
             #if list(link.keys())[0] not in ['nodeswitch4']: continue
             origin = self.network.get_node(props_link['end1'])
             dest = self.network.get_node(props_link['end2'])
-            #print(origin.qmemory.ports)
-            #print(dest.qmemory.ports)
             self._protocol = FidelityProtocol(origin,dest)
-            #ic(self._protocol)
             self._protocol.start()
             ns.sim_run(100000000)
             #print(f"La fidelidad media del enlace {list(link.keys())[0]} es {np.mean(self._protocol.fidelities)} sobre un total de {len(self._protocol.fidelities)} muestras")
@@ -242,6 +239,7 @@ class NetworkManager():
             self._create_network() # Si no recreo la red la simulación de las posteriores a la primera no funciona
 
         ic(self._link_fidelities)
+
     def _create_graph(self):
         pass
 
