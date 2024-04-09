@@ -11,18 +11,30 @@ from netsquid.components.models.delaymodels import FixedDelayModel, FibreDelayMo
 from netsquid.components.models import DepolarNoiseModel
 from netsquid.components import ClassicalChannel, QuantumChannel
 from netsquid.nodes.connections import DirectConnection
-
+#from pydynaa import EventExpression
+import pydynaa
+import netsquid as ns
+from netsquid.util.datacollector import DataCollector
+import pandas as pd
+import numpy as np
 
 class NetworkManager():
-    network=""
-    paths = []
+
 
     def __init__(self, file):
+        self.network=""
+        self.paths = []
+        self._link_fidelities = []
+        self._protocol = ""
+
         with open(file,'r') as config_file:
             self._config = yaml.safe_load(config_file)
         self._validate_file()
         self._create_network()
+        self._measure_link_fidelity()
+        self._create_graph()
         self._temporal_red() #Temporal mientras no está implementada la etapa 1 de cálculo de rutas
+        
 
     def _temporal_red(self):
         '''
@@ -94,6 +106,11 @@ class NetworkManager():
 
 
     def _validate_file(self):
+        '''
+        Performs validations on the provided configuration file
+        Input: -
+        Output: -
+        '''
         #ic(self._config)
         pass #TODO
         #TODO: realiza validaciones del contenido del fichero 
@@ -108,6 +125,11 @@ class NetworkManager():
         '''
 
     def _create_network(self):
+        '''
+        Creates network elements as indicated in configuration file: nodes, links and requests
+        Input: dictionary with file contents
+        Output: -
+        '''
         self.network = Network(self._config['name'])
 
         #nodes creation
@@ -141,7 +163,7 @@ class NetworkManager():
             # Add Quantum Sources to nodes
             num_qsource = props['number_links'] if 'number_links' in props.keys() else 2
             state_sampler = StateSampler(
-                qs_reprs=[ks.b01, ks.s00],
+                qs_reprs=[ks.b00, ks.s00],
                 probabilities=[props['source_fidelity_sq'], 1 - props['source_fidelity_sq']])
             for index_qsource in range(num_qsource):
                 source = QSource(
@@ -154,7 +176,7 @@ class NetworkManager():
                 # Setup Quantum Channels
                 qchannel = QuantumChannel(f"qchannel_{props['end1']}_{props['end2']}_{name}_{index_qsource}", 
                                             length = props['distance'],
-                                            models={"quantum_loss_model": None, "delay_model": FibreDelayModel(c=props['photon_speed_fibre'])})
+                                            models={"quantum_loss_model": None, "delay_model": FibreDelayModel(c=float(props['photon_speed_fibre']))})
                 port_name_a, port_name_b = self.network.add_connection(
                     nodeA, nodeB, channel_to=qchannel, 
                     label=f"qconn_{props['end1']}_{props['end2']}_{name}_{index_qsource}")
@@ -168,7 +190,61 @@ class NetworkManager():
 
 
             #TODO: Configurar bien los modelos de ruido en los canales cuánticos, según lo que queramos implementar 
+
+    def _measure_link_fidelity(self):
+        '''
+        Performs a simulation in order to estimate fidelity of each link.
+        All links between the same two elements are supossed to have the same fidelity, so only one of them
+        is measured in the simulation.
+        Input: - will work with self._config
+        Output: - will store links with fidelities in self._link_fidelities
+        '''
+
+        class FidelityProtocol(LocalProtocol):
+            
+            def __init__(self, origin, dest, name=None):
+                self._origin = origin
+                self._dest = dest
+                name = name if name else f"FidelityEstimator_{origin.name}_{dest.name}"
+                self._portleft = self._origin.qmemory.ports["qin0"]
+                self._portright = self._dest.qmemory.ports["qin1"]
+                self.fidelities = []
+                super().__init__(nodes={"A": origin, "B": dest}, name=name)
+
+            def run(self):
+                #Signal Qsource to start
+                self._origin.subcomponents[f"qsource_{self._origin.name}_0"].trigger()
+                while True:
+                    #ic('Entro yield')
+                    expr = yield (self.await_port_input(self._portleft) & self.await_port_input(self._portright))
+                    #ic('Salgo del yield')
+                    qubit_a, = self._origin.qmemory.peek([0])
+                    qubit_b, = self._dest.qmemory.peek([1])
+                    self.fidelities.append(ns.qubits.fidelity([qubit_a, qubit_b], ks.b00, squared=True))
+                    #self.send_signal(Signals.SUCCESS, 0)
+                    self._origin.subcomponents[f"qsource_{self._origin.name}_0"].trigger()
         
+        for link in self._config['links']:
+            props_link = list(link.values())[0]
+            #if list(link.keys())[0] not in ['nodeswitch4']: continue
+            origin = self.network.get_node(props_link['end1'])
+            dest = self.network.get_node(props_link['end2'])
+            #print(origin.qmemory.ports)
+            #print(dest.qmemory.ports)
+            self._protocol = FidelityProtocol(origin,dest)
+            #ic(self._protocol)
+            self._protocol.start()
+            ns.sim_run(100000000)
+            #print(f"La fidelidad media del enlace {list(link.keys())[0]} es {np.mean(self._protocol.fidelities)} sobre un total de {len(self._protocol.fidelities)} muestras")
+            self._link_fidelities.append([list(link.keys())[0], np.mean(self._protocol.fidelities),len(self._protocol.fidelities)])
+            ns.sim_stop()
+            ns.sim_reset()
+            self._create_network() # Si no recreo la red la simulación de las posteriores a la primera no funciona
+
+        ic(self._link_fidelities)
+    def _create_graph(self):
+        pass
+
     def _create_qprocessor(self,name,num_memories):
         """Factory to create a quantum processor for each node.
 
