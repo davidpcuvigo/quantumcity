@@ -56,29 +56,29 @@ class NetworkManager():
             for node_link in list(node_links.keys()):
                 for link_serial in list(self._memory_assignment[node][node_link].keys()):
                     values_list.append(self._memory_assignment[node][node_link][link_serial])
-            max_position = max(values_list) if len(values_list) > 0 else -1
+            position = max(values_list) if len(values_list) > 0 else -1
 
             if link in list(node_links.keys()):
                 link_serials = self._memory_assignment[node][link]
                 if serial in list(link_serials.keys()):
-                    max_position = link_serials[serial] #This is the assigned position
+                    position = link_serials[serial] #This is the assigned position
                 else: #serial does not exists
                     #create serial with memory position the maximum for that link plus one
-                    self._memory_assignment[node][link][serial] = max_position + 1
-                    max_position += 1
+                    position += 1
+                    self._memory_assignment[node][link][serial] = position
             else: #link does not exist
                 #create link and serial. Position will be 0
                 self._memory_assignment[node][link] = {}
-                self._memory_assignment[node][link][serial] = max_position + 1
-                max_position += 1
+                position += 1
+                self._memory_assignment[node][link][serial] = position
         else: #node does not exist
             #create node, link, serial and position. Position will be 0
             self._memory_assignment[node] = {}
             self._memory_assignment[node][link] = {}
             self._memory_assignment[node][link][serial] = 0
-            max_position = 0
+            position = 0
 
-        return(max_position)
+        return(position)
 
     def get_paths(self):
         return self._paths
