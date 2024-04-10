@@ -42,7 +42,7 @@ links:
       photon_speed_fibre: 200e3
   - nodeswitch2:
       end1: node2
-      end2: switch1
+      end2: switch3
       distance: 20
       source_fidelity_sq: 0.9
       source_delay: 10
@@ -64,24 +64,6 @@ links:
   - interswitch1:
       end1: switch1
       end2: switch2
-      distance: 5
-      number_links: 4
-      noise_model: DepolarizingChannel
-      source_fidelity_sq: 0.8
-      source_delay: 10
-      photon_speed_fibre: 200e3
-  - interswitch2:
-      end1: switch1
-      end2: switch3
-      distance: 5
-      number_links: 4
-      noise_model: DepolarizingChannel
-      source_fidelity_sq: 0.8
-      source_delay: 10
-      photon_speed_fibre: 200e3
-  - interswitch3:
-      end1: switch2
-      end2: switch3
       distance: 5
       number_links: 4
       noise_model: DepolarizingChannel

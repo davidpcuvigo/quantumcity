@@ -161,3 +161,24 @@ cython_debug/
 
 #Archivos de backup de drawio
 *.drawio.bkp
+
+#Ficheros temporales míos
+temporal.py
+
+#Directorio temporal mío
+nogit/*
+A
+A
+A
+A
+A
+A
+A
+A
+A
+A
+A
+A
+A
+A
+

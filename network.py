@@ -20,12 +20,12 @@ import numpy as np
 
 class NetworkManager():
 
-
     def __init__(self, file):
         self.network=""
         self.paths = []
         self._link_fidelities = []
         self._protocol = ""
+        self._memory_assignment = {}
 
         with open(file,'r') as config_file:
             self._config = yaml.safe_load(config_file)
@@ -34,8 +34,46 @@ class NetworkManager():
         self._measure_link_fidelity()
         self._create_graph()
         self._temporal_red() #Temporal mientras no está implementada la etapa 1 de cálculo de rutas
-        
 
+    def get_mem_position(self, node, link, serial):
+        '''
+        Maps node and link to memory position.
+        If non assigned, creates assignment and stores it in private attribute
+        If already assigned, gets memory position
+        Input:
+            - node: string. Name of node
+            - link: string. Name of link
+            - serial: integer or string. Index of link
+        Output:
+            -integer: memory position in the specified node to be used
+        ''' 
+        serial = str(serial)
+
+        if node in list(self._memory_assignment.keys()):
+            link_serials = self._memory_assignment[node]
+            if link in list(link_serials.keys()):
+                link_positions = self._memory_assignment[node][link]
+                if serial in list(link_positions.keys()):
+                    position = link_positions[serial]
+                else: #serial does not exists
+                    #create serial with memory position the maximum for that link plus one
+                    serial_positions = list(link_positions.values())
+                    self._memory_assignment[node][link][serial] = max(serial_positions) + 1
+                    position = max(serial_positions) + 1
+            else: #link does not exist
+                #create link and serial. Position will be 0
+                self._memory_assignment[node][link] = {}
+                self._memory_assignment[node][link][serial] = 0
+                position = 0
+        else: #node does not exist
+            #create node, link, serial and position. Position will be 0
+            self._memory_assignment[node] = {}
+            self._memory_assignment[node][link] = {}
+            self._memory_assignment[node][link][serial] = 0
+            position = 0
+
+        return(position)
+    
     def _temporal_red(self):
         '''
         Se utiliza para crear rutas mientas no esté implementada la fase 1
@@ -151,12 +189,9 @@ class NetworkManager():
         network_nodes = switches+end_nodes
         self.network.add_nodes(network_nodes)
 
-        #ic(config)
-        #ic(network_nodes)
-
         #links creation
         for link in self._config['links']:
-            name = list(link.keys())[0]
+            link_name = list(link.keys())[0]
             props = list(link.values())[0]
             nodeA = self.network.get_node(props['end1'])
             nodeB = self.network.get_node(props['end2'])
@@ -174,19 +209,20 @@ class NetworkManager():
                 # Setup Classical connections: To be done in protocol Preparation, depends on paths
 
                 # Setup Quantum Channels
-                qchannel = QuantumChannel(f"qchannel_{props['end1']}_{props['end2']}_{name}_{index_qsource}", 
+                qchannel = QuantumChannel(f"qchannel_{props['end1']}_{props['end2']}_{link_name}_{index_qsource}", 
                                             length = props['distance'],
                                             models={"quantum_loss_model": None, "delay_model": FibreDelayModel(c=float(props['photon_speed_fibre']))})
                 port_name_a, port_name_b = self.network.add_connection(
                     nodeA, nodeB, channel_to=qchannel, 
-                    label=f"qconn_{props['end1']}_{props['end2']}_{name}_{index_qsource}")
+                    label=f"qconn_{props['end1']}_{props['end2']}_{link_name}_{index_qsource}")
 
                 #Setup quantum ports
                 nodeA.subcomponents[f"qsource_{props['end1']}_{index_qsource}"].ports["qout1"].forward_output(
                     nodeA.ports[port_name_a])
                 nodeA.subcomponents[f"qsource_{props['end1']}_{index_qsource}"].ports["qout0"].connect(
-                    nodeA.qmemory.ports[f"qin{str(2*index_qsource)}"])
-                nodeB.ports[port_name_b].forward_input(nodeB.qmemory.ports[f"qin{str(2*index_qsource+1)}"])
+                    nodeA.qmemory.ports[f"qin{self.get_mem_position(props['end1'],link_name,index_qsource)}"])
+                nodeB.ports[port_name_b].forward_input(
+                    nodeB.qmemory.ports[f"qin{self.get_mem_position(props['end2'],link_name,index_qsource)}"])
 
 
             #TODO: Configurar bien los modelos de ruido en los canales cuánticos, según lo que queramos implementar 
@@ -202,12 +238,16 @@ class NetworkManager():
 
         class FidelityProtocol(LocalProtocol):
             
-            def __init__(self, origin, dest, name=None):
+            def __init__(self, networkmanager, origin, dest, link, qsource_index, name=None):
                 self._origin = origin
                 self._dest = dest
+                self._link = link
+                self._qsource_index = qsource_index
                 name = name if name else f"FidelityEstimator_{origin.name}_{dest.name}"
-                self._portleft = self._origin.qmemory.ports["qin0"]
-                self._portright = self._dest.qmemory.ports["qin1"]
+                self._memory_left = networkmanager.get_mem_position(self._origin.name, self._link, self._qsource_index)
+                self._memory_right = networkmanager.get_mem_position(self._dest.name, self._link, self._qsource_index)
+                self._portleft = self._origin.qmemory.ports[f"qin{self._memory_left}"]
+                self._portright = self._dest.qmemory.ports[f"qin{self._memory_right}"]
                 self.fidelities = []
                 super().__init__(nodes={"A": origin, "B": dest}, name=name)
 
@@ -218,18 +258,19 @@ class NetworkManager():
                     #ic('Entro yield')
                     expr = yield (self.await_port_input(self._portleft) & self.await_port_input(self._portright))
                     #ic('Salgo del yield')
-                    qubit_a, = self._origin.qmemory.peek([0])
-                    qubit_b, = self._dest.qmemory.peek([1])
+                    qubit_a, = self._origin.qmemory.peek([self._memory_left])
+                    qubit_b, = self._dest.qmemory.peek([self._memory_right])
                     self.fidelities.append(ns.qubits.fidelity([qubit_a, qubit_b], ks.b00, squared=True))
                     #self.send_signal(Signals.SUCCESS, 0)
                     self._origin.subcomponents[f"qsource_{self._origin.name}_0"].trigger()
         
         for link in self._config['links']:
+            link_name = list(link.keys())[0]
             props_link = list(link.values())[0]
             #if list(link.keys())[0] not in ['nodeswitch4']: continue
             origin = self.network.get_node(props_link['end1'])
             dest = self.network.get_node(props_link['end2'])
-            self._protocol = FidelityProtocol(origin,dest)
+            self._protocol = FidelityProtocol(self,origin,dest,link_name,0)
             self._protocol.start()
             ns.sim_run(100000000)
             #print(f"La fidelidad media del enlace {list(link.keys())[0]} es {np.mean(self._protocol.fidelities)} sobre un total de {len(self._protocol.fidelities)} muestras")

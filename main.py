@@ -3,6 +3,7 @@ from icecream import ic
 import logging
 from netsquid.util import simlog
 
+'''
 logger = logging.getLogger('netsquid')
 simlog.logger.setLevel(logging.DEBUG)
 # Create a file handler and set the filename
@@ -15,6 +16,7 @@ file_handler.setFormatter(formatter)
 
 # Add the file handler to the logger
 logger.addHandler(file_handler)
+'''
 
 net = NetworkManager('./network_config.yaml')
 
