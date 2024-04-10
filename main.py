@@ -20,8 +20,10 @@ logger.addHandler(file_handler)
 
 net = NetworkManager('./network_config.yaml')
 
-'''
+
 print('Salida temporal para verificar red creada')
+ic(net.get_paths())
+'''
 for node in net.network.nodes.values():
     ic(node.name, node.qmemory,node.qmemory.ports,node.ports)
 for conn in net.network.connections.values():

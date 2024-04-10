@@ -3,17 +3,17 @@ nodes:
   - switch1: #name of switch
       type: switch
       mem_noise_model: PEND
-      num_memories: 10
+      num_memories: 12
       gate_duration: 1
   - switch2:
       type: switch
       mem_noise_model: PEND
-      num_memories: 10
+      num_memories: 12
       gate_duration: 2
   - switch3:
       type: switch
       mem_noise_model: PEND
-      num_memories: 10
+      num_memories: 12
       gate_duration: 2
   - node1: #name of endNode
       type: endNode

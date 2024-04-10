@@ -22,7 +22,7 @@ class NetworkManager():
 
     def __init__(self, file):
         self.network=""
-        self.paths = []
+        self._paths = []
         self._link_fidelities = []
         self._protocol = ""
         self._memory_assignment = {}
@@ -48,37 +48,46 @@ class NetworkManager():
             -integer: memory position in the specified node to be used
         ''' 
         serial = str(serial)
+        values_list = []
 
         if node in list(self._memory_assignment.keys()):
-            link_serials = self._memory_assignment[node]
-            if link in list(link_serials.keys()):
-                link_positions = self._memory_assignment[node][link]
-                if serial in list(link_positions.keys()):
-                    position = link_positions[serial]
+            node_links = self._memory_assignment[node]
+            #get maximum assigned position
+            for node_link in list(node_links.keys()):
+                for link_serial in list(self._memory_assignment[node][node_link].keys()):
+                    values_list.append(self._memory_assignment[node][node_link][link_serial])
+            max_position = max(values_list) if len(values_list) > 0 else -1
+
+            if link in list(node_links.keys()):
+                link_serials = self._memory_assignment[node][link]
+                if serial in list(link_serials.keys()):
+                    max_position = link_serials[serial] #This is the assigned position
                 else: #serial does not exists
                     #create serial with memory position the maximum for that link plus one
-                    serial_positions = list(link_positions.values())
-                    self._memory_assignment[node][link][serial] = max(serial_positions) + 1
-                    position = max(serial_positions) + 1
+                    self._memory_assignment[node][link][serial] = max_position + 1
+                    max_position += 1
             else: #link does not exist
                 #create link and serial. Position will be 0
                 self._memory_assignment[node][link] = {}
-                self._memory_assignment[node][link][serial] = 0
-                position = 0
+                self._memory_assignment[node][link][serial] = max_position + 1
+                max_position += 1
         else: #node does not exist
             #create node, link, serial and position. Position will be 0
             self._memory_assignment[node] = {}
             self._memory_assignment[node][link] = {}
             self._memory_assignment[node][link][serial] = 0
-            position = 0
+            max_position = 0
 
-        return(position)
-    
+        return(max_position)
+
+    def get_paths(self):
+        return self._paths
+
     def _temporal_red(self):
         '''
         Se utiliza para crear rutas mientas no esté implementada la fase 1
         '''
-        self.paths = [(['node1','switch1','switch2','node3'],0),(['node2','switch1','switch3','switch2','node4'],2)]
+        self._paths = [(['node1','switch1','switch2','node3'],0),(['node2','switch1','switch3','switch2','node4'],2)]
         node1 = self.network.get_node('node1')
         node2 = self.network.get_node('node2')
         node3 = self.network.get_node('node3')
@@ -169,6 +178,7 @@ class NetworkManager():
         Output: -
         '''
         self.network = Network(self._config['name'])
+        self._memory_assignment = {}
 
         #nodes creation
         switches = [] #List with all switches
@@ -202,7 +212,7 @@ class NetworkManager():
                 [props['source_fidelity_sq'], 1 - props['source_fidelity_sq']])
             for index_qsource in range(num_qsource):
                 source = QSource(
-                    f"qsource_{props['end1']}_{index_qsource}", state_sampler=state_sampler, num_ports=2, status=SourceStatus.EXTERNAL,
+                    f"qsource_{props['end1']}_{link_name}_{index_qsource}", state_sampler=state_sampler, num_ports=2, status=SourceStatus.EXTERNAL,
                     models={"emission_delay_model": FixedDelayModel(delay=float(props['source_delay']))})
                 nodeA.add_subcomponent(source)
             
@@ -217,9 +227,9 @@ class NetworkManager():
                     label=f"qconn_{props['end1']}_{props['end2']}_{link_name}_{index_qsource}")
 
                 #Setup quantum ports
-                nodeA.subcomponents[f"qsource_{props['end1']}_{index_qsource}"].ports["qout1"].forward_output(
+                nodeA.subcomponents[f"qsource_{props['end1']}_{link_name}_{index_qsource}"].ports["qout1"].forward_output(
                     nodeA.ports[port_name_a])
-                nodeA.subcomponents[f"qsource_{props['end1']}_{index_qsource}"].ports["qout0"].connect(
+                nodeA.subcomponents[f"qsource_{props['end1']}_{link_name}_{index_qsource}"].ports["qout0"].connect(
                     nodeA.qmemory.ports[f"qin{self.get_mem_position(props['end1'],link_name,index_qsource)}"])
                 nodeB.ports[port_name_b].forward_input(
                     nodeB.qmemory.ports[f"qin{self.get_mem_position(props['end2'],link_name,index_qsource)}"])
@@ -253,7 +263,7 @@ class NetworkManager():
 
             def run(self):
                 #Signal Qsource to start
-                self._origin.subcomponents[f"qsource_{self._origin.name}_0"].trigger()
+                self._origin.subcomponents[f"qsource_{self._origin.name}_{self._link}_0"].trigger()
                 while True:
                     #ic('Entro yield')
                     expr = yield (self.await_port_input(self._portleft) & self.await_port_input(self._portright))
@@ -262,12 +272,13 @@ class NetworkManager():
                     qubit_b, = self._dest.qmemory.peek([self._memory_right])
                     self.fidelities.append(ns.qubits.fidelity([qubit_a, qubit_b], ks.b00, squared=True))
                     #self.send_signal(Signals.SUCCESS, 0)
-                    self._origin.subcomponents[f"qsource_{self._origin.name}_0"].trigger()
+                    self._origin.subcomponents[f"qsource_{self._origin.name}_{self._link}_0"].trigger()
         
+
         for link in self._config['links']:
+            #if list(link.keys())[0] not in ['interswitch1']: continue
             link_name = list(link.keys())[0]
             props_link = list(link.values())[0]
-            #if list(link.keys())[0] not in ['nodeswitch4']: continue
             origin = self.network.get_node(props_link['end1'])
             dest = self.network.get_node(props_link['end2'])
             self._protocol = FidelityProtocol(self,origin,dest,link_name,0)
@@ -277,9 +288,7 @@ class NetworkManager():
             self._link_fidelities.append([list(link.keys())[0], np.mean(self._protocol.fidelities),len(self._protocol.fidelities)])
             ns.sim_stop()
             ns.sim_reset()
-            #ic(self._protocol)
-            self._create_network() # Si no recreo la red la simulación de las posteriores a la primera no funciona
-
+            self._create_network() # Network must be recreated for the simulations to work
         ic(self._link_fidelities)
 
     def _create_graph(self):
