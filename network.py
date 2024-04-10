@@ -163,8 +163,8 @@ class NetworkManager():
             # Add Quantum Sources to nodes
             num_qsource = props['number_links'] if 'number_links' in props.keys() else 2
             state_sampler = StateSampler(
-                qs_reprs=[ks.b00, ks.s00],
-                probabilities=[props['source_fidelity_sq'], 1 - props['source_fidelity_sq']])
+                [ks.b00, ks.s00],
+                [props['source_fidelity_sq'], 1 - props['source_fidelity_sq']])
             for index_qsource in range(num_qsource):
                 source = QSource(
                     f"qsource_{props['end1']}_{index_qsource}", state_sampler=state_sampler, num_ports=2, status=SourceStatus.EXTERNAL,
@@ -236,6 +236,7 @@ class NetworkManager():
             self._link_fidelities.append([list(link.keys())[0], np.mean(self._protocol.fidelities),len(self._protocol.fidelities)])
             ns.sim_stop()
             ns.sim_reset()
+            #ic(self._protocol)
             self._create_network() # Si no recreo la red la simulación de las posteriores a la primera no funciona
 
         ic(self._link_fidelities)
