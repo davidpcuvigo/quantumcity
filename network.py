@@ -1,31 +1,33 @@
 import yaml
 from icecream import ic
+import pydynaa
+import netsquid as ns
+import networkx as nx
+import matplotlib.pyplot as plt
+from netsquid.util.datacollector import DataCollector
+import pandas as pd
+import numpy as np
 from netsquid.nodes import Node, Connection, Network
 from netsquid.components import Message, QuantumProcessor, QuantumProgram, PhysicalInstruction
-from netsquid.protocols import LocalProtocol, NodeProtocol, Signals
 from netsquid.examples.teleportation import EntanglingConnection, ClassicalConnection
-from netsquid.qubits import ketstates as ks
 from netsquid.qubits.state_sampler import StateSampler
 from netsquid.components.qsource import QSource, SourceStatus
 from netsquid.components.models.delaymodels import FixedDelayModel, FibreDelayModel
 from netsquid.components.models import DepolarNoiseModel
 from netsquid.components import ClassicalChannel, QuantumChannel
 from netsquid.nodes.connections import DirectConnection
-#from pydynaa import EventExpression
-import pydynaa
-import netsquid as ns
-from netsquid.util.datacollector import DataCollector
-import pandas as pd
-import numpy as np
+from routing_protocols import FidelityProtocol
+from netsquid.qubits import ketstates as ks
 
 class NetworkManager():
 
     def __init__(self, file):
         self.network=""
         self._paths = []
-        self._link_fidelities = []
+        self._link_fidelities = {}
         self._protocol = ""
         self._memory_assignment = {}
+        self._available_links = {}
 
         with open(file,'r') as config_file:
             self._config = yaml.safe_load(config_file)
@@ -34,6 +36,25 @@ class NetworkManager():
         self._measure_link_fidelity()
         self._create_graph()
         self._temporal_red() #Temporal mientras no está implementada la etapa 1 de cálculo de rutas
+
+
+    def get_config(self, mode, name, property):
+        '''
+        Enables configuration queries
+        Input:
+            - mode: ['nodes'|'links|'requests']
+            - name: name of the element to query
+            - property: attribute to query
+        Output:
+            - value of required attribute
+        '''
+        if mode not in ['nodes','links']:
+            raise ValueError('Unsupported mode')
+        else:
+            elements = self._config[mode] 
+            for element in elements:
+                if list(element.keys())[0] == name:  
+                    return(list(element.values())[0][property])
 
     def get_mem_position(self, node, link, serial):
         '''
@@ -162,14 +183,18 @@ class NetworkManager():
         pass #TODO
         #TODO: realiza validaciones del contenido del fichero 
         '''
-        Por ejemplo, que no haya repetición en los nombres
-        Que no definamos más hijos clolgando de un switch que leafs se hayan definido
-        '''
-        '''
-        Comprobar que el número de memorias definidas en los switches es suficiente para la red definida:
-            en los end_nodes siempre 2
+        -Por ejemplo, que no haya repetición en los nombres
+        -Que no definamos más hijos clolgando de un switch que leafs se hayan definido
+        -Comprobar que el número de memorias definidas en los switches es suficiente para la red definida:
+            en los end_nodes siempre 4
             en los switches: num_links x 2 + end_nodes x 2
+        -Verificar que no hay links entre dos elementos de tipo endNode
         '''
+
+        #links cannot contain hyphens
+        links = self._config['links']
+        for link in links:
+            if list(link.keys())[0].find('-') != -1: raise ValueError ('Links cannot contain hyphens')       
 
     def _create_network(self):
         '''
@@ -179,6 +204,7 @@ class NetworkManager():
         '''
         self.network = Network(self._config['name'])
         self._memory_assignment = {}
+        self._available_links = {}
 
         #nodes creation
         switches = [] #List with all switches
@@ -203,6 +229,9 @@ class NetworkManager():
         for link in self._config['links']:
             link_name = list(link.keys())[0]
             props = list(link.values())[0]
+            #store available resources per link
+            self._available_links[link_name] = props['number_links'] if 'number_links' in props.keys() else 2
+
             nodeA = self.network.get_node(props['end1'])
             nodeB = self.network.get_node(props['end2'])
             # Add Quantum Sources to nodes
@@ -211,29 +240,34 @@ class NetworkManager():
                 [ks.b00, ks.s00],
                 [props['source_fidelity_sq'], 1 - props['source_fidelity_sq']])
             for index_qsource in range(num_qsource):
+                if self.get_config('nodes',props['end1'],'type') == 'switch':
+                    qsource_origin = nodeA 
+                    qsource_dest = nodeB
+                else:
+                    qsource_origin = nodeB
+                    qsource_dest = nodeA
+                #Setup QSource
                 source = QSource(
-                    f"qsource_{props['end1']}_{link_name}_{index_qsource}", state_sampler=state_sampler, num_ports=2, status=SourceStatus.EXTERNAL,
-                    models={"emission_delay_model": FixedDelayModel(delay=float(props['source_delay']))})
-                nodeA.add_subcomponent(source)
-            
-                # Setup Classical connections: To be done in protocol Preparation, depends on paths
-
+                        f"qsource_{qsource_origin.name}_{link_name}_{index_qsource}", state_sampler=state_sampler, num_ports=2, status=SourceStatus.EXTERNAL,
+                        models={"emission_delay_model": FixedDelayModel(delay=float(props['source_delay']))})
+                qsource_origin.add_subcomponent(source)
                 # Setup Quantum Channels
-                qchannel = QuantumChannel(f"qchannel_{props['end1']}_{props['end2']}_{link_name}_{index_qsource}", 
-                                            length = props['distance'],
-                                            models={"quantum_loss_model": None, "delay_model": FibreDelayModel(c=float(props['photon_speed_fibre']))})
+                qchannel = QuantumChannel(f"qchannel_{qsource_origin.name}_{qsource_dest.name}_{link_name}_{index_qsource}", 
+                        length = props['distance'],
+                        models={"quantum_loss_model": None, "delay_model": FibreDelayModel(c=float(props['photon_speed_fibre']))})
                 port_name_a, port_name_b = self.network.add_connection(
-                    nodeA, nodeB, channel_to=qchannel, 
-                    label=f"qconn_{props['end1']}_{props['end2']}_{link_name}_{index_qsource}")
-
+                        qsource_origin, qsource_dest, channel_to=qchannel, 
+                        label=f"qconn_{qsource_origin.name}_{qsource_dest.name}_{link_name}_{index_qsource}")
+                
                 #Setup quantum ports
-                nodeA.subcomponents[f"qsource_{props['end1']}_{link_name}_{index_qsource}"].ports["qout1"].forward_output(
-                    nodeA.ports[port_name_a])
-                nodeA.subcomponents[f"qsource_{props['end1']}_{link_name}_{index_qsource}"].ports["qout0"].connect(
-                    nodeA.qmemory.ports[f"qin{self.get_mem_position(props['end1'],link_name,index_qsource)}"])
-                nodeB.ports[port_name_b].forward_input(
-                    nodeB.qmemory.ports[f"qin{self.get_mem_position(props['end2'],link_name,index_qsource)}"])
-
+                qsource_origin.subcomponents[f"qsource_{qsource_origin.name}_{link_name}_{index_qsource}"].ports["qout1"].forward_output(
+                    qsource_origin.ports[port_name_a])
+                qsource_origin.subcomponents[f"qsource_{qsource_origin.name}_{link_name}_{index_qsource}"].ports["qout0"].connect(
+                    qsource_origin.qmemory.ports[f"qin{self.get_mem_position(qsource_origin.name,link_name,index_qsource)}"])
+                qsource_dest.ports[port_name_b].forward_input(
+                    qsource_dest.qmemory.ports[f"qin{self.get_mem_position(qsource_dest.name,link_name,index_qsource)}"])
+                
+                # Setup Classical connections: To be done in routing preparation, depends on paths
 
             #TODO: Configurar bien los modelos de ruido en los canales cuánticos, según lo que queramos implementar 
 
@@ -245,54 +279,72 @@ class NetworkManager():
         Input: - will work with self._config
         Output: - will store links with fidelities in self._link_fidelities
         '''
-
-        class FidelityProtocol(LocalProtocol):
-            
-            def __init__(self, networkmanager, origin, dest, link, qsource_index, name=None):
-                self._origin = origin
-                self._dest = dest
-                self._link = link
-                self._qsource_index = qsource_index
-                name = name if name else f"FidelityEstimator_{origin.name}_{dest.name}"
-                self._memory_left = networkmanager.get_mem_position(self._origin.name, self._link, self._qsource_index)
-                self._memory_right = networkmanager.get_mem_position(self._dest.name, self._link, self._qsource_index)
-                self._portleft = self._origin.qmemory.ports[f"qin{self._memory_left}"]
-                self._portright = self._dest.qmemory.ports[f"qin{self._memory_right}"]
-                self.fidelities = []
-                super().__init__(nodes={"A": origin, "B": dest}, name=name)
-
-            def run(self):
-                #Signal Qsource to start
-                self._origin.subcomponents[f"qsource_{self._origin.name}_{self._link}_0"].trigger()
-                while True:
-                    #ic('Entro yield')
-                    expr = yield (self.await_port_input(self._portleft) & self.await_port_input(self._portright))
-                    #ic('Salgo del yield')
-                    qubit_a, = self._origin.qmemory.peek([self._memory_left])
-                    qubit_b, = self._dest.qmemory.peek([self._memory_right])
-                    self.fidelities.append(ns.qubits.fidelity([qubit_a, qubit_b], ks.b00, squared=True))
-                    #self.send_signal(Signals.SUCCESS, 0)
-                    self._origin.subcomponents[f"qsource_{self._origin.name}_{self._link}_0"].trigger()
-        
-
+        fidelity_values = []
         for link in self._config['links']:
-            #if list(link.keys())[0] not in ['interswitch1']: continue
             link_name = list(link.keys())[0]
             props_link = list(link.values())[0]
             origin = self.network.get_node(props_link['end1'])
             dest = self.network.get_node(props_link['end2'])
             self._protocol = FidelityProtocol(self,origin,dest,link_name,0)
             self._protocol.start()
-            ns.sim_run(100000000)
-            #print(f"La fidelidad media del enlace {list(link.keys())[0]} es {np.mean(self._protocol.fidelities)} sobre un total de {len(self._protocol.fidelities)} muestras")
-            self._link_fidelities.append([list(link.keys())[0], np.mean(self._protocol.fidelities),len(self._protocol.fidelities)])
+            runtime = props_link['distance']*float(props_link['photon_speed_fibre'])*25
+            ns.sim_run(runtime)
+            #self._link_fidelities[list(link.keys())[0]]= [10000*(1-np.mean(self._protocol.fidelities)),np.mean(self._protocol.fidelities),len(self._protocol.fidelities)]
+            self._link_fidelities[list(link.keys())[0]]= [1-np.mean(self._protocol.fidelities),np.mean(self._protocol.fidelities),len(self._protocol.fidelities)]
+            fidelity_values.append(np.mean(self._protocol.fidelities))
             ns.sim_stop()
             ns.sim_reset()
             self._create_network() # Network must be recreated for the simulations to work
+
+        # calculate fidelity relative to mean fidelities
+        #TODO: revisar métodos para ensanchar más las diferencias
+        for link in list(self._link_fidelities.keys()):
+            self._link_fidelities[link][0] /= (1- np.mean(fidelity_values)) 
+            print(link)
         ic(self._link_fidelities)
 
     def _create_graph(self):
-        pass
+        first = 1
+        for request in self._config['requests']:
+            request_name = list(request.keys())[0]
+            request_props = list(request.values())[0]
+
+            self._graph = nx.Graph()
+            for node in self._config['nodes']:
+                node_name = list(node.keys())[0]
+                node_props = list(node.values())[0]
+                self._graph.add_node(node_name)
+            for link in self._config['links']:
+                link_name = list(link.keys())[0]
+                link_props = list(link.values())[0]
+                #self._available_links['nodeswitch4']=0
+                if self._available_links[link_name]>0:
+                    self._graph.add_edge(link_props['end1'],link_props['end2'],weight=self._link_fidelities[link_name][0])
+            
+            #Esto es temporal, para verificar la red creada cuando todos los recursos están disponibles
+            if first:
+                #pos = nx.spring_layout(self._graph) 
+                #nx.draw_networkx(self._graph,pos)
+                nx.draw(self._graph,with_labels=True)
+                #labels = nx.get_edge_attributes(self._graph, 'weight')
+                #nx.draw_networkx_edge_labels(self._graph, pos, edge_labels = labels)
+                plt.show(block=False)
+
+                first = 0
+            
+            #calculate shotest path
+            try:
+                path = nx.shortest_path(self._graph,source=request_props['origin'],target=request_props['destination'], weight='weight')
+                #TODO: Iniciar simulación E2E con el path obtenido para medir fidelidad y tiempo
+                #TODO: recorrer los elementos usados y decrementar contador de links disponibles
+                #path = nx.all_simple_paths(self._graph,source=request_props['origin'],target=request_props['destination'])
+            except nx.exception.NetworkXNoPath:
+                path = 'NOPATH'
+            print(f"To go from {request_props['origin']} to {request_props['destination']} shortest path is {path}")
+
+        plt.show()
+        #TODO: Para empezar supongo un link siempre (sin distil). Cuando se necesite distil harán falta dos enlaces
+
 
     def _create_qprocessor(self,name,num_memories):
         """Factory to create a quantum processor for each node.
