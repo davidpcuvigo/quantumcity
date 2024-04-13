@@ -3,13 +3,10 @@ from pylatex import Document, Section, Subsection, Command, Figure, Tabular, Ite
 from pylatex.utils import italic, NoEscape
 from icecream import ic
 
-__all__ = ['generate_report','prueba']
-
-def prueba():
-    print('Hola')
+__all__ = ['generate_report']
 
 def generate_report(report_info):
-    report = Document()
+    report = Document('./output/report')
     report.preamble.append(Command('title', 'Simulation report'))
     report.preamble.append(Command('author','UVigo'))
     report.preamble.append(Command('date', NoEscape(r'\today')))
@@ -29,10 +26,10 @@ def generate_report(report_info):
         with report.create(Subsection('Path simulation')):                
             #report.append('Request fulfillment\n')
             for request_result in report_info['requests_status']:
-                report.append(f"Request:{request_result['request']}")
+                report.append(f"Request: {request_result['request']}")
                 with report.create(Itemize()) as itemize:
                     itemize.add_item(f"Result: {request_result['result']}")
-                    itemize.add_item(f"Sortest path: {request_result['shortest_path']}")
+                    itemize.add_item(f"Shortest path: {request_result['shortest_path']}")
                     itemize.add_item(f"Fidelity: {request_result['fidelity']}")
                     itemize.add_item(f"Time: {request_result['time']}")
                     itemize.add_item(f"Purification rounds:{request_result['purif_rounds']}")
