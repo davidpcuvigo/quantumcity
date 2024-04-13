@@ -9,15 +9,17 @@ import pandas as pd
 import numpy as np
 from netsquid.nodes import Node, Connection, Network
 from netsquid.components import Message, QuantumProcessor, QuantumProgram, PhysicalInstruction
-from netsquid.examples.teleportation import EntanglingConnection, ClassicalConnection
+from netsquid.examples.teleportation import ClassicalConnection
 from netsquid.qubits.state_sampler import StateSampler
 from netsquid.components.qsource import QSource, SourceStatus
 from netsquid.components.models.delaymodels import FixedDelayModel, FibreDelayModel
 from netsquid.components.models import DepolarNoiseModel
 from netsquid.components import ClassicalChannel, QuantumChannel
 from netsquid.nodes.connections import DirectConnection
-from routing_protocols import FidelityProtocol
+from routing_protocols import LinkFidelityProtocol, PathFidelityProtocol, SwapProtocol, CorrectProtocol
 from netsquid.qubits import ketstates as ks
+from netsquid.qubits import qubitapi as qapi
+from netsquid.protocols import LocalProtocol, Signals
 
 class NetworkManager():
 
@@ -25,7 +27,7 @@ class NetworkManager():
         self.network=""
         self._paths = []
         self._link_fidelities = {}
-        self._protocol = ""
+        #self._protocol = ""
         self._memory_assignment = {}
         self._available_links = {}
 
@@ -35,26 +37,29 @@ class NetworkManager():
         self._create_network()
         self._measure_link_fidelity()
         self._create_graph()
-        self._temporal_red() #Temporal mientras no está implementada la etapa 1 de cálculo de rutas
+        #self._temporal_red() #Temporal mientras no está implementada la etapa 1 de cálculo de rutas
 
 
-    def get_config(self, mode, name, property):
+    def get_config(self, mode, name, property=None):
         '''
         Enables configuration queries
         Input:
             - mode: ['nodes'|'links|'requests']
             - name: name of the element to query
-            - property: attribute to query
+            - property: attribute to query. If None (default), all attributes are returned
         Output:
             - value of required attribute
         '''
-        if mode not in ['nodes','links']:
+        if mode not in ['nodes','links','requests']:
             raise ValueError('Unsupported mode')
         else:
             elements = self._config[mode] 
             for element in elements:
-                if list(element.keys())[0] == name:  
-                    return(list(element.values())[0][property])
+                if list(element.keys())[0] == name:
+                    if property:  
+                        return(list(element.values())[0][property])
+                    else:
+                        return(list(element.values())[0])
 
     def get_mem_position(self, node, link, serial):
         '''
@@ -103,12 +108,56 @@ class NetworkManager():
 
     def get_paths(self):
         return self._paths
+    
+    def get_link(self, node1, node2, next_index = False):
+        '''
+        Obtains the name of the link between two nodes.
+        Input:
+            - node1, node2: connected nodes by the link
+            - next_index: if True returns also the next available index in the link. False by default
+        '''
+        
+        links = self._config['links']
+        for link in links:
+            link_name = list(link.keys())[0]
+            link_props = self.get_config('links',link_name)
+            if (link_props['end1'] == node1 and link_props['end2'] == node2) or (link_props['end1'] == node2 and link_props['end2'] == node1):
+                if not next_index:
+                    return(link_name)
+                else:
+                    next_index = max(self._available_links[link_name]['occupied']) + 1 \
+                        if len(self._available_links[link_name]['occupied']) != 0 else 0
+                    self._available_links[link_name]['occupied'].append(next_index)
+                    self._available_links[link_name]['avail'] -= 1
+                    return([link_name,next_index])
+                    #OJO JUAN: Ver cómo lo libero si al final no uso ese índice 
+        #If we haven't returned no direct link between both ends
+        return('NOLINK')
+                
 
     def _temporal_red(self):
         '''
         Se utiliza para crear rutas mientas no esté implementada la fase 1
         '''
-        self._paths = [(['node1','switch1','switch2','node3'],0),(['node2','switch1','switch3','switch2','node4'],2)]
+        self._paths = [{
+            'request': 'request1',
+            'nodes': ['node1','switch1','switch2','node3'],
+            'comms': [
+                    {'links': ['nodeswitch1-0'], 'source': 'switch1'},
+                    {'links': ['interwitch1-0'], 'source': 'switch1'},
+                    {'links': ['nodeswitch3-0'], 'source': 'switch2'}],
+        'purif_rounds': 0
+        },
+        {
+            'request': 'request2',
+            'nodes': ['node2','switch1','switch3','switch2','node4'],
+            'comms': [
+                    {'links': ['nodeswitch2-0','nodeswitch2-1'], 'source': 'switch1'},
+                    {'links': ['interwitch2-0','interwitch2-1'], 'source': 'switch1'},
+                    {'links': ['interwitch3-0','interwitch3-1'], 'source': 'switch2'},
+                    {'links': ['nodeswitch4-0','nodeswitch4-1'], 'source': 'switch2'}],
+            'purif_rounds': 2
+        }]
         node1 = self.network.get_node('node1')
         node2 = self.network.get_node('node2')
         node3 = self.network.get_node('node3')
@@ -230,7 +279,9 @@ class NetworkManager():
             link_name = list(link.keys())[0]
             props = list(link.values())[0]
             #store available resources per link
-            self._available_links[link_name] = props['number_links'] if 'number_links' in props.keys() else 2
+            self._available_links[link_name] = {}
+            self._available_links[link_name]['avail'] = props['number_links'] if 'number_links' in props.keys() else 2
+            self._available_links[link_name]['occupied'] = []
 
             nodeA = self.network.get_node(props['end1'])
             nodeB = self.network.get_node(props['end2'])
@@ -285,24 +336,55 @@ class NetworkManager():
             props_link = list(link.values())[0]
             origin = self.network.get_node(props_link['end1'])
             dest = self.network.get_node(props_link['end2'])
-            self._protocol = FidelityProtocol(self,origin,dest,link_name,0)
-            self._protocol.start()
+            protocol = LinkFidelityProtocol(self,origin,dest,link_name,0)
+            protocol.start()
             runtime = props_link['distance']*float(props_link['photon_speed_fibre'])*25
             ns.sim_run(runtime)
-            #self._link_fidelities[list(link.keys())[0]]= [10000*(1-np.mean(self._protocol.fidelities)),np.mean(self._protocol.fidelities),len(self._protocol.fidelities)]
-            self._link_fidelities[list(link.keys())[0]]= [1-np.mean(self._protocol.fidelities),np.mean(self._protocol.fidelities),len(self._protocol.fidelities)]
-            fidelity_values.append(np.mean(self._protocol.fidelities))
+            self._link_fidelities[list(link.keys())[0]]= [1-np.mean(protocol.fidelities),np.mean(protocol.fidelities),len(protocol.fidelities)]
+            fidelity_values.append(np.mean(protocol.fidelities))
             ns.sim_stop()
             ns.sim_reset()
             self._create_network() # Network must be recreated for the simulations to work
 
         # calculate fidelity relative to mean fidelities
-        #TODO: revisar métodos para ensanchar más las diferencias
+        #TODO: revisar métodos para ensanchar más las diferencias entre las fidelidades
         for link in list(self._link_fidelities.keys()):
             self._link_fidelities[link][0] /= (1- np.mean(fidelity_values)) 
-            print(link)
         ic(self._link_fidelities)
 
+    def dc_setup(self, protocol, nodeA,nodeB,posA=0,posB=0):
+        '''
+        Creates a data collector in order to measure fidelity of qubits stores en nodeA and nodeB
+        against a b00 bell pair
+        Inputs:
+            - nodeA: node in one end point
+            - nodeB: node in the other end point
+            - posA: position of memory that stores qubit in nodeA
+            - posB: position of qubit that storea quit in nodeB
+        Outputs:
+            - dc: instance of the configured datacollector
+        '''
+        def record_stats(evexpr):
+            #Record an execution
+            protocol = evexpr.triggered_events[-1].source
+            result = protocol.get_signal_result(Signals.SUCCESS)
+            # Get statistics
+            #JUAN: En el ejemplo del purification la posición de memoria la devuelve el protocolo
+            #qa, = nodeA.qmemory.pop(positions=[result["posA"]])
+            #qb, = nodeB.qmemory.pop(positions=[result["posB"]])
+            #fid = qapi.fidelity([qa, qb], ks.b00, squared=True)
+            
+            return {
+                'Fidelity': result['fid'],
+                'pairsA': result['pairsA'],
+                'pairsB': result['pairsB'],
+                'time': result['time']
+            }
+
+        dc = DataCollector(record_stats, include_time_stamp=False, include_entity_name=False)
+        dc.collect_on(pydynaa.EventExpression(source = protocol, event_type=Signals.SUCCESS.value))
+        return(dc)
+    
     def _create_graph(self):
         first = 1
         for request in self._config['requests']:
@@ -318,10 +400,11 @@ class NetworkManager():
                 link_name = list(link.keys())[0]
                 link_props = list(link.values())[0]
                 #self._available_links['nodeswitch4']=0
-                if self._available_links[link_name]>0:
+                if self._available_links[link_name]['avail']>0:
                     self._graph.add_edge(link_props['end1'],link_props['end2'],weight=self._link_fidelities[link_name][0])
             
             #Esto es temporal, para verificar la red creada cuando todos los recursos están disponibles
+            '''
             if first:
                 #pos = nx.spring_layout(self._graph) 
                 #nx.draw_networkx(self._graph,pos)
@@ -331,18 +414,65 @@ class NetworkManager():
                 plt.show(block=False)
 
                 first = 0
-            
+            '''
+
             #calculate shotest path
             try:
-                path = nx.shortest_path(self._graph,source=request_props['origin'],target=request_props['destination'], weight='weight')
-                #TODO: Iniciar simulación E2E con el path obtenido para medir fidelidad y tiempo
-                #TODO: recorrer los elementos usados y decrementar contador de links disponibles
-                #path = nx.all_simple_paths(self._graph,source=request_props['origin'],target=request_props['destination'])
-            except nx.exception.NetworkXNoPath:
-                path = 'NOPATH'
-            print(f"To go from {request_props['origin']} to {request_props['destination']} shortest path is {path}")
+                shortest_path = nx.shortest_path(self._graph,source=request_props['origin'],target=request_props['destination'], weight='weight')
+                path = {
+                    'request': request_name, 
+                    'nodes': shortest_path, 
+                    'purif_rounds': 0,
+                    'comms': []}
+                for nodepos in range(len(shortest_path)-1):
+                    link = self.get_link(shortest_path[nodepos],shortest_path[nodepos+1],next_index=True)
+                    source = shortest_path[nodepos] \
+                        if f"qsource_{shortest_path[nodepos]}_{link[0]}_{link[1]}" \
+                            in (dict(self.network.get_node(shortest_path[nodepos]).subcomponents)).keys() \
+                                else shortest_path[nodepos+1]
+                    path['comms'].append({'links': [link[0] + '-' + str(link[1])], 'source': source})
 
-        plt.show()
+                    #Create classical connection
+                    cconn = ClassicalConnection(name=f"cconn_{shortest_path[nodepos]}_{shortest_path[nodepos+1]}_{request_name}_1", length=self.get_config('links',link[0],'distance'))
+                    #print(f"Conexión: cconn_{shortest_path[nodepos]}_{shortest_path[nodepos+1]}_{request_name}_1")
+                    port_name, port_r_name = self.network.add_connection(
+                        self.network.get_node(shortest_path[nodepos]), 
+                        self.network.get_node(shortest_path[nodepos+1]), 
+                        connection=cconn, label="classical",
+                        port_name_node1=f"ccon_R_{shortest_path[nodepos]}_{request_name}_1", 
+                        port_name_node2=f"ccon_L_{shortest_path[nodepos+1]}_{request_name}_1")
+                    
+                    # Forward cconn to right most node
+                    if f"ccon_L_{shortest_path[nodepos]}_{request_name}_1" in self.network.get_node(shortest_path[nodepos]).ports:
+                        self.network.get_node(shortest_path[nodepos]).ports[f"ccon_L_{shortest_path[nodepos]}_{request_name}_1"].bind_input_handler(
+                            lambda message, _node=self.network.get_node(shortest_path[nodepos]): _node.ports[f"ccon_R_{_node.name}_{request_name}_1"].tx_output(message))
+                        #self.network.get_node(shortest_path[nodepos]).ports[f"ccon_L_{shortest_path[nodepos]}_{request_name}_1"].bind_input_handler(
+                        #    self.network.get_node(shortest_path[nodepos]).ports[f"ccon_R_{shortest_path[nodepos]}_{request_name}_1"].tx_output(message))
+
+                #JUAN. Añadir los canales clásicos necesarios. Hecho arriba
+                protocol = PathFidelityProtocol(self,path,100) #We measure E2E fidelity 100 times
+                dc = self.dc_setup(protocol, self.network.get_node(path['nodes'][0]), self.network.get_node(path['nodes'][-1]))
+                protocol.start()
+                ns.sim_run()
+                #ic(dc.dataframe)
+                print("Average fidelity of generated entanglement via a repeater and with filtering: {}, with average time: {}"\
+                        .format(dc.dataframe["Fidelity"].mean(),dc.dataframe["time"].mean()))
+                protocol.stop()
+                #JUAN. CURIOSO aquí. Si no haga el sim_reset puedo relanzar la simulación y funciona.
+                #While fidelidad y tiempo no cumplan los requisitos de la request
+                #TODO: Comprobar fidelidad y tiempo. Si ambos OK --> continuar a siguiente request
+                #TODO: Si no OK
+                    #Si tiempo superior al demandado: Si KO abortar request y procesar siguiente
+                    #Si tiempo OK aumentar distil en 1 y volver a medir fidelidad E2E
+
+                #path = nx.all_simple_paths(self._graph,source=request_props['origin'],target=request_props['destination'])
+                ic(self._available_links)
+            except nx.exception.NetworkXNoPath:
+                shortest_path = 'NOPATH'
+            print(f"To go from {request_props['origin']} to {request_props['destination']} shortest path is {shortest_path}")
+
+        #plt.show()
+
         #TODO: Para empezar supongo un link siempre (sin distil). Cuando se necesite distil harán falta dos enlaces
 
 
@@ -363,7 +493,7 @@ class NetworkManager():
 
         """
 
-        qproc = QuantumProcessor(name, num_positions=num_memories)
+        qproc = QuantumProcessor(name, num_positions=num_memories, fallback_to_nonphysical=True)
         return qproc
 
 
