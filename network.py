@@ -27,9 +27,9 @@ class NetworkManager():
         self.network=""
         self._paths = []
         self._link_fidelities = {}
-        #self._protocol = ""
         self._memory_assignment = {}
         self._available_links = {}
+        self._requests_status = []
 
         with open(file,'r') as config_file:
             self._config = yaml.safe_load(config_file)
@@ -39,6 +39,14 @@ class NetworkManager():
         self._create_graph()
         #self._temporal_red() #Temporal mientras no está implementada la etapa 1 de cálculo de rutas
 
+    def get_info_report(self):
+        '''
+        Generates and returns information for the pdf report
+        '''
+        report_info = {}
+        report_info['link_fidelities'] = self._link_fidelities
+        report_info['requests_status'] = self._requests_status
+        return(report_info)
 
     def get_config(self, mode, name, property=None):
         '''
@@ -350,6 +358,7 @@ class NetworkManager():
         #TODO: revisar métodos para ensanchar más las diferencias entre las fidelidades
         for link in list(self._link_fidelities.keys()):
             self._link_fidelities[link][0] /= (1- np.mean(fidelity_values)) 
+        
         ic(self._link_fidelities)
 
     def dc_setup(self, protocol, nodeA,nodeB,posA=0,posB=0):
@@ -408,21 +417,23 @@ class NetworkManager():
             if first:
                 #pos = nx.spring_layout(self._graph) 
                 #nx.draw_networkx(self._graph,pos)
-                nx.draw(self._graph,with_labels=True)
                 #labels = nx.get_edge_attributes(self._graph, 'weight')
                 #nx.draw_networkx_edge_labels(self._graph, pos, edge_labels = labels)
-                plt.show(block=False)
 
+                #nx.draw(self._graph,with_labels=True)
+                #plt.show(block=False)
+                #JUAN: TEMPORAL. PRUEBA PARA VER CÓMO funciona la exportación a pdf
+                gr = nx.nx_agraph.to_agraph(self._graph)
+                gr.draw('graf.png', prog='neato')
                 first = 0
             '''
-
-            #calculate shotest path
             try:
                 shortest_path = nx.shortest_path(self._graph,source=request_props['origin'],target=request_props['destination'], weight='weight')
+                purif_rounds = 0
                 path = {
                     'request': request_name, 
                     'nodes': shortest_path, 
-                    'purif_rounds': 0,
+                    'purif_rounds': purif_rounds,
                     'comms': []}
                 for nodepos in range(len(shortest_path)-1):
                     link = self.get_link(shortest_path[nodepos],shortest_path[nodepos+1],next_index=True)
@@ -438,7 +449,7 @@ class NetworkManager():
                     port_name, port_r_name = self.network.add_connection(
                         self.network.get_node(shortest_path[nodepos]), 
                         self.network.get_node(shortest_path[nodepos+1]), 
-                        connection=cconn, label="classical",
+                        connection=cconn, label=f"cconn_{shortest_path[nodepos]}_{shortest_path[nodepos+1]}_{request_name}_1",
                         port_name_node1=f"ccon_R_{shortest_path[nodepos]}_{request_name}_1", 
                         port_name_node2=f"ccon_L_{shortest_path[nodepos+1]}_{request_name}_1")
                     
@@ -448,33 +459,60 @@ class NetworkManager():
                             lambda message, _node=self.network.get_node(shortest_path[nodepos]): _node.ports[f"ccon_R_{_node.name}_{request_name}_1"].tx_output(message))
                         #self.network.get_node(shortest_path[nodepos]).ports[f"ccon_L_{shortest_path[nodepos]}_{request_name}_1"].bind_input_handler(
                         #    self.network.get_node(shortest_path[nodepos]).ports[f"ccon_R_{shortest_path[nodepos]}_{request_name}_1"].tx_output(message))
+                end_simul = False
+                while end_simul == False:
+                    protocol = PathFidelityProtocol(self,path,100, purif_rounds) #We measure E2E fidelity 100 times
+                    dc = self.dc_setup(protocol, self.network.get_node(path['nodes'][0]), self.network.get_node(path['nodes'][-1]))
+                    protocol.start()
+                    ns.sim_run()
+                    print("Average fidelity of generated entanglement via a repeater and with filtering: {}, with average time: {}"\
+                            .format(dc.dataframe["Fidelity"].mean(),dc.dataframe["time"].mean()))
+                    protocol.stop()
+                    #JUAN. CURIOSO aquí. Si no haga el sim_reset puedo relanzar la simulación y funciona.
+                    if dc.dataframe["time"].mean() > request_props['maxtime']:
+                        #request cannot be fulfilled. Mark as rejected and continue
+                        self._requests_status.append({
+                            'request': request_name, 
+                            'shortest_path': shortest_path,
+                            'result': 'rejected', 
+                            'purif_rounds': purif_rounds,
+                            'fidelity': dc.dataframe["Fidelity"].mean(),
+                            'time': dc.dataframe["time"].mean()})
+                        #delete previousl created classical connections
+                        for nodepos in range(len(path['nodes'])-1):
+                            nodeA = self.network.get_node(path['nodes'][nodepos])
+                            nodeB = self.network.get_node(path['nodes'][nodepos+1])
+                            #Delete classical connections
+                            conn = self.network.get_connection(nodeA, nodeB,f"cconn_{nodeA.name}_{nodeB.name}_{request_name}_1")
+                            self.network.remove_connection(conn)
+                            #Unable to delete ports. Will remain unconnected
+                            #nodeA.remove_port(f"ccon_R_{nodeA.name}_{request_name}_1")
+                            #nodeB.rem_subcomponent(f"ccon_L_{nodeB.name}_{request_name}_1")
+                        end_simul = True
+                    elif dc.dataframe["Fidelity"].mean() >= request_props['minfidelity']:
+                        #request can be fulfilled
+                        self._requests_status.append({
+                            'request': request_name, 
+                            'shortest_path': shortest_path,
+                            'result': 'accepted', 
+                            'purif_rounds': purif_rounds,
+                            'fidelity': dc.dataframe["Fidelity"].mean(),
+                            'time': dc.dataframe["time"].mean()})
+                        self._paths.append(path)
+                        end_simul=True
+                    else: #purification is needed
+                        purif_rounds += 1
+                        #Si purif_rounds = 1 (primera vez) entonces, 
+                        #debemos crear las conexiones clásicas por el segundo canal y el canal de purificación
+                        #Después lanzar protocolo con purificación y esas rondas.
+                        end_simul = True #Quitar esto, cuando haya purificación debe iterar
 
-                #JUAN. Añadir los canales clásicos necesarios. Hecho arriba
-                protocol = PathFidelityProtocol(self,path,100) #We measure E2E fidelity 100 times
-                dc = self.dc_setup(protocol, self.network.get_node(path['nodes'][0]), self.network.get_node(path['nodes'][-1]))
-                protocol.start()
-                ns.sim_run()
-                #ic(dc.dataframe)
-                print("Average fidelity of generated entanglement via a repeater and with filtering: {}, with average time: {}"\
-                        .format(dc.dataframe["Fidelity"].mean(),dc.dataframe["time"].mean()))
-                protocol.stop()
-                #JUAN. CURIOSO aquí. Si no haga el sim_reset puedo relanzar la simulación y funciona.
-                #While fidelidad y tiempo no cumplan los requisitos de la request
-                #TODO: Comprobar fidelidad y tiempo. Si ambos OK --> continuar a siguiente request
-                #TODO: Si no OK
-                    #Si tiempo superior al demandado: Si KO abortar request y procesar siguiente
-                    #Si tiempo OK aumentar distil en 1 y volver a medir fidelidad E2E
-
-                #path = nx.all_simple_paths(self._graph,source=request_props['origin'],target=request_props['destination'])
-                ic(self._available_links)
             except nx.exception.NetworkXNoPath:
                 shortest_path = 'NOPATH'
-            print(f"To go from {request_props['origin']} to {request_props['destination']} shortest path is {shortest_path}")
 
-        #plt.show()
 
-        #TODO: Para empezar supongo un link siempre (sin distil). Cuando se necesite distil harán falta dos enlaces
 
+        ic(self._requests_status)
 
     def _create_qprocessor(self,name,num_memories):
         """Factory to create a quantum processor for each node.

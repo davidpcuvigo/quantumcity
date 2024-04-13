@@ -94,12 +94,12 @@ requests:
       origin: node1
       destination: node3
       minfidelity: 0.90
-      maxtime: 100 # nanoseconds
+      maxtime: 160000 # nanoseconds
       teleport: [(1,0),(0,1)] #Lista de (alpha, beta). alpha|0> + beta|1> Estados a teleportar
   - request2: #name of request
       origin: node2
       destination: node4
       minfidelity: 0.95
-      maxtime: 100 # nanoseconds
+      maxtime: 100000 # nanoseconds
       teleport: [(1,0),(0,1)] #Lista de (alpha, beta). alpha|0> + beta|1> Estados a teleportar
  

@@ -39,7 +39,7 @@ class LinkFidelityProtocol(LocalProtocol):
 
 class PathFidelityProtocol(LocalProtocol):
 
-    def __init__(self, networkmanager, path, num_runs, name=None):
+    def __init__(self, networkmanager, path, num_runs, purif_rounds= 0, name=None):
         self._path = path
         self._num_runs = num_runs
         self._networkmanager = networkmanager

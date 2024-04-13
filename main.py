@@ -2,6 +2,13 @@ from network import NetworkManager
 from icecream import ic
 import logging
 from netsquid.util import simlog
+from utils import generate_report
+
+try:
+    from pylatex import Document
+    print_report = True
+except:
+    print_report = False
 
 '''
 logger = logging.getLogger('netsquid')
@@ -19,7 +26,12 @@ logger.addHandler(file_handler)
 '''
 
 net = NetworkManager('./network_config.yaml')
-
+if print_report: 
+    generate_report(net.get_info_report())
+else:
+    #Imprimir mensajes por pantalla
+    #print(f"To go from {request_props['origin']} to {request_props['destination']} shortest path is {shortest_path}")
+    pass
 
 print('Salida temporal para verificar red creada')
 ic(net.get_paths())
