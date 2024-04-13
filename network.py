@@ -141,6 +141,17 @@ class NetworkManager():
                     #OJO JUAN: Ver cómo lo libero si al final no uso ese índice 
         #If we haven't returned no direct link between both ends
         return('NOLINK')
+
+    def return_link(self, link_name, index):
+        '''
+        Returns as available the index of the specified link.
+        Input:
+            - link_name: link 
+            - index: index in the link to be freed
+        '''
+        #TODO
+        pass
+
                 
 
     def _temporal_red(self):
@@ -461,7 +472,7 @@ class NetworkManager():
                         #    self.network.get_node(shortest_path[nodepos]).ports[f"ccon_R_{shortest_path[nodepos]}_{request_name}_1"].tx_output(message))
                 end_simul = False
                 while end_simul == False:
-                    protocol = PathFidelityProtocol(self,path,100, purif_rounds) #We measure E2E fidelity 100 times
+                    protocol = PathFidelityProtocol(self,path,self._config['path_fidel_rounds'], purif_rounds) #We measure E2E fidelity 100 times
                     dc = self.dc_setup(protocol, self.network.get_node(path['nodes'][0]), self.network.get_node(path['nodes'][-1]))
                     protocol.start()
                     ns.sim_run()
@@ -478,7 +489,7 @@ class NetworkManager():
                             'purif_rounds': purif_rounds,
                             'fidelity': dc.dataframe["Fidelity"].mean(),
                             'time': dc.dataframe["time"].mean()})
-                        #delete previousl created classical connections
+                        #delete previously created classical connections
                         for nodepos in range(len(path['nodes'])-1):
                             nodeA = self.network.get_node(path['nodes'][nodepos])
                             nodeB = self.network.get_node(path['nodes'][nodepos+1])
@@ -488,6 +499,8 @@ class NetworkManager():
                             #Unable to delete ports. Will remain unconnected
                             #nodeA.remove_port(f"ccon_R_{nodeA.name}_{request_name}_1")
                             #nodeB.rem_subcomponent(f"ccon_L_{nodeB.name}_{request_name}_1")
+                            #TODO: Falta devolver el/los links a los links disponibles: release_link()
+                            #TODO: Crear siempre los dos canales clásicos y el de purificación. Así al borrar borramos todo
                         end_simul = True
                     elif dc.dataframe["Fidelity"].mean() >= request_props['minfidelity']:
                         #request can be fulfilled
@@ -503,8 +516,10 @@ class NetworkManager():
                     else: #purification is needed
                         purif_rounds += 1
                         #Si purif_rounds = 1 (primera vez) entonces, 
-                        #debemos crear las conexiones clásicas por el segundo canal y el canal de purificación
-                        #Después lanzar protocolo con purificación y esas rondas.
+                            #debemos crear las conexiones clásicas por el segundo canal
+                            #crea canal clásico de purificación
+                            #asignar al path el segundo index en cada enlace cuántico
+                        #Después eliminar el True de abajo para que vuelva a iterar
                         end_simul = True #Quitar esto, cuando haya purificación debe iterar
 
             except nx.exception.NetworkXNoPath:

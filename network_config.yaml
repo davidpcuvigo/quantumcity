@@ -1,4 +1,5 @@
 name: Red de pruebas
+path_fidel_rounds: 100 #Number of measures to perform when estimating E2E path fidelity
 nodes:
   - switch1: #name of switch
       type: switch

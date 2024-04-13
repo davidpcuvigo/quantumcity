@@ -43,6 +43,7 @@ class PathFidelityProtocol(LocalProtocol):
         self._path = path
         self._num_runs = num_runs
         self._networkmanager = networkmanager
+        self._purif_rounds = purif_rounds
         name = name if name else f"PathFidelityEstimator_{path['request']}"
         super().__init__(nodes=networkmanager.network.nodes, name=name)
         first_link = self._path['comms'][0]['links'][0]
@@ -89,19 +90,20 @@ class PathFidelityProtocol(LocalProtocol):
             #signal = self.subprotocols[f"CorrectProtocol_{self._path['request']}"].get_signa_result(
             #    label=Signals.SUCESS, receiver=self)
             #ic(f'{self.name}: Termino la espera de condiciones, ronda {i}. Cogeré de nodoA la posición {self._mem_posA} y del B la {self._mem_posB}')
-            qa, = self._networkmanager.network.get_node(self._path['nodes'][0]).qmemory.pop(positions=[self._mem_posA])
-            qb, = self._networkmanager.network.get_node(self._path['nodes'][-1]).qmemory.pop(positions=[self._mem_posB])
-            fid = qapi.fidelity([qa, qb], ks.b00, squared=True)
-            result = {
-                'posA': self._mem_posA,
-                'posB': self._mem_posB,
-                'pairsA': 0,
-                'pairsB': 0,
-                'fid': fid,
-                'time': sim_time() - start_time
-            }
-            #ic(f'{self.name}: result')
-            self.send_signal(Signals.SUCCESS, result)
+            if self._purif_rounds == 0:
+                qa, = self._networkmanager.network.get_node(self._path['nodes'][0]).qmemory.pop(positions=[self._mem_posA])
+                qb, = self._networkmanager.network.get_node(self._path['nodes'][-1]).qmemory.pop(positions=[self._mem_posB])
+                fid = qapi.fidelity([qa, qb], ks.b00, squared=True)
+                result = {
+                    'posA': self._mem_posA,
+                    'posB': self._mem_posB,
+                    'pairsA': 0,
+                    'pairsB': 0,
+                    'fid': fid,
+                    'time': sim_time() - start_time
+                }
+            
+                self.send_signal(Signals.SUCCESS, result)
 
 
 class SwapProtocol(NodeProtocol):
