@@ -419,7 +419,6 @@ class NetworkManager():
             for link in self._config['links']:
                 link_name = list(link.keys())[0]
                 link_props = list(link.values())[0]
-                #self._available_links['nodeswitch4']=0
                 if self._available_links[link_name]['avail']>0:
                     self._graph.add_edge(link_props['end1'],link_props['end2'],weight=self._link_fidelities[link_name][0])
             
@@ -454,26 +453,47 @@ class NetworkManager():
                                 else shortest_path[nodepos+1]
                     path['comms'].append({'links': [link[0] + '-' + str(link[1])], 'source': source})
 
-                    #Create classical connection
-                    cconn = ClassicalConnection(name=f"cconn_{shortest_path[nodepos]}_{shortest_path[nodepos+1]}_{request_name}_1", length=self.get_config('links',link[0],'distance'))
-                    #print(f"Conexión: cconn_{shortest_path[nodepos]}_{shortest_path[nodepos+1]}_{request_name}_1")
-                    port_name, port_r_name = self.network.add_connection(
-                        self.network.get_node(shortest_path[nodepos]), 
-                        self.network.get_node(shortest_path[nodepos+1]), 
-                        connection=cconn, label=f"cconn_{shortest_path[nodepos]}_{shortest_path[nodepos+1]}_{request_name}_1",
-                        port_name_node1=f"ccon_R_{shortest_path[nodepos]}_{request_name}_1", 
-                        port_name_node2=f"ccon_L_{shortest_path[nodepos+1]}_{request_name}_1")
-                    
+                    #Create classical connection. We create channels even if urification is needed
+                    for i in [1,2]:
+                        cconn = ClassicalConnection(name=f"cconn_{shortest_path[nodepos]}_{shortest_path[nodepos+1]}_{request_name}_{i}", length=self.get_config('links',link[0],'distance'))
+                        #TODO: Añadir FiberDelayModel a las conexiones
+                        port_name, port_r_name = self.network.add_connection(
+                            self.network.get_node(shortest_path[nodepos]), 
+                            self.network.get_node(shortest_path[nodepos+1]), 
+                            connection=cconn, label=f"cconn_{shortest_path[nodepos]}_{shortest_path[nodepos+1]}_{request_name}_{i}",
+                            port_name_node1=f"ccon_R_{shortest_path[nodepos]}_{request_name}_{i}", 
+                            port_name_node2=f"ccon_L_{shortest_path[nodepos+1]}_{request_name}_{i}")
+
                     # Forward cconn to right most node
                     if f"ccon_L_{shortest_path[nodepos]}_{request_name}_1" in self.network.get_node(shortest_path[nodepos]).ports:
                         self.network.get_node(shortest_path[nodepos]).ports[f"ccon_L_{shortest_path[nodepos]}_{request_name}_1"].bind_input_handler(
-                            lambda message, _node=self.network.get_node(shortest_path[nodepos]): _node.ports[f"ccon_R_{_node.name}_{request_name}_1"].tx_output(message))
-                        #self.network.get_node(shortest_path[nodepos]).ports[f"ccon_L_{shortest_path[nodepos]}_{request_name}_1"].bind_input_handler(
-                        #    self.network.get_node(shortest_path[nodepos]).ports[f"ccon_R_{shortest_path[nodepos]}_{request_name}_1"].tx_output(message))
+                                lambda message, _node=self.network.get_node(shortest_path[nodepos]): _node.ports[f"ccon_R_{_node.name}_{request_name}_1"].tx_output(message))
+                    if f"ccon_L_{shortest_path[nodepos]}_{request_name}_2" in self.network.get_node(shortest_path[nodepos]).ports:
+                            self.network.get_node(shortest_path[nodepos]).ports[f"ccon_L_{shortest_path[nodepos]}_{request_name}_2"].bind_input_handler(
+                                lambda message, _node=self.network.get_node(shortest_path[nodepos]): _node.ports[f"ccon_R_{_node.name}_{request_name}_2"].tx_output(message))
+
+                # setup classical channel for purification
+
+                conn_purif = DirectConnection(
+                    f"ccon_purif_{request_name}",
+                    ClassicalChannel(f"cconn_purif_{shortest_path[0]}_{shortest_path[-1]}_{request_name}", length=50),
+                    ClassicalChannel(f"cconn_purif_{shortest_path[-1]}_{shortest_path[0]}_{request_name}", length=50)
+                )
+                
+                #TODO: Calcular la distancia total entre los nodos inicial y final, ahora la pongo fija
+                #TODO: Add FibreDelayModel to classical channels
+                self.network.add_connection(self.network.get_node(shortest_path[0]), 
+                                           self.network.get_node(shortest_path[-1]), connection=conn_purif,
+                                           label=f"cconn_purif_{shortest_path[0]}_{shortest_path[-1]}_{request_name}",
+                                           port_name_node1=f"ccon_purif_{shortest_path[0]}_{request_name}",
+                                           port_name_node2=f"ccon_purif_{shortest_path[-1]}_{request_name}")
                 end_simul = False
+
+
+                #Initially no purification
+                protocol = PathFidelityProtocol(self,path,self._config['path_fidel_rounds'], purif_rounds) #We measure E2E fidelity accordingly to config file times
+                dc = self.dc_setup(protocol, self.network.get_node(path['nodes'][0]), self.network.get_node(path['nodes'][-1]))
                 while end_simul == False:
-                    protocol = PathFidelityProtocol(self,path,self._config['path_fidel_rounds'], purif_rounds) #We measure E2E fidelity 100 times
-                    dc = self.dc_setup(protocol, self.network.get_node(path['nodes'][0]), self.network.get_node(path['nodes'][-1]))
                     protocol.start()
                     ns.sim_run()
                     print("Average fidelity of generated entanglement via a repeater and with filtering: {}, with average time: {}"\
@@ -494,13 +514,20 @@ class NetworkManager():
                             nodeA = self.network.get_node(path['nodes'][nodepos])
                             nodeB = self.network.get_node(path['nodes'][nodepos+1])
                             #Delete classical connections
-                            conn = self.network.get_connection(nodeA, nodeB,f"cconn_{nodeA.name}_{nodeB.name}_{request_name}_1")
-                            self.network.remove_connection(conn)
-                            #Unable to delete ports. Will remain unconnected
-                            #nodeA.remove_port(f"ccon_R_{nodeA.name}_{request_name}_1")
-                            #nodeB.rem_subcomponent(f"ccon_L_{nodeB.name}_{request_name}_1")
-                            #TODO: Falta devolver el/los links a los links disponibles: release_link()
-                            #TODO: Crear siempre los dos canales clásicos y el de purificación. Así al borrar borramos todo
+                            for i in [1,2]:
+                                conn = self.network.get_connection(nodeA, nodeB,f"cconn_{nodeA.name}_{nodeB.name}_{request_name}_{i}")
+                                self.network.remove_connection(conn)
+                                #Unable to delete ports. Will remain unconnected
+                                #nodeA.remove_port(f"ccon_R_{nodeA.name}_{request_name}_1")
+                                #nodeB.rem_subcomponent(f"ccon_L_{nodeB.name}_{request_name}_1")
+                        #remove classical purification connection
+                        connA = self.network.get_connection(self.network.get_node(path['nodes'][0]), 
+                                self.network.get_node(path['nodes'][-1]),
+                                f"cconn_purif_{shortest_path[0]}_{shortest_path[-1]}_{request_name}")
+                        #Even though classical is bidirectional, only one has to be deleted
+                        self.network.remove_connection(connA)
+
+                        #TODO: Falta devolver el/los links a los links disponibles: release_link()
                         end_simul = True
                     elif dc.dataframe["Fidelity"].mean() >= request_props['minfidelity']:
                         #request can be fulfilled

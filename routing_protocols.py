@@ -77,6 +77,9 @@ class PathFidelityProtocol(LocalProtocol):
             trigger_node.subcomponents[f"qsource_{trigger_node.name}_{trigger_link}_{trigger_link_index}"].trigger()
             #ic(f"Señalizo qsource_{trigger_node.name}_{trigger_link}_{trigger_link_index}")
 
+    def set_purif_rounds(self, purif_rounds):
+        self._purif_rounds = purif_rounds
+
     def run(self):
         self.start_subprotocols()
 
