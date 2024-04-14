@@ -417,23 +417,12 @@ class NetworkManager():
                 if self._available_links[link_name]['avail']>0:
                     self._graph.add_edge(link_props['end1'],link_props['end2'],weight=self._link_fidelities[link_name][0])
 
-            #Esto es temporal, para verificar la red creada cuando todos los recursos están disponibles
+            #Network graph generation, to include in report
             if first:
                 gr = nx.nx_agraph.to_agraph(self._graph)
                 gr.draw('./output/graf.png', prog='neato')
                 first = 0
-            '''
-            if first:
-                #pos = nx.spring_layout(self._graph) 
-                #nx.draw_networkx(self._graph,pos)
-                #labels = nx.get_edge_attributes(self._graph, 'weight')
-                #nx.draw_networkx_edge_labels(self._graph, pos, edge_labels = labels)
-
-                #nx.draw(self._graph,with_labels=True)
-                #plt.show(block=False)
-                #JUAN: TEMPORAL. PRUEBA PARA VER CÓMO funciona la exportación a pdf
-
-            '''
+            
             try:
                 shortest_path = nx.shortest_path(self._graph,source=request_props['origin'],target=request_props['destination'], weight='weight')
                 purif_rounds = 0
