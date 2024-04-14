@@ -142,15 +142,15 @@ class NetworkManager():
         #If we haven't returned no direct link between both ends
         return('NOLINK')
 
-    def return_link(self, link_name, index):
+    def release_link(self, link_name, index):
         '''
         Returns as available the index of the specified link.
         Input:
-            - link_name: link 
-            - index: index in the link to be freed
+            - link_name: link. string
+            - index: index in the link to be released. Can be string or integer
         '''
-        #TODO
-        pass
+        self._available_links[link_name]['avail'] += 1
+        self._available_links[link_name]['occupied'].remove(int(index))
 
                 
 
@@ -370,8 +370,6 @@ class NetworkManager():
         for link in list(self._link_fidelities.keys()):
             self._link_fidelities[link][0] /= (1- np.mean(fidelity_values)) 
         
-        ic(self._link_fidelities)
-
     def dc_setup(self, protocol, nodeA,nodeB,posA=0,posB=0):
         '''
         Creates a data collector in order to measure fidelity of qubits stores en nodeA and nodeB
@@ -496,8 +494,8 @@ class NetworkManager():
                 while end_simul == False:
                     protocol.start()
                     ns.sim_run()
-                    print("Average fidelity of generated entanglement via a repeater and with filtering: {}, with average time: {}"\
-                            .format(dc.dataframe["Fidelity"].mean(),dc.dataframe["time"].mean()))
+                    #print("Average fidelity of generated entanglement via a repeater and with filtering: {}, with average time: {}"\
+                    #        .format(dc.dataframe["Fidelity"].mean(),dc.dataframe["time"].mean()))
                     protocol.stop()
                     #JUAN. CURIOSO aquí. Si no haga el sim_reset puedo relanzar la simulación y funciona.
                     if dc.dataframe["time"].mean() > request_props['maxtime']:
@@ -527,7 +525,11 @@ class NetworkManager():
                         #Even though classical is bidirectional, only one has to be deleted
                         self.network.remove_connection(connA)
 
-                        #TODO: Falta devolver el/los links a los links disponibles: release_link()
+                        #release quantum channels used by this path
+                        for link in path['comms']:
+                            for link_instance in link['links']:
+                                self.release_link(link_instance.split('-')[0],link_instance.split('-')[1])
+
                         end_simul = True
                     elif dc.dataframe["Fidelity"].mean() >= request_props['minfidelity']:
                         #request can be fulfilled
@@ -543,18 +545,25 @@ class NetworkManager():
                     else: #purification is needed
                         purif_rounds += 1
                         #Si purif_rounds = 1 (primera vez) entonces, 
-                            #debemos crear las conexiones clásicas por el segundo canal
-                            #crea canal clásico de purificación
                             #asignar al path el segundo index en cada enlace cuántico
+                        protocol.set_purif_rounds(purif_rounds)
                         #Después eliminar el True de abajo para que vuelva a iterar
                         end_simul = True #Quitar esto, cuando haya purificación debe iterar
 
             except nx.exception.NetworkXNoPath:
                 shortest_path = 'NOPATH'
-
+                self._requests_status.append({
+                            'request': request_name, 
+                            'shortest_path': shortest_path,
+                            'result': 'no resources available', 
+                            'purif_rounds': 'na',
+                            'fidelity': 0,
+                            'time': 0})
 
 
         ic(self._requests_status)
+        ic(self._available_links)
+        ic(self._link_fidelities)
 
     def _create_qprocessor(self,name,num_memories):
         """Factory to create a quantum processor for each node.
