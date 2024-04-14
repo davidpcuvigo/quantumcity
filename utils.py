@@ -1,6 +1,6 @@
 
 from pylatex import Document, Section, Subsection, Command, Figure, Tabular, Itemize
-from pylatex.utils import italic, NoEscape
+from pylatex.utils import italic, NoEscape, bold
 from icecream import ic
 
 __all__ = ['generate_report']
@@ -25,14 +25,21 @@ def generate_report(report_info):
                     table.add_row((key,value[0],value[1],value[2]))
         with report.create(Subsection('Path simulation')):                
             #report.append('Request fulfillment\n')
-            for request_result in report_info['requests_status']:
-                report.append(f"Request: {request_result['request']}")
-                with report.create(Itemize()) as itemize:
-                    itemize.add_item(f"Result: {request_result['result']}")
-                    itemize.add_item(f"Shortest path: {request_result['shortest_path']}")
-                    itemize.add_item(f"Fidelity: {request_result['fidelity']}")
-                    itemize.add_item(f"Time: {request_result['time']}")
-                    itemize.add_item(f"Purification rounds:{request_result['purif_rounds']}")
+            with report.create(Tabular('l|l|l|l|l')) as table:      
+                table.add_hline()
+                table.add_row(['request','result','fidelity','time','purification rounds'])
+                table.add_hline()
+                for reg in report_info['requests_status']:
+                    table.add_row(bold(reg['request']),reg['result'],reg['fidelity'],reg['time'],reg['purif_rounds'])
+                table.add_hline()
+            report.append('\n')
+            report.append('\n')
+            with report.create(Tabular('l|p{3.75in}')) as table:
+                table.add_hline()
+                table.add_row('request','shortest path')
+                table.add_hline()
+                for reg in report_info['requests_status']:
+                    table.add_row(bold(reg['request']),reg['shortest_path'])
 
     with report.create(Section('Fase de simulación')):
         report.append('Esta parte está pendiente')

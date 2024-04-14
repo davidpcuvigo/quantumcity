@@ -359,16 +359,13 @@ class NetworkManager():
             protocol.start()
             runtime = props_link['distance']*float(props_link['photon_speed_fibre'])*25
             ns.sim_run(runtime)
-            self._link_fidelities[list(link.keys())[0]]= [1-np.mean(protocol.fidelities),np.mean(protocol.fidelities),len(protocol.fidelities)]
-            fidelity_values.append(np.mean(protocol.fidelities))
+            #self._link_fidelities[list(link.keys())[0]]= [1-np.mean(protocol.fidelities),np.mean(protocol.fidelities),len(protocol.fidelities)]
+            #We want to minimize the product of the costs, not the sum. log(ab)=log(a)+log(b)
+            #so we will work with logarithm
+            self._link_fidelities[list(link.keys())[0]]= [-np.log(np.mean(protocol.fidelities)),np.mean(protocol.fidelities),len(protocol.fidelities)]
             ns.sim_stop()
             ns.sim_reset()
             self._create_network() # Network must be recreated for the simulations to work
-
-        # calculate fidelity relative to mean fidelities
-        #TODO: revisar métodos para ensanchar más las diferencias entre las fidelidades
-        for link in list(self._link_fidelities.keys()):
-            self._link_fidelities[link][0] /= (1- np.mean(fidelity_values)) 
         
     def dc_setup(self, protocol, nodeA,nodeB,posA=0,posB=0):
         '''
@@ -419,7 +416,7 @@ class NetworkManager():
                 link_props = list(link.values())[0]
                 if self._available_links[link_name]['avail']>0:
                     self._graph.add_edge(link_props['end1'],link_props['end2'],weight=self._link_fidelities[link_name][0])
-            
+
             #Esto es temporal, para verificar la red creada cuando todos los recursos están disponibles
             '''
             if first:
@@ -544,7 +541,7 @@ class NetworkManager():
                         end_simul=True
                     else: #purification is needed
                         purif_rounds += 1
-                        #if first time with purification add second link in path
+                        #if first time with purification add second quantum link in path
                         if purif_rounds == 1:
                             new_comms = []
                             for nodepos in range(len(shortest_path)-1):
@@ -567,7 +564,7 @@ class NetworkManager():
                             'time': dc.dataframe["time"].mean()})
                         path['purif_rounds'] = purif_rounds
                         self._paths.append(path) #Eliminar esta línea también cuando haya purificación
-                        #Eliminar hasya aquí
+                        #Eliminar hasta aquí
 
             except nx.exception.NetworkXNoPath:
                 shortest_path = 'NOPATH'
