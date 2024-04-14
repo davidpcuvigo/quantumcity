@@ -2,6 +2,7 @@
 from pylatex import Document, Section, Subsection, Command, Figure, Tabular, Itemize
 from pylatex.utils import italic, NoEscape, bold
 from icecream import ic
+import os
 
 __all__ = ['generate_report']
 
@@ -15,6 +16,13 @@ def generate_report(report_info):
     #Routing Phase section
     with report.create(Section('Routing Protocol')):
         report.append('The next section details information gathered through the route calculation phase\n')
+
+        with report.create(Subsection('Network')):
+            with report.create(Figure(position='ht!')) as fig_network:
+                image_file = os.path.join(os.path.dirname(__file__), 'output/graf.png')
+                fig_network.add_image(image_file,width='120px')
+                fig_network.add_caption('Simulated network')
+
         with report.create(Subsection('Link fidelities')):
             report.append('Fidelity and Cost of each of the links\n')
             with report.create(Tabular('l|l|l|l')) as table:

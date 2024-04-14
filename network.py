@@ -418,6 +418,10 @@ class NetworkManager():
                     self._graph.add_edge(link_props['end1'],link_props['end2'],weight=self._link_fidelities[link_name][0])
 
             #Esto es temporal, para verificar la red creada cuando todos los recursos están disponibles
+            if first:
+                gr = nx.nx_agraph.to_agraph(self._graph)
+                gr.draw('./output/graf.png', prog='neato')
+                first = 0
             '''
             if first:
                 #pos = nx.spring_layout(self._graph) 
@@ -428,9 +432,7 @@ class NetworkManager():
                 #nx.draw(self._graph,with_labels=True)
                 #plt.show(block=False)
                 #JUAN: TEMPORAL. PRUEBA PARA VER CÓMO funciona la exportación a pdf
-                gr = nx.nx_agraph.to_agraph(self._graph)
-                gr.draw('graf.png', prog='neato')
-                first = 0
+
             '''
             try:
                 shortest_path = nx.shortest_path(self._graph,source=request_props['origin'],target=request_props['destination'], weight='weight')
