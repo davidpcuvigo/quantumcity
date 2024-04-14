@@ -544,11 +544,30 @@ class NetworkManager():
                         end_simul=True
                     else: #purification is needed
                         purif_rounds += 1
-                        #Si purif_rounds = 1 (primera vez) entonces, 
-                            #asignar al path el segundo index en cada enlace cuántico
+                        #if first time with purification add second link in path
+                        if purif_rounds == 1:
+                            new_comms = []
+                            for nodepos in range(len(shortest_path)-1):
+                                link = self.get_link(shortest_path[nodepos],shortest_path[nodepos+1],next_index=True)
+                                for comm in path['comms']:
+                                    if comm['links'][0].split('-')[0] == link[0]:
+                                        comm['links'].append(link[0] + '-' + str(link[1]))
+                                        new_comms.append(comm)
+                            path['comms'] = new_comms   
+
                         protocol.set_purif_rounds(purif_rounds)
-                        #Después eliminar el True de abajo para que vuelva a iterar
+                        #Después eliminar el bloque de abajo para que vuelva a iterar
                         end_simul = True #Quitar esto, cuando haya purificación debe iterar
+                        self._requests_status.append({ #Quitar esto cuando haya purificación
+                            'request': request_name, 
+                            'shortest_path': shortest_path,
+                            'result': 'accepted-hardcoded', 
+                            'purif_rounds': purif_rounds,
+                            'fidelity': dc.dataframe["Fidelity"].mean(),
+                            'time': dc.dataframe["time"].mean()})
+                        path['purif_rounds'] = purif_rounds
+                        self._paths.append(path) #Eliminar esta línea también cuando haya purificación
+                        #Eliminar hasya aquí
 
             except nx.exception.NetworkXNoPath:
                 shortest_path = 'NOPATH'

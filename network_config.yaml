@@ -100,7 +100,7 @@ requests:
   - request2: #name of request
       origin: node2
       destination: node4
-      minfidelity: 0.95
-      maxtime: 100000 # nanoseconds
+      minfidelity: 0.99
+      maxtime: 200000 # nanoseconds
       teleport: [(1,0),(0,1)] #Lista de (alpha, beta). alpha|0> + beta|1> Estados a teleportar
  
