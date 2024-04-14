@@ -77,7 +77,7 @@ links:
       distance: 5
       number_links: 4
       noise_model: DepolarizingChannel
-      source_fidelity_sq: 0.95
+      source_fidelity_sq: 0.97
       source_delay: 10
       photon_speed_fibre: 200e3
   - interswitch3:
@@ -86,7 +86,7 @@ links:
       distance: 5
       number_links: 4
       noise_model: DepolarizingChannel
-      source_fidelity_sq: 0.95
+      source_fidelity_sq: 0.96
       source_delay: 10
       photon_speed_fibre: 200e3
 
