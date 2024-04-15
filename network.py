@@ -383,6 +383,7 @@ class NetworkManager():
             #Record an execution
             protocol = evexpr.triggered_events[-1].source
             result = protocol.get_signal_result(Signals.SUCCESS)
+
             # Get statistics
             #JUAN: En el ejemplo del purification la posición de memoria la devuelve el protocolo
             #qa, = nodeA.qmemory.pop(positions=[result["posA"]])
@@ -478,14 +479,15 @@ class NetworkManager():
 
                 #Initially no purification
                 protocol = PathFidelityProtocol(self,path,self._config['path_fidel_rounds'], purif_rounds) #We measure E2E fidelity accordingly to config file times
-                dc = self.dc_setup(protocol, self.network.get_node(path['nodes'][0]), self.network.get_node(path['nodes'][-1]))
+                
                 while end_simul == False:
+                    dc = self.dc_setup(protocol, self.network.get_node(path['nodes'][0]), self.network.get_node(path['nodes'][-1]))
                     protocol.start()
                     ns.sim_run()
                     #print("Average fidelity of generated entanglement via a repeater and with filtering: {}, with average time: {}"\
                     #        .format(dc.dataframe["Fidelity"].mean(),dc.dataframe["time"].mean()))
                     protocol.stop()
-                    #JUAN. CURIOSO aquí. Si no haga el sim_reset puedo relanzar la simulación y funciona.
+                    
                     if dc.dataframe["time"].mean() > request_props['maxtime']:
                         #request cannot be fulfilled. Mark as rejected and continue
                         self._requests_status.append({
@@ -544,19 +546,21 @@ class NetworkManager():
                             path['comms'] = new_comms   
 
                         protocol.set_purif_rounds(purif_rounds)
-                        #Después eliminar el bloque de abajo para que vuelva a iterar
-                        end_simul = True #Quitar esto, cuando haya purificación debe iterar
-                        self._requests_status.append({ #Quitar esto cuando haya purificación
-                            'request': request_name, 
-                            'shortest_path': shortest_path,
-                            'result': 'accepted-hardcoded', 
-                            'purif_rounds': purif_rounds,
-                            'fidelity': dc.dataframe["Fidelity"].mean(),
-                            'time': dc.dataframe["time"].mean()})
-                        path['purif_rounds'] = purif_rounds
-                        self._paths.append(path) #Eliminar esta línea también cuando haya purificación
-                        #Eliminar hasta aquí
 
+                        #Eliminar este bloque cuando funcione la purificación
+                        if purif_rounds == 2: 
+                            self._requests_status.append({ 
+                                'request': request_name, 
+                                'shortest_path': shortest_path,
+                                'result': 'accepted-hardcoded', 
+                                'purif_rounds': 1,
+                                'fidelity': dc.dataframe["Fidelity"].mean(),
+                                'time': dc.dataframe["time"].mean()})
+                            path['purif_rounds'] = 1
+                            self._paths.append(path) #Eliminar esta línea también cuando haya purificación
+                            end_simul = True #Temporal JUAN
+                        
+                        #Hasta aquí
             except nx.exception.NetworkXNoPath:
                 shortest_path = 'NOPATH'
                 self._requests_status.append({

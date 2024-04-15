@@ -1,4 +1,5 @@
 
+from  time import sleep
 from netsquid.protocols import LocalProtocol, NodeProtocol, Signals
 import netsquid as ns
 from netsquid.qubits import ketstates as ks
@@ -48,9 +49,9 @@ class PathFidelityProtocol(LocalProtocol):
         super().__init__(nodes=networkmanager.network.nodes, name=name)
         first_link = self._path['comms'][0]['links'][0]
         last_link = self._path['comms'][-1]['links'][0]
-        self._mem_posA = self._networkmanager.get_mem_position(self._path['nodes'][0],first_link.split('-')[0],first_link.split('-')[1])
-        self._mem_posB = self._networkmanager.get_mem_position(self._path['nodes'][-1],last_link.split('-')[0],last_link.split('-')[1])
-        self._portleft = networkmanager.network.get_node(path['nodes'][0]).qmemory.ports[f"qin{self._mem_posA}"]
+        self._mem_posA_1 = self._networkmanager.get_mem_position(self._path['nodes'][0],first_link.split('-')[0],first_link.split('-')[1])
+        self._mem_posB_1 = self._networkmanager.get_mem_position(self._path['nodes'][-1],last_link.split('-')[0],last_link.split('-')[1])
+        self._portleft_1 = self._networkmanager.network.get_node(self._path['nodes'][0]).qmemory.ports[f"qin{self._mem_posA_1}"]
 
         for nodepos in range(1,len(path['nodes'])-1):
             node = path['nodes'][nodepos]
@@ -58,56 +59,111 @@ class PathFidelityProtocol(LocalProtocol):
             link_right = path['comms'][nodepos]['links'][0]
             mem_pos_left = networkmanager.get_mem_position(node,link_left.split('-')[0],link_left.split('-')[1])
             mem_pos_right = networkmanager.get_mem_position(node,link_right.split('-')[0],link_right.split('-')[1])
-            subprotocol = SwapProtocol(node=networkmanager.network.get_node(node), mem_left=mem_pos_left, mem_right=mem_pos_right, name=f"Swap_{node}_{path['request']}", request = path['request'])
+            subprotocol = SwapProtocol(node=networkmanager.network.get_node(node), mem_left=mem_pos_left, mem_right=mem_pos_right, name=f"Swap_{node}_{path['request']}_1", request = path['request'])
             self.add_subprotocol(subprotocol)
-        last_link = path['comms'][-1]['links'][0]
+        #last_link = path['comms'][-1]['links'][0]
         mempos= networkmanager.get_mem_position(path['nodes'][-1],last_link.split('-')[0],last_link.split('-')[1])
-        subprotocol = CorrectProtocol(networkmanager.network.get_node(path['nodes'][-1]), mempos, len(path['nodes']), path['request'])
+        subprotocol = CorrectProtocol(networkmanager.network.get_node(path['nodes'][-1]), mempos, len(path['nodes']), f"CorrectProtocol_{path['request']}_1", path['request'])
         self.add_subprotocol(subprotocol)
 
-    def signal_sources(self):
+    def signal_sources(self,index=[1]):
         '''
         Signals all sources in the path in order to generate EPR
+        Receives the index to trigger the generation. If none, only first instance will be triggered
+        If index=[1,2] then both instances are signaled (purification)
         '''
+        if index not in [[1],[2],[1,2]]:
+            raise ValueError('Unsupported trigger generation')
         for link in self._path['comms']:
             trigger_node = self._networkmanager.network.get_node(link['source'])
-            trigger_link = link['links'][0].split('-')[0]
-            #JUAN CUANDO HAYA 2 POR PURIFICACIÓN HAY QUE HACERLO EN AMBOS
-            trigger_link_index = link['links'][0].split('-')[1]
-            trigger_node.subcomponents[f"qsource_{trigger_node.name}_{trigger_link}_{trigger_link_index}"].trigger()
-            #ic(f"Señalizo qsource_{trigger_node.name}_{trigger_link}_{trigger_link_index}")
+            for i in index:
+                trigger_link = link['links'][i-1].split('-')[0]
+                trigger_link_index = link['links'][i-1].split('-')[1]
+                trigger_node.subcomponents[f"qsource_{trigger_node.name}_{trigger_link}_{trigger_link_index}"].trigger()
+                #ic(f"Señalizo qsource_{trigger_node.name}_{trigger_link}_{trigger_link_index}")
 
     def set_purif_rounds(self, purif_rounds):
         self._purif_rounds = purif_rounds
+        if self._purif_rounds == 1: # Set memories for the second link
+            self._init_second_link_protocols()
+
+    def _init_second_link_protocols(self):
+        '''
+        Initialices memory positions for the second index of the links and
+        creates protocols for this second instance of the link
+        '''        
+        first_link = self._path['comms'][0]['links'][1]
+        last_link = self._path['comms'][-1]['links'][1]
+        self._mem_posA_2 = self._networkmanager.get_mem_position(self._path['nodes'][0],first_link.split('-')[0],first_link.split('-')[1])
+        self._mem_posB_2 = self._networkmanager.get_mem_position(self._path['nodes'][-1],last_link.split('-')[0],last_link.split('-')[1])
+        self._portleft_2 = self._networkmanager.network.get_node(self._path['nodes'][0]).qmemory.ports[f"qin{self._mem_posA_2}"]
+
+        for nodepos in range(1,len(self._path['nodes'])-1):
+            node = self._path['nodes'][nodepos]
+            link_left = self._path['comms'][nodepos-1]['links'][1]
+            link_right = self._path['comms'][nodepos]['links'][1]
+            mem_pos_left = self._networkmanager.get_mem_position(node,link_left.split('-')[0],link_left.split('-')[1])
+            mem_pos_right = self._networkmanager.get_mem_position(node,link_right.split('-')[0],link_right.split('-')[1])
+            subprotocol = SwapProtocol(node=self._networkmanager.network.get_node(node), mem_left=mem_pos_left, mem_right=mem_pos_right, name=f"Swap_{node}_{self._path['request']}_2", request = self._path['request'])
+            self.add_subprotocol(subprotocol)
+
+        mempos= self._networkmanager.get_mem_position(self._path['nodes'][-1],last_link.split('-')[0],last_link.split('-')[1])
+        subprotocol = CorrectProtocol(self._networkmanager.network.get_node(self._path['nodes'][-1]), mempos, len(self._path['nodes']), f"CorrectProtocol_{self._path['request']}_2", self._path['request'])
+        self.add_subprotocol(subprotocol)
 
     def run(self):
         self.start_subprotocols()
 
         for i in range(self._num_runs):
             start_time = sim_time()
-            #trigger all sources in the path
-            self.signal_sources()
             #ic(f'{self.name}: Finalizo señalización fuentes, ronda {i}')
-            yield (self.await_port_input(self._portleft)) & \
-                (self.await_signal(self.subprotocols[f"CorrectProtocol_{self._path['request']}"], Signals.SUCCESS))
-            #signal = self.subprotocols[f"CorrectProtocol_{self._path['request']}"].get_signa_result(
-            #    label=Signals.SUCESS, receiver=self)
-            #ic(f'{self.name}: Termino la espera de condiciones, ronda {i}. Cogeré de nodoA la posición {self._mem_posA} y del B la {self._mem_posB}')
             if self._purif_rounds == 0:
-                qa, = self._networkmanager.network.get_node(self._path['nodes'][0]).qmemory.pop(positions=[self._mem_posA])
-                qb, = self._networkmanager.network.get_node(self._path['nodes'][-1]).qmemory.pop(positions=[self._mem_posB])
+                #trigger all sources in the path
+                self.signal_sources(index=[1])
+                yield (self.await_port_input(self._portleft_1)) & \
+                    (self.await_signal(self.subprotocols[f"CorrectProtocol_{self._path['request']}_1"], Signals.SUCCESS))
+                #signal = self.subprotocols[f"CorrectProtocol_{self._path['request']}"].get_signa_result(
+                #    label=Signals.SUCESS, receiver=self)
+                #ic(f'{self.name}: Termino la espera de condiciones, ronda {i}. Cogeré de nodoA la posición {self._mem_posA} y del B la {self._mem_posB}')
+               
+                qa, = self._networkmanager.network.get_node(self._path['nodes'][0]).qmemory.pop(positions=[self._mem_posA_1])
+                qb, = self._networkmanager.network.get_node(self._path['nodes'][-1]).qmemory.pop(positions=[self._mem_posB_1])
                 fid = qapi.fidelity([qa, qb], ks.b00, squared=True)
                 result = {
-                    'posA': self._mem_posA,
-                    'posB': self._mem_posB,
-                    'pairsA': 0,
-                    'pairsB': 0,
-                    'fid': fid,
-                    'time': sim_time() - start_time
+                        'posA': self._mem_posA_1,
+                        'posB': self._mem_posB_1,
+                        'pairsA': 0,
+                        'pairsB': 0,
+                        'fid': fid,
+                        'time': sim_time() - start_time
                 }
-            
+                
                 self.send_signal(Signals.SUCCESS, result)
+            else: #we have to perform purification
+                
+                for i in range(self._purif_rounds):
+                    #trigger all sources in the path
+                    self.signal_sources(index=[1,2])
+                    #Wait for qubits in both links and corrections in both
+                    yield (self.await_port_input(self._portleft_1)) & \
+                    (self.await_signal(self.subprotocols[f"CorrectProtocol_{self._path['request']}_1"], Signals.SUCCESS)) &\
+                    (self.await_port_input(self._portleft_2)) & \
+                    (self.await_signal(self.subprotocols[f"CorrectProtocol_{self._path['request']}_2"], Signals.SUCCESS))
 
+                    #TODO: Disparar purificación
+                    
+                #hardcoded OK/KO
+                result = {
+                        'posA': self._mem_posA_1,
+                        'posB': self._mem_posB_1,
+                        'pairsA': 0,
+                        'pairsB': 0,
+                        'fid': 0.99,
+                        'time': 100000
+                        #'time': sim_time() - start_time
+                }
+                    
+                self.send_signal(Signals.SUCCESS, result)
 
 class SwapProtocol(NodeProtocol):
     """Perform Swap on a repeater node.
@@ -124,6 +180,11 @@ class SwapProtocol(NodeProtocol):
 
     def __init__(self, node, mem_left, mem_right, name, request):
         super().__init__(node, name)
+
+        # get index of link
+        div_pos = name.rfind('_')
+        self._index = name[div_pos+1:div_pos+2]
+
         self._request = request
         self._mem_left = mem_left
         self._mem_right = mem_right
@@ -135,15 +196,16 @@ class SwapProtocol(NodeProtocol):
 
     def run(self):
         while True:
-            #ic(f'{self.name}: Antes')
             yield (self.await_port_input(self._qmem_input_port_l) &
                    self.await_port_input(self._qmem_input_port_r))
             # Perform Bell measurement
+            if self.node.qmemory.busy:
+                yield self.await_program(self.node.qmemory)
             yield self.node.qmemory.execute_program(self._program, qubit_mapping=[self._mem_right, self._mem_left])
             m, = self._program.output["m"]
             #ic(f'{self.name}: Mido {m}')
             # Send result to right node on end
-            self.node.ports[f"ccon_R_{self.node.name}_{self._request}_1"].tx_output(Message(m))
+            self.node.ports[f"ccon_R_{self.node.name}_{self._request}_{self._index}"].tx_output(Message(m))
             #ic(f'{self.name}: Envío mensage {m}')
 
 class SwapCorrectProgram(QuantumProgram):
@@ -175,11 +237,16 @@ class CorrectProtocol(NodeProtocol):
         Number of nodes in the repeater chain network.
 
     """
-    def __init__(self, node, mempos, num_nodes, request):
-        super().__init__(node, f"CorrectProtocol_{request}")
+    def __init__(self, node, mempos, num_nodes, name, request):
+        super().__init__(node, name)
         self._mempos = mempos
         self.num_nodes = num_nodes
         self._request = request
+
+        # get index of link
+        div_pos = name.rfind('_')
+        self._index = name[div_pos+1:div_pos+2]
+
         self._x_corr = 0
         self._z_corr = 0
         self._program = SwapCorrectProgram()
@@ -187,11 +254,9 @@ class CorrectProtocol(NodeProtocol):
 
     def run(self):
         while True:
-            #ic(f'{self.name}:Antes')
-            yield self.await_port_input(self.node.ports[f"ccon_L_{self.node.name}_{self._request}_{1}"])
-            #ic(f'{self.name}:Después')
-            message = self.node.ports[f"ccon_L_{self.node.name}_{self._request}_{1}"].rx_input()
-            #ic(f'{self.name}: He recibido {message}')
+            yield self.await_port_input(self.node.ports[f"ccon_L_{self.node.name}_{self._request}_{self._index}"])
+            message = self.node.ports[f"ccon_L_{self.node.name}_{self._request}_{self._index}"].rx_input()
+
             if message is None: #or len(message.items) != 1:
                 continue
             else: #Port can receive more than one classical message at the same time
@@ -206,6 +271,8 @@ class CorrectProtocol(NodeProtocol):
             if self._counter == self.num_nodes - 2:
                 if self._x_corr or self._z_corr:
                     self._program.set_corrections(self._x_corr, self._z_corr)
+                    if self.node.qmemory.busy:
+                        yield self.await_program(self.node.qmemory)
                     yield self.node.qmemory.execute_program(self._program, qubit_mapping=[self._mempos])
                 self.send_signal(Signals.SUCCESS)
                 self._x_corr = 0
