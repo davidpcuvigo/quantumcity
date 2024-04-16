@@ -135,12 +135,10 @@ class NetworkManager():
                 else:
                     next_index = max(self._available_links[link_name]['occupied']) + 1 \
                         if len(self._available_links[link_name]['occupied']) != 0 else 0
-                    #We return the next instance if there are available
-                    if self._available_links[link_name]['avail'] > 0:
-                        self._available_links[link_name]['occupied'].append(next_index)
-                        self._available_links[link_name]['avail'] -= 1
-                        return([link_name,next_index])
-                    
+                    self._available_links[link_name]['occupied'].append(next_index)
+                    self._available_links[link_name]['avail'] -= 1
+                    return([link_name,next_index])
+                    #OJO JUAN: Ver cómo lo libero si al final no uso ese índice 
         #If we haven't returned no direct link between both ends
         return('NOLINK')
 
@@ -510,8 +508,8 @@ class NetworkManager():
                                 self.network.remove_connection(conn)
                                 #Unable to delete ports. Will remain unconnected
                                 #TODO: Check how to delete ports
-                                #nodeA.ports[f"ccon_R_{nodeA.name}_{request_name}_{i}"].remove()
-                                #nodeB.ports[f"ccon_L_{nodeB.name}_{request_name}_{i}"].remove()
+                                nodeA.ports[f"ccon_R_{nodeA.name}_{request_name}_{i}"].remove()
+                                nodeB.ports[f"ccon_L_{nodeB.name}_{request_name}_{i}"].remove()
                         #remove classical purification connection
                         connA = self.network.get_connection(self.network.get_node(path['nodes'][0]), 
                                 self.network.get_node(path['nodes'][-1]),
@@ -534,45 +532,37 @@ class NetworkManager():
                             'purif_rounds': purif_rounds,
                             'fidelity': dc.dataframe["Fidelity"].mean(),
                             'time': dc.dataframe["time"].mean()})
-                        path['purif_rounds'] = purif_rounds
                         self._paths.append(path)
                         end_simul=True
                     else: #purification is needed
                         purif_rounds += 1
                         #if first time with purification add second quantum link in path
                         if purif_rounds == 1:
-                            #check if we have available link resources for second path
-                            available_resources = True
-                            for comm in path['comms']:
-                                link_name = comm['links'][0].split('-')[0]
-                                if self._available_links[link_name]['avail'] == 0:
-                                    available_resources = False
-                                    break
+                            new_comms = []
+                            for nodepos in range(len(shortest_path)-1):
+                                link = self.get_link(shortest_path[nodepos],shortest_path[nodepos+1],next_index=True)
+                                for comm in path['comms']:
+                                    if comm['links'][0].split('-')[0] == link[0]:
+                                        comm['links'].append(link[0] + '-' + str(link[1]))
+                                        new_comms.append(comm)
+                            path['comms'] = new_comms   
 
-                            if not available_resources:
-                                shortest_path = 'NOPATH'
-                                self._requests_status.append({
-                                    'request': request_name, 
-                                    'shortest_path': shortest_path,
-                                    'result': 'no resources available', 
-                                    'purif_rounds': 'na',
-                                    'fidelity': 0,
-                                    'time': 0})
-                                
-                                end_simul = True
+                        protocol.set_purif_rounds(purif_rounds)
 
-                            else:
-                                new_comms = []
-                                for nodepos in range(len(shortest_path)-1):
-                                    link = self.get_link(shortest_path[nodepos],shortest_path[nodepos+1],next_index=True)
-                                    for comm in path['comms']:
-                                        if comm['links'][0].split('-')[0] == link[0]:
-                                            comm['links'].append(link[0] + '-' + str(link[1]))
-                                            new_comms.append(comm)
-                                path['comms'] = new_comms   
-
-                                protocol.set_purif_rounds(purif_rounds)
-
+                        #Eliminar este bloque cuando funcione la purificación
+                        if purif_rounds == 2: 
+                            self._requests_status.append({ 
+                                'request': request_name, 
+                                'shortest_path': shortest_path,
+                                'result': 'accepted-hardcoded', 
+                                'purif_rounds': 1,
+                                'fidelity': dc.dataframe["Fidelity"].mean(),
+                                'time': dc.dataframe["time"].mean()})
+                            path['purif_rounds'] = 1
+                            self._paths.append(path) #Eliminar esta línea también cuando haya purificación
+                            end_simul = True #Temporal JUAN
+                        
+                        #Hasta aquí
             except nx.exception.NetworkXNoPath:
                 shortest_path = 'NOPATH'
                 self._requests_status.append({

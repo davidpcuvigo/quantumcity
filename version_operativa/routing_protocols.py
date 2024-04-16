@@ -84,6 +84,7 @@ class PathFidelityProtocol(LocalProtocol):
                 trigger_link = link['links'][i-1].split('-')[0]
                 trigger_link_index = link['links'][i-1].split('-')[1]
                 trigger_node.subcomponents[f"qsource_{trigger_node.name}_{trigger_link}_{trigger_link_index}"].trigger()
+                #ic(f"Señalizo qsource_{trigger_node.name}_{trigger_link}_{trigger_link_index}")
 
     def set_purif_rounds(self, purif_rounds):
         self._purif_rounds = purif_rounds
@@ -136,32 +137,42 @@ class PathFidelityProtocol(LocalProtocol):
 
         for i in range(self._num_runs):
             start_time = sim_time()
+            #ic(f'{self.name}: Finalizo señalización fuentes, ronda {i}')
             if self._purif_rounds == 0:
                 #trigger all sources in the path
                 self.signal_sources(index=[1])
                 yield (self.await_port_input(self._portleft_1)) & \
                     (self.await_signal(self.subprotocols[f"CorrectProtocol_{self._path['request']}_1"], Signals.SUCCESS))
+                #signal = self.subprotocols[f"CorrectProtocol_{self._path['request']}"].get_signa_result(
+                #    label=Signals.SUCESS, receiver=self)
+                #ic(f'{self.name}: Termino la espera de condiciones, ronda {i}. Cogeré de nodoA la posición {self._mem_posA} y del B la {self._mem_posB}')
                
+                qa, = self._networkmanager.network.get_node(self._path['nodes'][0]).qmemory.pop(positions=[self._mem_posA_1])
+                qb, = self._networkmanager.network.get_node(self._path['nodes'][-1]).qmemory.pop(positions=[self._mem_posB_1])
+                fid = qapi.fidelity([qa, qb], ks.b00, squared=True)
+                result = {
+                        'posA': self._mem_posA_1,
+                        'posB': self._mem_posB_1,
+                        'pairsA': 0,
+                        'pairsB': 0,
+                        'fid': fid,
+                        'time': sim_time() - start_time
+                }
+                
+                self.send_signal(Signals.SUCCESS, result)
             else: #we have to perform purification
                 purification_done = False
                 while not purification_done:
-                    for pur_round in range(self._purif_rounds):
-                        if pur_round == 0: #First round
-                            #trigger all sources in the path
-                            self.signal_sources(index=[1,2])
-                            #Wait for qubits in both links and corrections in both
-                            yield (self.await_port_input(self._portleft_1)) & \
-                            (self.await_signal(self.subprotocols[f"CorrectProtocol_{self._path['request']}_1"], Signals.SUCCESS)) &\
-                            (self.await_port_input(self._portleft_2)) & \
-                            (self.await_signal(self.subprotocols[f"CorrectProtocol_{self._path['request']}_2"], Signals.SUCCESS))
-                        else: #we keep the qubit in the first link and trigger EPRs in the second
-                            #trigger all sources in the path
-                            self.signal_sources(index=[2])
-                            #Wait for qubits in both links and corrections in both
-                            yield (self.await_port_input(self._portleft_2)) & \
-                            (self.await_signal(self.subprotocols[f"CorrectProtocol_{self._path['request']}_2"], Signals.SUCCESS))
-                        
-                        #trigger putification
+                    for i in range(self._purif_rounds):
+                        #trigger all sources in the path
+                        self.signal_sources(index=[1,2])
+                        #Wait for qubits in both links and corrections in both
+                        yield (self.await_port_input(self._portleft_1)) & \
+                        (self.await_signal(self.subprotocols[f"CorrectProtocol_{self._path['request']}_1"], Signals.SUCCESS)) &\
+                        (self.await_port_input(self._portleft_2)) & \
+                        (self.await_signal(self.subprotocols[f"CorrectProtocol_{self._path['request']}_2"], Signals.SUCCESS))
+
+                        #TODO: Disparar purificación
                         self.send_signal(Signals.WAITING, 0)
 
                         #wait for both ends to finish purification
@@ -181,24 +192,24 @@ class PathFidelityProtocol(LocalProtocol):
                             purification_done = True
                         else:
                             #self.start_subprotocols()
-                            purification_done = False
-                            break        
+                            purification_done = False        
 
-            #measure fidelity and send metrics to datacollector
-            qa, = self._networkmanager.network.get_node(self._path['nodes'][0]).qmemory.pop(positions=[self._mem_posA_1])
-            qb, = self._networkmanager.network.get_node(self._path['nodes'][-1]).qmemory.pop(positions=[self._mem_posB_1])
-            fid = qapi.fidelity([qa, qb], ks.b00, squared=True)
-            result = {
-                'posA': self._mem_posA_1,
-                'posB': self._mem_posB_1,
-                'pairsA': 0,
-                'pairsB': 0,
-                'fid': fid,
-                'time': sim_time() - start_time
-            }
+
                 
-            self.send_signal(Signals.SUCCESS, result)
-            
+                qa, = self._networkmanager.network.get_node(self._path['nodes'][0]).qmemory.pop(positions=[self._mem_posA_1])
+                qb, = self._networkmanager.network.get_node(self._path['nodes'][-1]).qmemory.pop(positions=[self._mem_posB_1])
+                fid = qapi.fidelity([qa, qb], ks.b00, squared=True)
+                result = {
+                        'posA': self._mem_posA_1,
+                        'posB': self._mem_posB_1,
+                        'pairsA': 0,
+                        'pairsB': 0,
+                        'fid': fid,
+                        'time': sim_time() - start_time
+                }
+                
+                self.send_signal(Signals.SUCCESS, result)
+
 class SwapProtocol(NodeProtocol):
     """Perform Swap on a repeater node.
     Adapted from NetSquid web examples
@@ -237,8 +248,10 @@ class SwapProtocol(NodeProtocol):
                 yield self.await_program(self.node.qmemory)
             yield self.node.qmemory.execute_program(self._program, qubit_mapping=[self._mem_right, self._mem_left])
             m, = self._program.output["m"]
+            #ic(f'{self.name}: Mido {m}')
             # Send result to right node on end
             self.node.ports[f"ccon_R_{self.node.name}_{self._request}_{self._index}"].tx_output(Message(m))
+            #ic(f'{self.name}: Envío mensage {m}')
 
 class SwapCorrectProgram(QuantumProgram):
     """Quantum processor program that applies all swap corrections."""
@@ -370,7 +383,7 @@ class Distil(NodeProtocol):
                 source_protocol = expr.second_term.atomic_source
                 ready_signal = source_protocol.get_signal_by_event(
                     event=expr.second_term.triggered_events[0], receiver=self)
-
+                #ic(f"{self.name} {ready_signal}")
                 #yield from self._handle_new_qubit(ready_signal.result)
                 yield from self._handle_new_qubit(0)
                 yield from self._handle_new_qubit(1)
@@ -414,6 +427,7 @@ class Distil(NodeProtocol):
             self.local_qcount += 1
             self.local_meas_result = None
             self._waiting_on_second_qubit = True
+            #ic(f"{self.name} He procesado primer qubit")
 
     def _node_do_DEJMPS(self):
         # Perform DEJMPS distillation protocol locally on one node
