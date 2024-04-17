@@ -141,7 +141,8 @@ class PathFidelityProtocol(LocalProtocol):
                 self.signal_sources(index=[1])
                 yield (self.await_port_input(self._portleft_1)) & \
                     (self.await_signal(self.subprotocols[f"CorrectProtocol_{self._path['request']}_1"], Signals.SUCCESS))
-               
+                purification_done = True
+
             else: #we have to perform purification
                 purification_done = False
                 while not purification_done:
@@ -182,22 +183,22 @@ class PathFidelityProtocol(LocalProtocol):
                         else:
                             #self.start_subprotocols()
                             purification_done = False
-                            break        
-
-            #measure fidelity and send metrics to datacollector
-            qa, = self._networkmanager.network.get_node(self._path['nodes'][0]).qmemory.pop(positions=[self._mem_posA_1])
-            qb, = self._networkmanager.network.get_node(self._path['nodes'][-1]).qmemory.pop(positions=[self._mem_posB_1])
-            fid = qapi.fidelity([qa, qb], ks.b00, squared=True)
-            result = {
-                'posA': self._mem_posA_1,
-                'posB': self._mem_posB_1,
-                'pairsA': 0,
-                'pairsB': 0,
-                'fid': fid,
-                'time': sim_time() - start_time
-            }
-                
-            self.send_signal(Signals.SUCCESS, result)
+                            break 
+            if purification_done:
+                #measure fidelity and send metrics to datacollector
+                qa, = self._networkmanager.network.get_node(self._path['nodes'][0]).qmemory.pop(positions=[self._mem_posA_1])
+                qb, = self._networkmanager.network.get_node(self._path['nodes'][-1]).qmemory.pop(positions=[self._mem_posB_1])
+                fid = qapi.fidelity([qa, qb], ks.b00, squared=True)
+                result = {
+                    'posA': self._mem_posA_1,
+                    'posB': self._mem_posB_1,
+                    'pairsA': 0,
+                    'pairsB': 0,
+                    'fid': fid,
+                    'time': sim_time() - start_time
+                }
+                    
+                self.send_signal(Signals.SUCCESS, result)
             
 class SwapProtocol(NodeProtocol):
     """Perform Swap on a repeater node.

@@ -67,7 +67,7 @@ links:
       end1: switch2
       end2: node4
       distance: 20
-      source_fidelity_sq: 0.9
+      source_fidelity_sq: 0.8
       source_delay: 10
       photon_speed_fibre: 200e3     
   - nodeswitch5:
@@ -81,7 +81,7 @@ links:
       end1: switch3
       end2: node6
       distance: 20
-      source_fidelity_sq: 0.9
+      source_fidelity_sq: 0.7
       source_delay: 10
       photon_speed_fibre: 200e3   
   - interswitch1:
@@ -129,6 +129,6 @@ requests:
       origin: node5
       destination: node6
       minfidelity: 0.99
-      maxtime: 800000 # nanoseconds
+      maxtime: 300000 # nanoseconds
       teleport: [(1,0),(0,1)] #Lista de (alpha, beta). alpha|0> + beta|1> Estados a teleportar
        

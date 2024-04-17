@@ -36,8 +36,7 @@ class NetworkManager():
         self._validate_file()
         self._create_network()
         self._measure_link_fidelity()
-        self._create_graph()
-        #self._temporal_red() #Temporal mientras no está implementada la etapa 1 de cálculo de rutas
+        self._calculate_paths()
 
     def get_info_report(self):
         '''
@@ -154,95 +153,6 @@ class NetworkManager():
         self._available_links[link_name]['avail'] += 1
         self._available_links[link_name]['occupied'].remove(int(index))
 
-                
-
-    def _temporal_red(self):
-        '''
-        Se utiliza para crear rutas mientas no esté implementada la fase 1
-        '''
-        self._paths = [{
-            'request': 'request1',
-            'nodes': ['node1','switch1','switch2','node3'],
-            'comms': [
-                    {'links': ['nodeswitch1-0'], 'source': 'switch1'},
-                    {'links': ['interwitch1-0'], 'source': 'switch1'},
-                    {'links': ['nodeswitch3-0'], 'source': 'switch2'}],
-        'purif_rounds': 0
-        },
-        {
-            'request': 'request2',
-            'nodes': ['node2','switch1','switch3','switch2','node4'],
-            'comms': [
-                    {'links': ['nodeswitch2-0','nodeswitch2-1'], 'source': 'switch1'},
-                    {'links': ['interwitch2-0','interwitch2-1'], 'source': 'switch1'},
-                    {'links': ['interwitch3-0','interwitch3-1'], 'source': 'switch2'},
-                    {'links': ['nodeswitch4-0','nodeswitch4-1'], 'source': 'switch2'}],
-            'purif_rounds': 2
-        }]
-        node1 = self.network.get_node('node1')
-        node2 = self.network.get_node('node2')
-        node3 = self.network.get_node('node3')
-        node4 = self.network.get_node('node4')
-        switch1 = self.network.get_node('switch1')
-        switch2 = self.network.get_node('switch2')
-        switch3 = self.network.get_node('switch3')
-        # Conexiones clásicas path1. No tiene Distil
-        conns = [('ccon_R_node1_request1_1','ccon_L_switch1_request1_1'),
-                 ('ccon_R_switch1_request1_1','ccon_L_switch2_request1_1'),
-                 ('ccon_R_switch2_request1_1','ccon_L_node3_request1_1')]
-        for con in conns:
-            cconn = ClassicalConnection(name=f"ccon_{con[0].split('_')[2]}_{con[1].split('_')[2]}_{con[0].split('_')[3]}_1", length=5)
-            node_origin = self.network.get_node(con[0].split('_')[2])
-            node_dest = self.network.get_node(con[1].split('_')[2])
-            port_name, port_r_name = self.network.add_connection(
-                node_origin, node_dest, connection=cconn, label="classical",
-                port_name_node1=con[0], port_name_node2=con[1])
-        # Forward cconn to right most node
-        switch1.ports['ccon_L_switch1_request1_1'].bind_input_handler(
-            lambda message, _node=switch1: _node.ports["ccon_R_switch1_request1_1"].tx_output(message))
-        switch2.ports['ccon_L_switch2_request1_1'].bind_input_handler(
-            lambda message, _node=switch1: _node.ports["ccon_R_switch2_request1_1"].tx_output(message))
-        
-        # Conexiones clásicas path2. Tiene Distil
-        conns = [('ccon_R_node2_request2_1','ccon_L_switch1_request2_1'),
-                 ('ccon_R_node2_request2_2','ccon_L_switch1_request2_2'),
-                 ('ccon_R_switch1_request2_1','ccon_L_switch3_request2_1'),
-                 ('ccon_R_switch1_request2_2','ccon_L_switch3_request2_2'),
-                 ('ccon_R_switch3_request2_1','ccon_L_switch2_request2_1'),
-                 ('ccon_R_switch3_request2_2','ccon_L_switch2_request2_2'),
-                 ('ccon_R_switch2_request2_1','ccon_L_node4_request2_1'),
-                 ('ccon_R_switch2_request2_2','ccon_L_node4_request2_2')]
-        for con in conns:
-            cconn = ClassicalConnection(name=f"ccon_{con[0].split('_')[2]}_{con[1].split('_')[2]}_{con[0].split('_')[3]}_{con[0].split('_')[4]}", length=5)
-            node_origin = self.network.get_node(con[0].split('_')[2])
-            node_dest = self.network.get_node(con[1].split('_')[2])
-            port_name, port_r_name = self.network.add_connection(
-                node_origin, node_dest, connection=cconn, label=f"ccon_{con[0].split('_')[2]}_{con[1].split('_')[2]}_{con[0].split('_')[3]}_{con[0].split('_')[4]}",
-                port_name_node1=con[0], port_name_node2=con[1])
-        # Forward cconn to right most node
-        switch1.ports['ccon_L_switch1_request2_1'].bind_input_handler(
-            lambda message, _node=switch1: _node.ports["ccon_R_switch1_request2_1"].tx_output(message))
-        switch1.ports['ccon_L_switch1_request2_2'].bind_input_handler(
-            lambda message, _node=switch1: _node.ports["ccon_R_switch1_request2_2"].tx_output(message))
-        switch3.ports['ccon_L_switch3_request2_1'].bind_input_handler(
-            lambda message, _node=switch3: _node.ports["ccon_R_switch3_request2_1"].tx_output(message))
-        switch3.ports['ccon_L_switch3_request2_2'].bind_input_handler(
-            lambda message, _node=switch3: _node.ports["ccon_R_switch3_request2_2"].tx_output(message))
-        switch2.ports['ccon_L_switch2_request2_1'].bind_input_handler(
-            lambda message, _node=switch2: _node.ports["ccon_R_switch2_request2_1"].tx_output(message))
-        switch2.ports['ccon_L_switch2_request2_2'].bind_input_handler(
-            lambda message, _node=switch2: _node.ports["ccon_R_switch2_request2_2"].tx_output(message))
-        # Conexión para el Distil
-        conn_distil = DirectConnection("Distil_Node2Node4",
-            ClassicalChannel("ccon_distil_node1_request2", length=5,
-                                models={"delay_model": FibreDelayModel(c=200e3)}),
-            ClassicalChannel("ccon_distil_node2_request2", length=5,
-                                models={"delay_model": FibreDelayModel(c=200e3)}))
-        self.network.add_connection(node2, node4, connection=conn_distil,
-                                    port_name_node1="ccon_distil_node1_request2", port_name_node2="ccon_distil_node2_request2")
-
-
-
     def _validate_file(self):
         '''
         Performs validations on the provided configuration file
@@ -250,7 +160,6 @@ class NetworkManager():
         Output: -
         '''
         #ic(self._config)
-        pass #TODO
         #TODO: realiza validaciones del contenido del fichero 
         '''
         -Por ejemplo, que no haya repetición en los nombres
@@ -403,7 +312,36 @@ class NetworkManager():
         dc.collect_on(pydynaa.EventExpression(source = protocol, event_type=Signals.SUCCESS.value))
         return(dc)
     
-    def _create_graph(self):
+    def _release_path_resources(self, path):
+        '''
+        Removes classical connections used by a path and releases quantum links for that path
+        Input:
+            - path: dict. Path dictionary describing calculated path from origin to destination
+        '''
+        for nodepos in range(len(path['nodes'])-1):
+            nodeA = self.network.get_node(path['nodes'][nodepos])
+            nodeB = self.network.get_node(path['nodes'][nodepos+1])
+            #Delete classical connections
+            for i in [1,2]:
+                conn = self.network.get_connection(nodeA, nodeB,f"cconn_{nodeA.name}_{nodeB.name}_{path['request']}_{i}")
+                self.network.remove_connection(conn)
+                #Unable to delete ports. Will remain unconnected
+                #TODO: Check how to delete ports
+                #nodeA.ports[f"ccon_R_{nodeA.name}_{request_name}_{i}"].remove()
+                #nodeB.ports[f"ccon_L_{nodeB.name}_{request_name}_{i}"].remove()
+        #remove classical purification connection
+        connA = self.network.get_connection(self.network.get_node(path['nodes'][0]), 
+                self.network.get_node(path['nodes'][-1]),
+                f"cconn_distil_{path['nodes'][0]}_{path['nodes'][-1]}_{path['request']}")
+        #Even though classical is bidirectional, only one has to be deleted
+        self.network.remove_connection(connA)
+
+        #release quantum channels used by this path
+        for link in path['comms']:
+            for link_instance in link['links']:
+                self.release_link(link_instance.split('-')[0],link_instance.split('-')[1])       
+
+    def _calculate_paths(self):
         first = 1
         for request in self._config['requests']:
             request_name = list(request.keys())[0]
@@ -442,7 +380,7 @@ class NetworkManager():
                                 else shortest_path[nodepos+1]
                     path['comms'].append({'links': [link[0] + '-' + str(link[1])], 'source': source})
 
-                    #Create classical connection. We create channels even if urification is needed
+                    #Create classical connection. We create channels even if purification is not needed
                     for i in [1,2]:
                         cconn = ClassicalConnection(name=f"cconn_{shortest_path[nodepos]}_{shortest_path[nodepos+1]}_{request_name}_{i}", length=self.get_config('links',link[0],'distance'))
                         #TODO: Añadir FiberDelayModel a las conexiones
@@ -462,7 +400,6 @@ class NetworkManager():
                                 lambda message, _node=self.network.get_node(shortest_path[nodepos]): _node.ports[f"ccon_R_{_node.name}_{request_name}_2"].tx_output(message))
 
                 # setup classical channel for purification
-
                 conn_purif = DirectConnection(
                     f"ccon_distil_{request_name}",
                     ClassicalChannel(f"cconn_distil_{shortest_path[0]}_{shortest_path[-1]}_{request_name}", length=50),
@@ -500,29 +437,9 @@ class NetworkManager():
                             'purif_rounds': purif_rounds,
                             'fidelity': dc.dataframe["Fidelity"].mean(),
                             'time': dc.dataframe["time"].mean()})
-                        #delete previously created classical connections
-                        for nodepos in range(len(path['nodes'])-1):
-                            nodeA = self.network.get_node(path['nodes'][nodepos])
-                            nodeB = self.network.get_node(path['nodes'][nodepos+1])
-                            #Delete classical connections
-                            for i in [1,2]:
-                                conn = self.network.get_connection(nodeA, nodeB,f"cconn_{nodeA.name}_{nodeB.name}_{request_name}_{i}")
-                                self.network.remove_connection(conn)
-                                #Unable to delete ports. Will remain unconnected
-                                #TODO: Check how to delete ports
-                                #nodeA.ports[f"ccon_R_{nodeA.name}_{request_name}_{i}"].remove()
-                                #nodeB.ports[f"ccon_L_{nodeB.name}_{request_name}_{i}"].remove()
-                        #remove classical purification connection
-                        connA = self.network.get_connection(self.network.get_node(path['nodes'][0]), 
-                                self.network.get_node(path['nodes'][-1]),
-                                f"cconn_distil_{shortest_path[0]}_{shortest_path[-1]}_{request_name}")
-                        #Even though classical is bidirectional, only one has to be deleted
-                        self.network.remove_connection(connA)
-
-                        #release quantum channels used by this path
-                        for link in path['comms']:
-                            for link_instance in link['links']:
-                                self.release_link(link_instance.split('-')[0],link_instance.split('-')[1])
+                        
+                        #release classical and quantum channels
+                        self._release_path_resources(path)
 
                         end_simul = True
                     elif dc.dataframe["Fidelity"].mean() >= request_props['minfidelity']:
@@ -550,6 +467,10 @@ class NetworkManager():
                                     break
 
                             if not available_resources:
+                                #No available resources for second link instance, must free path resources
+                                self._release_path_resources(path)
+
+                                #return no path
                                 shortest_path = 'NOPATH'
                                 self._requests_status.append({
                                     'request': request_name, 
@@ -570,8 +491,10 @@ class NetworkManager():
                                             comm['links'].append(link[0] + '-' + str(link[1]))
                                             new_comms.append(comm)
                                 path['comms'] = new_comms   
-
                                 protocol.set_purif_rounds(purif_rounds)
+
+                        else:
+                            protocol.set_purif_rounds(purif_rounds)
 
             except nx.exception.NetworkXNoPath:
                 shortest_path = 'NOPATH'
