@@ -449,7 +449,7 @@ class Distil(NodeProtocol):
         # We perform local DEJMPS
         yield self.node.qmemory.execute_program(self._program, [pos1, pos2])  # If instruction not instant
         self.local_meas_result = self._program.output["m"][0]
-        self._qmem_positions[1] = None
+        self._qmem_positions[self._mem_pos2] = None
         # Send local results to the remote node to allow it to check for success.
         self.port.tx_output(Message([self.local_qcount, self.local_meas_result],
                                     header=self.header))
