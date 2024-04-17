@@ -460,6 +460,7 @@ class Distil(NodeProtocol):
                 self.local_meas_result is not None and
                 self.remote_meas_result is not None):
             if self.local_meas_result == self.remote_meas_result:
+                #SUCCESS
                 #self.send_signal(Signals.SUCCESS, self._qmem_positions[0])
                 #self.send_signal(Signals.SUCCESS, 0)
                 self.send_signal(self._result_signal, 0)
