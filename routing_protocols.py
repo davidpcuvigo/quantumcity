@@ -65,10 +65,17 @@ class PathFidelityProtocol(LocalProtocol):
             mem_pos_right = networkmanager.get_mem_position(node,link_right.split('-')[0],link_right.split('-')[1])
             subprotocol = SwapProtocol(node=networkmanager.network.get_node(node), mem_left=mem_pos_left, mem_right=mem_pos_right, name=f"Swap_{node}_{path['request']}_1", request = path['request'])
             self.add_subprotocol(subprotocol)
-        #last_link = path['comms'][-1]['links'][0]
+
         mempos= networkmanager.get_mem_position(path['nodes'][-1],last_link.split('-')[0],last_link.split('-')[1])
         subprotocol = CorrectProtocol(networkmanager.network.get_node(path['nodes'][-1]), mempos, len(path['nodes']), f"CorrectProtocol_{path['request']}_1", path['request'])
         self.add_subprotocol(subprotocol)
+
+        # add purification signals
+        #Distil protocol will send 0 if purification successful or 1 if failed
+        self._purif_result_signal = 'PURIF_DONE'
+        self.add_signal(self._purif_result_signal)
+        self._start_purif_signal = 'START_PURIFICATION'
+        self.add_signal(self._start_purif_signal)
 
     def signal_sources(self,index=[1]):
         '''
@@ -123,13 +130,15 @@ class PathFidelityProtocol(LocalProtocol):
        
         nodeA = self._networkmanager.network.get_node(self._path['nodes'][0])
         nodeB = self._networkmanager.network.get_node(self._path['nodes'][-1])
-        #TODO: Check if it makes sense to create new signal
-        start_expression = self.await_signal(self, Signals.WAITING)
+ 
+        #Distil will wait for START_PURIFICATION signal
+        #start_expression = self.await_signal(self, Signals.WAITING)
+        start_expression = self.await_signal(self, self._start_purif_signal)
         if purif_proto == 'distil':
             self.add_subprotocol(Distil(nodeA, nodeA.ports[f"ccon_distil_{nodeA.name}_{self._path['request']}"],
-            'A',start_expression, msg_header='distil', name=f"DistilProtocol_{nodeA.name}_{self._path['request']}"))
+            'A',self._mem_posA_1,self._mem_posA_2,start_expression, msg_header='distil', name=f"DistilProtocol_{nodeA.name}_{self._path['request']}"))
             self.add_subprotocol(Distil(nodeB, nodeB.ports[f"ccon_distil_{nodeB.name}_{self._path['request']}"],
-            'B',start_expression, msg_header='distil',name=f"DistilProtocol_{nodeB.name}_{self._path['request']}"))
+            'B',self._mem_posB_1,self._mem_posB_2,start_expression, msg_header='distil',name=f"DistilProtocol_{nodeB.name}_{self._path['request']}"))
 
     def run(self):
         self.start_subprotocols()
@@ -162,12 +171,16 @@ class PathFidelityProtocol(LocalProtocol):
                             yield (self.await_port_input(self._portleft_2)) & \
                             (self.await_signal(self.subprotocols[f"CorrectProtocol_{self._path['request']}_2"], Signals.SUCCESS))
                         
-                        #trigger putification
-                        self.send_signal(Signals.WAITING, 0)
+                        #trigger purification
+                        #self.send_signal(Signals.WAITING, 0)
+                        self.send_signal(self._start_purif_signal, 0)
 
                         #wait for both ends to finish purification
-                        expr = yield (self.await_signal(self.subprotocols[f"DistilProtocol_{self._path['nodes'][0]}_{self._path['request']}"], Signals.SUCCESS) &
-                            self.await_signal(self.subprotocols[f"DistilProtocol_{self._path['nodes'][-1]}_{self._path['request']}"], Signals.SUCCESS))
+                        #expr = yield (self.await_signal(self.subprotocols[f"DistilProtocol_{self._path['nodes'][0]}_{self._path['request']}"], Signals.SUCCESS) &
+                        #    self.await_signal(self.subprotocols[f"DistilProtocol_{self._path['nodes'][-1]}_{self._path['request']}"], Signals.SUCCESS))
+
+                        expr = yield (self.await_signal(self.subprotocols[f"DistilProtocol_{self._path['nodes'][0]}_{self._path['request']}"], self._purif_result_signal) &
+                            self.await_signal(self.subprotocols[f"DistilProtocol_{self._path['nodes'][-1]}_{self._path['request']}"], self._purif_result_signal))
 
                         source_protocol1 = expr.second_term.atomic_source
                         ready_signal1 = source_protocol1.get_signal_by_event(
@@ -184,6 +197,7 @@ class PathFidelityProtocol(LocalProtocol):
                             #self.start_subprotocols()
                             purification_done = False
                             break 
+
             if purification_done:
                 #measure fidelity and send metrics to datacollector
                 qa, = self._networkmanager.network.get_node(self._path['nodes'][0]).qmemory.pop(positions=[self._mem_posA_1])
@@ -317,13 +331,14 @@ class Distil(NodeProtocol):
 
     This is done in combination with another node.
     Adapted from available example by NetSquid
-
+    Even though in actual implementation memory positions in end nodes are always 0 and 1,
+    we get those positions in order to reuse it in a future development
     """
     # set basis change operators for local DEJMPS step
     _INSTR_Rx = IGate("Rx_gate", ops.create_rotation_op(np.pi / 2, (1, 0, 0)))
     _INSTR_RxC = IGate("RxC_gate", ops.create_rotation_op(np.pi / 2, (1, 0, 0), conjugate=True))
 
-    def __init__(self, node, port, role, start_expression=None, msg_header="distil", name=None):
+    def __init__(self, node, port, role, mem_pos1, mem_pos2, start_expression=None, msg_header="distil", name=None):
         if role.upper() not in ["A", "B"]:
             raise ValueError
         conj_rotation = role.upper() == "B"
@@ -332,7 +347,7 @@ class Distil(NodeProtocol):
         name = name if name else "DistilNode({}, {})".format(node.name, port.name)
         super().__init__(node, name=name)
         self.port = port
-        # TODO rename this expression to 'qubit input'
+
         self.start_expression = start_expression
         self._program = self._setup_dejmp_program(conj_rotation)
         #self.INSTR_ROT = self._INSTR_Rx if not conj_rotation else self._INSTR_RxC
@@ -343,8 +358,17 @@ class Distil(NodeProtocol):
         self.header = msg_header
         self._qmem_positions = [None, None]
         self._waiting_on_second_qubit = False
+        self._mem_pos1 = mem_pos1
+        self._mem_pos2 = mem_pos2
         if start_expression is not None and not isinstance(start_expression, EventExpression):
             raise TypeError("Start expression should be a {}, not a {}".format(EventExpression, type(start_expression)))
+
+        #Define new signal that will be used to inform routing protocol of purification result
+        self._result_signal = 'PURIF_DONE'
+        self.add_signal(self._result_signal)
+        #Define new signal that triggers distil protocol
+        self._start_purif_signal = 'START_PURIFICATION'
+        self.add_signal(self._start_purif_signal)
 
     def _setup_dejmp_program(self, conj_rotation):
         INSTR_ROT = self._INSTR_Rx if not conj_rotation else self._INSTR_RxC
@@ -358,23 +382,24 @@ class Distil(NodeProtocol):
 
     def run(self):
         cchannel_ready = self.await_port_input(self.port)
-        qmemory_ready = self.start_expression
+        qswap_ready = self.start_expression
         while True:
-            # self.send_signal(Signals.WAITING)
-            expr = yield cchannel_ready | qmemory_ready
-            # self.send_signal(Signals.BUSY)
+
+            expr = yield cchannel_ready | qswap_ready
+
             if expr.first_term.value:
                 classical_message = self.port.rx_input(header=self.header)
                 if classical_message:
                     self.remote_qcount, self.remote_meas_result = classical_message.items
             elif expr.second_term.value:
                 source_protocol = expr.second_term.atomic_source
+                # nothing to be done with value of signal, but we keep it in case is needed in the future
                 ready_signal = source_protocol.get_signal_by_event(
                     event=expr.second_term.triggered_events[0], receiver=self)
 
                 #yield from self._handle_new_qubit(ready_signal.result)
-                yield from self._handle_new_qubit(0)
-                yield from self._handle_new_qubit(1)
+                yield from self._handle_new_qubit(self._mem_pos1)
+                yield from self._handle_new_qubit(self._mem_pos2)
             self._check_success()
 
     def start(self):
@@ -398,8 +423,8 @@ class Distil(NodeProtocol):
         assert not self.node.qmemory.get_position_empty(memory_position)
         if self._waiting_on_second_qubit:
             # Second qubit arrived: perform distil
-            assert not self.node.qmemory.get_position_empty(self._qmem_positions[0])
-            assert memory_position != self._qmem_positions[0]
+            assert not self.node.qmemory.get_position_empty(self._qmem_positions[self._mem_pos1])
+            assert memory_position != self._qmem_positions[self._mem_pos1]
             self._qmem_positions[1] = memory_position
             self._waiting_on_second_qubit = False
             yield from self._node_do_DEJMPS()
@@ -410,8 +435,8 @@ class Distil(NodeProtocol):
             if len(pop_positions) > 0:
                 self.node.qmemory.pop(positions=pop_positions)
             # Set new position:
-            self._qmem_positions[0] = memory_position
-            self._qmem_positions[1] = None
+            self._qmem_positions[self._mem_pos1] = memory_position
+            self._qmem_positions[self._mem_pos2] = None
             self.local_qcount += 1
             self.local_meas_result = None
             self._waiting_on_second_qubit = True
@@ -435,15 +460,16 @@ class Distil(NodeProtocol):
                 self.local_meas_result is not None and
                 self.remote_meas_result is not None):
             if self.local_meas_result == self.remote_meas_result:
-                #TODO: Mejor que usar una señal de SUCCESS, utilizar un nueva propia
-                # SUCCESS
                 #self.send_signal(Signals.SUCCESS, self._qmem_positions[0])
-                self.send_signal(Signals.SUCCESS, 0)
+                #self.send_signal(Signals.SUCCESS, 0)
+                self.send_signal(self._result_signal, 0)
             else:
                 # FAILURE
                 self._clear_qmem_positions()
                 #self.send_signal(Signals.FAIL, self.local_qcount)
-                self.send_signal(Signals.SUCCESS, 1)
+                #self.send_signal(Signals.SUCCESS, 1)
+                self.send_signal(self._result_signal, 1)
+
             self.local_meas_result = None
             self.remote_meas_result = None
             self._qmem_positions = [None, None]

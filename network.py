@@ -294,12 +294,6 @@ class NetworkManager():
             #Record an execution
             protocol = evexpr.triggered_events[-1].source
             result = protocol.get_signal_result(Signals.SUCCESS)
-
-            # Get statistics
-            #JUAN: En el ejemplo del purification la posición de memoria la devuelve el protocolo
-            #qa, = nodeA.qmemory.pop(positions=[result["posA"]])
-            #qb, = nodeB.qmemory.pop(positions=[result["posB"]])
-            #fid = qapi.fidelity([qa, qb], ks.b00, squared=True)
             
             return {
                 'Fidelity': result['fid'],
@@ -400,13 +394,18 @@ class NetworkManager():
                                 lambda message, _node=self.network.get_node(shortest_path[nodepos]): _node.ports[f"ccon_R_{_node.name}_{request_name}_2"].tx_output(message))
 
                 # setup classical channel for purification
+                #calculate distance from first to last node
+                total_distance = 0
+                for comm in path['comms']:
+                    link_distance = self.get_config('links',comm['links'][0].split('-')[0],'distance')
+                    total_distance += link_distance
+
                 conn_purif = DirectConnection(
                     f"ccon_distil_{request_name}",
-                    ClassicalChannel(f"cconn_distil_{shortest_path[0]}_{shortest_path[-1]}_{request_name}", length=50),
-                    ClassicalChannel(f"cconn_distil_{shortest_path[-1]}_{shortest_path[0]}_{request_name}", length=50)
+                    ClassicalChannel(f"cconn_distil_{shortest_path[0]}_{shortest_path[-1]}_{request_name}", length=total_distance),
+                    ClassicalChannel(f"cconn_distil_{shortest_path[-1]}_{shortest_path[0]}_{request_name}", length=total_distance)
                 )
-                
-                #TODO: Calcular la distancia total entre los nodos inicial y final, ahora la pongo fija
+
                 #TODO: Add FibreDelayModel to classical channels
                 self.network.add_connection(self.network.get_node(shortest_path[0]), 
                                            self.network.get_node(shortest_path[-1]), connection=conn_purif,
@@ -427,7 +426,8 @@ class NetworkManager():
                     #        .format(dc.dataframe["Fidelity"].mean(),dc.dataframe["time"].mean()))
                     protocol.stop()
                     
-                    ic(f"{path['request']} fid: {dc.dataframe['Fidelity'].mean()} time: {dc.dataframe['time'].mean()}")
+                    #ic(f"{path['request']} fid: {dc.dataframe['Fidelity'].mean()} time: {dc.dataframe['time'].mean()}")
+                    print(f"Request {request_name} purification rounds {purif_rounds} fidelity {dc.dataframe['Fidelity'].mean()}/{request_props['minfidelity']} in {dc.dataframe['time'].mean()}/{request_props['maxtime']} nanoseconds")
                     if dc.dataframe["time"].mean() > request_props['maxtime']:
                         #request cannot be fulfilled. Mark as rejected and continue
                         self._requests_status.append({
@@ -506,12 +506,6 @@ class NetworkManager():
                             'fidelity': 0,
                             'time': 0})
 
-
-        ic(self._requests_status)
-        ic(self._available_links)
-        ic(self._link_fidelities)
-        ic(self._memory_assignment)
-
     def _create_qprocessor(self,name,num_memories):
         """Factory to create a quantum processor for each node.
 
@@ -528,7 +522,7 @@ class NetworkManager():
             A quantum processor to specification.
 
         """
-
+        #TODO: Definir completamente las instrucciones y modelos
         qproc = QuantumProcessor(name, num_positions=num_memories, fallback_to_nonphysical=True)
         return qproc
 
