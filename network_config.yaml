@@ -1,3 +1,5 @@
+#Simulation configuration file
+
 name: Red de pruebas
 path_fidel_rounds: 100 #Number of measures to perform when estimating E2E path fidelity
 nodes:
@@ -48,12 +50,16 @@ links:
       distance: 10
       source_fidelity_sq: 1
       source_delay: 10
-      photon_speed_fibre: 200e3
+      photon_speed_fibre: 100e3
+      classical_delay_model: FibreDelayModel
+      #classical_delay_model: GaussianDelayModel
+      #gaussian_delay_mean: 1.5
+      #gaussian_delay_std: 1.0
   - nodeswitch2:
       end1: node2
       end2: switch1
       distance: 20
-      source_fidelity_sq: 0.85
+      source_fidelity_sq: 0.9
       source_delay: 10
       photon_speed_fibre: 200e3
   - nodeswitch3:
@@ -93,6 +99,7 @@ links:
       source_fidelity_sq: 0.90
       source_delay: 10
       photon_speed_fibre: 200e3
+      classical_delay_model: FibreDelayModel
   - interswitch2:
       end1: switch1
       end2: switch3
@@ -123,7 +130,7 @@ requests:
       origin: node2
       destination: node4
       minfidelity: 0.99
-      maxtime: 850000 # nanoseconds
+      maxtime: 2000000 # nanoseconds
       teleport: [(1,0),(0,1)] #Lista de (alpha, beta). alpha|0> + beta|1> Estados a teleportar
   - request3: #name of request
       origin: node6

@@ -6,7 +6,7 @@ import numpy as np
 from netsquid.qubits import ketstates as ks
 from icecream import ic
 from netsquid.components import Message, QuantumProgram
-from netsquid.components.instructions import INSTR_MEASURE_BELL, INSTR_MEASURE, INSTR_X, INSTR_Z, INSTR_SWAP, INSTR_CNOT, IGate
+from netsquid.components.instructions import INSTR_MEASURE_BELL, INSTR_MEASURE, INSTR_X, INSTR_Z, INSTR_CNOT, IGate
 from netsquid.util.simtools import sim_time
 from netsquid.qubits import qubitapi as qapi
 from netsquid.nodes.node import Node, Port

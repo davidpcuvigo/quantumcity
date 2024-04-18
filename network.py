@@ -12,7 +12,7 @@ from netsquid.components import Message, QuantumProcessor, QuantumProgram, Physi
 from netsquid.examples.teleportation import ClassicalConnection
 from netsquid.qubits.state_sampler import StateSampler
 from netsquid.components.qsource import QSource, SourceStatus
-from netsquid.components.models.delaymodels import FixedDelayModel, FibreDelayModel
+from netsquid.components.models.delaymodels import FixedDelayModel, FibreDelayModel, GaussianDelayModel
 from netsquid.components.models import DepolarNoiseModel
 from netsquid.components import ClassicalChannel, QuantumChannel
 from netsquid.nodes.connections import DirectConnection
@@ -20,6 +20,8 @@ from routing_protocols import LinkFidelityProtocol, PathFidelityProtocol, SwapPr
 from netsquid.qubits import ketstates as ks
 from netsquid.qubits import qubitapi as qapi
 from netsquid.protocols import LocalProtocol, Signals
+from netsquid.components.instructions import INSTR_MEASURE_BELL, INSTR_MEASURE, INSTR_X, INSTR_Z,  INSTR_CNOT, IGate
+import netsquid.qubits.operators as ops
 
 class NetworkManager():
 
@@ -61,12 +63,19 @@ class NetworkManager():
             raise ValueError('Unsupported mode')
         else:
             elements = self._config[mode] 
+            found = False
             for element in elements:
                 if list(element.keys())[0] == name:
-                    if property:  
-                        return(list(element.values())[0][property])
+                    if property:
+                        try:  
+                            return(list(element.values())[0][property])
+                        except:
+                            return('NOT_FOUND')
                     else:
                         return(list(element.values())[0])
+            
+            #name not found
+            return('NOT_FOUND')
 
     def get_mem_position(self, node, link, serial):
         '''
@@ -233,6 +242,7 @@ class NetworkManager():
                         models={"emission_delay_model": FixedDelayModel(delay=float(props['source_delay']))})
                 qsource_origin.add_subcomponent(source)
                 # Setup Quantum Channels
+                #TODO: Modificar modelo de ruido al que haya en el fichero de configuración
                 qchannel = QuantumChannel(f"qchannel_{qsource_origin.name}_{qsource_dest.name}_{link_name}_{index_qsource}", 
                         length = props['distance'],
                         models={"quantum_loss_model": None, "delay_model": FibreDelayModel(c=float(props['photon_speed_fibre']))})
@@ -367,17 +377,33 @@ class NetworkManager():
                     'purif_rounds': purif_rounds,
                     'comms': []}
                 for nodepos in range(len(shortest_path)-1):
+                    #get link connecting nodes
                     link = self.get_link(shortest_path[nodepos],shortest_path[nodepos+1],next_index=True)
+                    #determine which of the 2 nodes connected by the link is the source
                     source = shortest_path[nodepos] \
                         if f"qsource_{shortest_path[nodepos]}_{link[0]}_{link[1]}" \
                             in (dict(self.network.get_node(shortest_path[nodepos]).subcomponents)).keys() \
                                 else shortest_path[nodepos+1]
+                    #add quantum link to path
                     path['comms'].append({'links': [link[0] + '-' + str(link[1])], 'source': source})
+
+                    #Get classical channel delay model
+                    classical_delay_model = None
+                    fibre_delay_model = self.get_config('links',link[0], 'classical_delay_model')
+                    if fibre_delay_model == 'NOT_FOUND' or fibre_delay_model == 'FibreDelayModel':
+                        classical_delay_model = FibreDelayModel(c=float(self.get_config('links',link[0],'photon_speed_fibre')))
+                    elif fibre_delay_model == 'GaussianDelayModel':
+                        classical_delay_model = GaussianDelayModel(delay_mean=float(self.get_config('links',link[0],'gaussian_delay_mean')),
+                                                                        delay_std = float(self.get_config('links',link[0],'gaussian_delay_std')))
+                    else: # In case oter, we assume FibreDelayModel
+                        classical_delay_model = FibreDelayModel(c=float(self.get_config('links',link[0],'photon_speed_fibre')))
 
                     #Create classical connection. We create channels even if purification is not needed
                     for i in [1,2]:
-                        cconn = ClassicalConnection(name=f"cconn_{shortest_path[nodepos]}_{shortest_path[nodepos+1]}_{request_name}_{i}", length=self.get_config('links',link[0],'distance'))
-                        #TODO: Añadir FiberDelayModel a las conexiones
+                        cconn = ClassicalConnection(name=f"cconn_{shortest_path[nodepos]}_{shortest_path[nodepos+1]}_{request_name}_{i}", 
+                                                    length=self.get_config('links',link[0],'distance'))
+                        cconn.subcomponents['Channel_A2B'].models['delay_model'] = classical_delay_model
+
                         port_name, port_r_name = self.network.add_connection(
                             self.network.get_node(shortest_path[nodepos]), 
                             self.network.get_node(shortest_path[nodepos+1]), 
@@ -396,17 +422,23 @@ class NetworkManager():
                 # setup classical channel for purification
                 #calculate distance from first to last node
                 total_distance = 0
+                average_photon_speed = 0
                 for comm in path['comms']:
                     link_distance = self.get_config('links',comm['links'][0].split('-')[0],'distance')
+                    link_photon_speed = float(self.get_config('links',comm['links'][0].split('-')[0],'photon_speed_fibre'))
                     total_distance += link_distance
+                    average_photon_speed += link_photon_speed
+                average_photon_speed = average_photon_speed / len(path['comms'])
 
                 conn_purif = DirectConnection(
                     f"ccon_distil_{request_name}",
-                    ClassicalChannel(f"cconn_distil_{shortest_path[0]}_{shortest_path[-1]}_{request_name}", length=total_distance),
-                    ClassicalChannel(f"cconn_distil_{shortest_path[-1]}_{shortest_path[0]}_{request_name}", length=total_distance)
+                    ClassicalChannel(f"cconn_distil_{shortest_path[0]}_{shortest_path[-1]}_{request_name}", 
+                                     length=total_distance,
+                                     models={'delay_model': FibreDelayModel(c=average_photon_speed)}),
+                    ClassicalChannel(f"cconn_distil_{shortest_path[-1]}_{shortest_path[0]}_{request_name}", 
+                                     length=total_distance,
+                                     models={'delay_model': FibreDelayModel(c=average_photon_speed)})
                 )
-
-                #TODO: Add FibreDelayModel to classical channels
                 self.network.add_connection(self.network.get_node(shortest_path[0]), 
                                            self.network.get_node(shortest_path[-1]), connection=conn_purif,
                                            label=f"cconn_distil_{shortest_path[0]}_{shortest_path[-1]}_{request_name}",
@@ -523,7 +555,33 @@ class NetworkManager():
 
         """
         #TODO: Definir completamente las instrucciones y modelos
-        qproc = QuantumProcessor(name, num_positions=num_memories, fallback_to_nonphysical=True)
+        _INSTR_Rx = IGate("Rx_gate", ops.create_rotation_op(np.pi / 2, (1, 0, 0)))
+        _INSTR_RxC = IGate("RxC_gate", ops.create_rotation_op(np.pi / 2, (1, 0, 0), conjugate=True))
+
+        #depolar_rate = cfg['depolar_rate']
+        #dephase_rate = cfg['dephase_rate']
+        #gate_duration = cfg['gate_duration']
+        #gate_noise_model = DephaseNoiseModel(dephase_rate)
+        #mem_noise_model = DepolarNoiseModel(depolar_rate)
+        gate_duration=10000
+        physical_instructions = [
+            PhysicalInstruction(INSTR_X, duration=gate_duration,
+                                #q_noise_model=gate_noise_model
+                                ),
+            PhysicalInstruction(INSTR_Z, duration=gate_duration,
+                                #q_noise_model=gate_noise_model
+                                ),
+            PhysicalInstruction(INSTR_MEASURE_BELL, duration=gate_duration),
+            PhysicalInstruction(INSTR_MEASURE, duration=gate_duration),
+            PhysicalInstruction(INSTR_CNOT, duration=gate_duration),
+            PhysicalInstruction(_INSTR_Rx, duration=gate_duration),
+            PhysicalInstruction(_INSTR_RxC, duration=gate_duration)
+        ]
+
+        qproc = QuantumProcessor(name, 
+                                 num_positions=num_memories, 
+                                 phys_instructions = physical_instructions,
+                                 fallback_to_nonphysical=False)
         return qproc
 
 
