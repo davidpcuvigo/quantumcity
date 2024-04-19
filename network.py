@@ -13,13 +13,13 @@ from netsquid.examples.teleportation import ClassicalConnection
 from netsquid.qubits.state_sampler import StateSampler
 from netsquid.components.qsource import QSource, SourceStatus
 from netsquid.components.models.delaymodels import FixedDelayModel, FibreDelayModel, GaussianDelayModel
-from netsquid.components.models import DepolarNoiseModel
+from netsquid.components.models.qerrormodels import DepolarNoiseModel, DephaseNoiseModel, T1T2NoiseModel
 from netsquid.components import ClassicalChannel, QuantumChannel
 from netsquid.nodes.connections import DirectConnection
-from routing_protocols import LinkFidelityProtocol, PathFidelityProtocol, SwapProtocol, CorrectProtocol
+from routing_protocols import LinkFidelityProtocol, PathFidelityProtocol
 from netsquid.qubits import ketstates as ks
 from netsquid.qubits import qubitapi as qapi
-from netsquid.protocols import LocalProtocol, Signals
+from netsquid.protocols import Signals
 from netsquid.components.instructions import INSTR_MEASURE_BELL, INSTR_MEASURE, INSTR_X, INSTR_Z,  INSTR_CNOT, IGate
 import netsquid.qubits.operators as ops
 
@@ -201,11 +201,11 @@ class NetworkManager():
             name = list(node.keys())[0]
             props = list(node.values())[0]
             if props['type'] == 'switch':
-                switch = Node(name, qmemory=self._create_qprocessor(f"qproc_{name}",props['num_memories']))
+                switch = Node(name, qmemory=self._create_qprocessor(f"qproc_{name}",props['num_memories'], nodename=node))
                 switches.append(switch)
             elif props['type'] == 'endNode':
                 props['num_memories'] = 4 #In an end node we always have 4 memories
-                endnode = Node(name, qmemory=self._create_qprocessor(f"qproc_{name}",props['num_memories']))
+                endnode = Node(name, qmemory=self._create_qprocessor(f"qproc_{name}",props['num_memories'], nodename = name))
                 end_nodes.append(endnode)
             else:
                 raise ValueError('Undefined network element found')
@@ -446,9 +446,12 @@ class NetworkManager():
                                            port_name_node2=f"ccon_distil_{shortest_path[-1]}_{request_name}")
                 end_simul = False
 
-
+                #get measurements to do for average fidelity
+                fidel_rounds = request_props['path_fidel_rounds'] \
+                    if 'path_fidel_rounds' in request_props.keys() else self._config['path_fidel_rounds']
+ 
                 #Initially no purification
-                protocol = PathFidelityProtocol(self,path,self._config['path_fidel_rounds'], purif_rounds) #We measure E2E fidelity accordingly to config file times
+                protocol = PathFidelityProtocol(self,path,fidel_rounds, purif_rounds) #We measure E2E fidelity accordingly to config file times
                 
                 while end_simul == False:
                     dc = self.dc_setup(protocol, self.network.get_node(path['nodes'][0]), self.network.get_node(path['nodes'][-1]))
@@ -466,6 +469,7 @@ class NetworkManager():
                             'request': request_name, 
                             'shortest_path': shortest_path,
                             'result': 'rejected', 
+                            'reason': 'cannot fulfill time',
                             'purif_rounds': purif_rounds,
                             'fidelity': dc.dataframe["Fidelity"].mean(),
                             'time': dc.dataframe["time"].mean()})
@@ -480,6 +484,7 @@ class NetworkManager():
                             'request': request_name, 
                             'shortest_path': shortest_path,
                             'result': 'accepted', 
+                            'reason': '-',
                             'purif_rounds': purif_rounds,
                             'fidelity': dc.dataframe["Fidelity"].mean(),
                             'time': dc.dataframe["time"].mean()})
@@ -507,7 +512,8 @@ class NetworkManager():
                                 self._requests_status.append({
                                     'request': request_name, 
                                     'shortest_path': shortest_path,
-                                    'result': 'no resources available', 
+                                    'result': 'rejected', 
+                                    'reason': 'no available resources',
                                     'purif_rounds': 'na',
                                     'fidelity': 0,
                                     'time': 0})
@@ -533,51 +539,82 @@ class NetworkManager():
                 self._requests_status.append({
                             'request': request_name, 
                             'shortest_path': shortest_path,
-                            'result': 'no resources available', 
-                            'purif_rounds': 'na',
+                            'result': 'rejected', 
+                            'reason': 'no available resources',
+                            'purif_rounds': '-',
                             'fidelity': 0,
                             'time': 0})
 
-    def _create_qprocessor(self,name,num_memories):
-        """Factory to create a quantum processor for each node.
+    def _create_qprocessor(self,name,num_memories,nodename):
+        '''
+        Factory to create a quantum processor for each node.
 
         In an end node it has 4 memory positions. In a swich 2xnum_links.
+        Adapted from available example in NetSquid website
 
-        Parameters
-        ----------
-        name : str
-            Name of the quantum processor.
+        Input:
+            - name: name of quantum processor
+            - nodename: name of node where it is placed
 
-        Returns
-        -------
-        :class:`~netsquid.components.qprocessor.QuantumProcessor`
-            A quantum processor to specification.
+        Output:
+            - instance of QuantumProcessor
 
-        """
-        #TODO: Definir completamente las instrucciones y modelos
+        '''
+        #TODO: Definir modelos de ruido en memoria
         _INSTR_Rx = IGate("Rx_gate", ops.create_rotation_op(np.pi / 2, (1, 0, 0)))
         _INSTR_RxC = IGate("RxC_gate", ops.create_rotation_op(np.pi / 2, (1, 0, 0), conjugate=True))
 
-        #depolar_rate = cfg['depolar_rate']
-        #dephase_rate = cfg['dephase_rate']
-        #gate_duration = cfg['gate_duration']
-        #gate_noise_model = DephaseNoiseModel(dephase_rate)
-        #mem_noise_model = DepolarNoiseModel(depolar_rate)
-        gate_duration=10000
+        #get gate durations from configuration
+        gate_duration = self.get_config('nodes',nodename,'gate_duration') \
+            if self.get_config('nodes',nodename,'gate_duration') != 'NOT_FOUND' else 0
+        gate_duration_X = self.get_config('nodes',nodename,'gate_duration_X') \
+            if self.get_config('nodes',nodename,'gate_duration_X') != 'NOT_FOUND' else gate_duration
+        gate_duration_Z = self.get_config('nodes',nodename,'gate_duration_Z') \
+            if self.get_config('nodes',nodename,'gate_duration_Z') != 'NOT_FOUND' else gate_duration
+        gate_duration_CX = self.get_config('nodes',nodename,'gate_duration_CX') \
+            if self.get_config('nodes',nodename,'gate_duration_CX') != 'NOT_FOUND' else gate_duration
+        gate_duration_rotations = self.get_config('nodes',nodename,'gate_duration_rotations') \
+            if self.get_config('nodes',nodename,'gate_duration_rotations') != 'NOT_FOUND' else gate_duration
+        measurements_duration = self.get_config('nodes',nodename,'measurements_duration') \
+            if self.get_config('nodes',nodename,'measurements_duration') != 'NOT_FOUND' else gate_duration
+        
+        #get gate noise model
+        if self.get_config('nodes',nodename,'gate_noise_model') == 'DephaseNoiseModel':
+            gate_noise_model = DephaseNoiseModel(float(self.get_config('nodes',nodename,'dephase_gate_rate')))
+        elif self.get_config('nodes',nodename,'gate_noise_model') == 'DepolarNoiseModel':
+            gate_noise_model = DepolarNoiseModel(float(self.get_config('nodes',nodename,'depolar_gate_rate')))
+        elif self.get_config('nodes',nodename,'gate_noise_model') == 'T1T2NoiseModel':
+            gate_noise_model = T1T2NoiseModel(T1=float(self.get_config('nodes',nodename,'t1_gate_time')),
+                                              T2=float(self.get_config('nodes',nodename,'t2_gate_time')))
+        else:
+            gate_noise_model = None
+            
+        #define available instructions   
         physical_instructions = [
-            PhysicalInstruction(INSTR_X, duration=gate_duration,
-                                #q_noise_model=gate_noise_model
+            PhysicalInstruction(INSTR_X, duration=gate_duration_X,
+                                quantum_noise_model=gate_noise_model
                                 ),
-            PhysicalInstruction(INSTR_Z, duration=gate_duration,
-                                #q_noise_model=gate_noise_model
+            PhysicalInstruction(INSTR_Z, duration=gate_duration_Z,
+                                quantum_noise_model=gate_noise_model
                                 ),
-            PhysicalInstruction(INSTR_MEASURE_BELL, duration=gate_duration),
-            PhysicalInstruction(INSTR_MEASURE, duration=gate_duration),
-            PhysicalInstruction(INSTR_CNOT, duration=gate_duration),
-            PhysicalInstruction(_INSTR_Rx, duration=gate_duration),
-            PhysicalInstruction(_INSTR_RxC, duration=gate_duration)
+            PhysicalInstruction(INSTR_MEASURE_BELL, 
+                                duration=measurements_duration,
+                                quantum_noise_model=gate_noise_model),
+            PhysicalInstruction(INSTR_MEASURE, 
+                                duration=measurements_duration,
+                                quantum_noise_model=gate_noise_model),
+            PhysicalInstruction(INSTR_CNOT, 
+                                duration=gate_duration_CX,
+                                quantum_noise_model=gate_noise_model),
+            PhysicalInstruction(_INSTR_Rx, 
+                                duration=gate_duration_rotations,
+                                quantum_noise_model=gate_noise_model),
+            PhysicalInstruction(_INSTR_RxC, 
+                                duration=gate_duration_rotations,
+                                quantum_noise_model=gate_noise_model)
         ]
 
+        #build quantum processor
         qproc = QuantumProcessor(name, 
                                  num_positions=num_memories, 
                                  phys_instructions = physical_instructions,

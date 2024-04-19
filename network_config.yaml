@@ -8,6 +8,13 @@ nodes:
       mem_noise_model: PEND
       num_memories: 12
       gate_duration: 1
+      gate_duration_X: 1
+      gate_duration_Z: 1
+      gate_duration_CX: 1
+      gate_duration_rotations: 1
+      measurements_duration: 1
+      gate_noise_model: DephaseNoiseModel
+      dephase_gate_rate: 200
   - switch2:
       type: switch
       mem_noise_model: PEND
@@ -21,7 +28,10 @@ nodes:
   - node1: #name of endNode
       type: endNode
       mem_noise_model: PEND2
-      gate_duration: 3
+      gate_duration: 1
+      gate_duration_X: 10
+      gate_noise_model: DepolarNoiseModel
+      depolar_gate_rate: 200
   - node2:
       type: endNode
       mem_noise_model: PEND3
@@ -52,9 +62,6 @@ links:
       source_delay: 10
       photon_speed_fibre: 100e3
       classical_delay_model: FibreDelayModel
-      #classical_delay_model: GaussianDelayModel
-      #gaussian_delay_mean: 1.5
-      #gaussian_delay_std: 1.0
   - nodeswitch2:
       end1: node2
       end2: switch1
@@ -121,21 +128,24 @@ links:
 
 requests:
   - request1: #name of request
-      origin: node1
-      destination: node3
+      origin: node3
+      destination: node1
       minfidelity: 0.90
       maxtime: 160000 # nanoseconds
+      path_fidel_rounds: 100
       teleport: [(1,0),(0,1)] #Lista de (alpha, beta). alpha|0> + beta|1> Estados a teleportar
   - request2: #name of request
       origin: node2
       destination: node4
       minfidelity: 0.99
       maxtime: 2000000 # nanoseconds
+      path_fidel_rounds: 100
       teleport: [(1,0),(0,1)] #Lista de (alpha, beta). alpha|0> + beta|1> Estados a teleportar
   - request3: #name of request
       origin: node6
       destination: node5
       minfidelity: 0.95
       maxtime: 500000 # nanoseconds
+      path_fidel_rounds: 100
       teleport: [(1,0),(0,1)] #Lista de (alpha, beta). alpha|0> + beta|1> Estados a teleportar
        
