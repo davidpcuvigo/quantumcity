@@ -201,11 +201,11 @@ class NetworkManager():
             name = list(node.keys())[0]
             props = list(node.values())[0]
             if props['type'] == 'switch':
-                switch = Node(name, qmemory=self._create_qprocessor(f"qproc_{name}",props['num_memories'], nodename=node))
+                switch = Node(name, qmemory=self._create_qprocessor(f"qproc_{name}",props['num_memories'], nodename=name))
                 switches.append(switch)
             elif props['type'] == 'endNode':
                 props['num_memories'] = 4 #In an end node we always have 4 memories
-                endnode = Node(name, qmemory=self._create_qprocessor(f"qproc_{name}",props['num_memories'], nodename = name))
+                endnode = Node(name, qmemory=self._create_qprocessor(f"qproc_{name}",props['num_memories'], nodename=name))
                 end_nodes.append(endnode)
             else:
                 raise ValueError('Undefined network element found')
@@ -267,8 +267,10 @@ class NetworkManager():
         Performs a simulation in order to estimate fidelity of each link.
         All links between the same two elements are supossed to have the same fidelity, so only one of them
         is measured in the simulation.
-        Input: - will work with self._config
-        Output: - will store links with fidelities in self._link_fidelities
+        Input: 
+            - will work with self._config
+        Output: 
+            - will store links with fidelities in self._link_fidelities
         '''
         fidelity_values = []
         for link in self._config['links']:
@@ -577,7 +579,7 @@ class NetworkManager():
             if self.get_config('nodes',nodename,'gate_duration_rotations') != 'NOT_FOUND' else gate_duration
         measurements_duration = self.get_config('nodes',nodename,'measurements_duration') \
             if self.get_config('nodes',nodename,'measurements_duration') != 'NOT_FOUND' else gate_duration
-        
+
         #get gate noise model
         if self.get_config('nodes',nodename,'gate_noise_model') == 'DephaseNoiseModel':
             gate_noise_model = DephaseNoiseModel(float(self.get_config('nodes',nodename,'dephase_gate_rate')))
@@ -588,7 +590,18 @@ class NetworkManager():
                                               T2=float(self.get_config('nodes',nodename,'t2_gate_time')))
         else:
             gate_noise_model = None
-            
+
+        #set memories noise model
+        if self.get_config('nodes',nodename,'mem_noise_model') == 'DephaseNoiseModel':
+            mem_noise_model = DephaseNoiseModel(float(self.get_config('nodes',nodename,'dephase_mem_rate')))
+        elif self.get_config('nodes',nodename,'mem_noise_model') == 'DepolarNoiseModel':
+            mem_noise_model = DepolarNoiseModel(float(self.get_config('nodes',nodename,'depolar_mem_rate')))
+        elif self.get_config('nodes',nodename,'mem_noise_model') == 'T1T2NoiseModel':
+            mem_noise_model = T1T2NoiseModel(T1=float(self.get_config('nodes',nodename,'t1_mem_time')),
+                                              T2=float(self.get_config('nodes',nodename,'t2_mem_time')))
+        else:
+            mem_noise_model = None
+
         #define available instructions   
         physical_instructions = [
             PhysicalInstruction(INSTR_X, duration=gate_duration_X,
@@ -618,7 +631,8 @@ class NetworkManager():
         qproc = QuantumProcessor(name, 
                                  num_positions=num_memories, 
                                  phys_instructions = physical_instructions,
-                                 fallback_to_nonphysical=False)
+                                 fallback_to_nonphysical=False,
+                                 mem_moise_models=[mem_noise_model] * num_memories)
         return qproc
 
 

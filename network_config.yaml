@@ -5,7 +5,6 @@ path_fidel_rounds: 100 #Number of measures to perform when estimating E2E path f
 nodes:
   - switch1: #name of switch
       type: switch
-      mem_noise_model: PEND
       num_memories: 12
       gate_duration: 1
       gate_duration_X: 1
@@ -15,6 +14,9 @@ nodes:
       measurements_duration: 1
       gate_noise_model: DephaseNoiseModel
       dephase_gate_rate: 200
+      mem_noise_model: T1T2NoiseModel
+      t1_mem_time: 1e10
+      t2_mem_time: 1e10
   - switch2:
       type: switch
       mem_noise_model: PEND

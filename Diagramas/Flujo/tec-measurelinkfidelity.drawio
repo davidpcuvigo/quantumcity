@@ -1,0 +1,62 @@
+<mxfile host="Electron" modified="2024-04-20T09:41:19.548Z" agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/24.2.5 Chrome/120.0.6099.109 Electron/28.1.0 Safari/537.36" etag="CPbZaGzjRkHJVkCD4ETm" version="24.2.5" type="device">
+  <diagram name="Página-1" id="isHOVhp9C8InLuPmGPI8">
+    <mxGraphModel dx="810" dy="454" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="IRplxMALOLHGgbjs9mdU-24" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="IRplxMALOLHGgbjs9mdU-1" target="IRplxMALOLHGgbjs9mdU-2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="IRplxMALOLHGgbjs9mdU-1" value="Llamada a método de medición de fidelidades" style="ellipse;whiteSpace=wrap;html=1;fillColor=#f5f5f5;fontColor=#333333;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="110" y="70" width="140" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="IRplxMALOLHGgbjs9mdU-23" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="IRplxMALOLHGgbjs9mdU-2" target="IRplxMALOLHGgbjs9mdU-4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="IRplxMALOLHGgbjs9mdU-2" value="Leer propiedades del enlace" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="110" y="160" width="140" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="IRplxMALOLHGgbjs9mdU-10" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="IRplxMALOLHGgbjs9mdU-4" target="IRplxMALOLHGgbjs9mdU-5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="IRplxMALOLHGgbjs9mdU-4" value="Añadir protocolo de medición de fidelidad" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="110" y="230" width="140" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="IRplxMALOLHGgbjs9mdU-11" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="IRplxMALOLHGgbjs9mdU-5" target="IRplxMALOLHGgbjs9mdU-6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="IRplxMALOLHGgbjs9mdU-5" value="Ejecutar simulación de red" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="110" y="300" width="140" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="IRplxMALOLHGgbjs9mdU-25" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="IRplxMALOLHGgbjs9mdU-6" target="IRplxMALOLHGgbjs9mdU-22">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="IRplxMALOLHGgbjs9mdU-6" value="Almacenar fidelidad enlace" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="110" y="370" width="140" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="IRplxMALOLHGgbjs9mdU-13" value="Fidelidades de enlaces calculadas" style="ellipse;whiteSpace=wrap;html=1;fillColor=#f5f5f5;fontColor=#333333;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="510" y="360" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="IRplxMALOLHGgbjs9mdU-26" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="IRplxMALOLHGgbjs9mdU-22" target="IRplxMALOLHGgbjs9mdU-13">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="IRplxMALOLHGgbjs9mdU-29" value="&lt;font style=&quot;font-size: 12px;&quot;&gt;NO&lt;/font&gt;" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="IRplxMALOLHGgbjs9mdU-26">
+          <mxGeometry x="-0.2444" y="2" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="IRplxMALOLHGgbjs9mdU-27" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="IRplxMALOLHGgbjs9mdU-22" target="IRplxMALOLHGgbjs9mdU-2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="IRplxMALOLHGgbjs9mdU-28" value="&lt;font style=&quot;font-size: 12px;&quot;&gt;SI&lt;/font&gt;" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="IRplxMALOLHGgbjs9mdU-27">
+          <mxGeometry x="-0.36" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="IRplxMALOLHGgbjs9mdU-22" value="&amp;nbsp; &amp;nbsp; &amp;nbsp; Hay más enlaces&amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;div&gt;a&amp;nbsp; medir?&lt;/div&gt;" style="rhombus;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="290" y="350" width="130" height="80" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
