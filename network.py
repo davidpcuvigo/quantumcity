@@ -13,7 +13,7 @@ from netsquid.examples.teleportation import ClassicalConnection
 from netsquid.qubits.state_sampler import StateSampler
 from netsquid.components.qsource import QSource, SourceStatus
 from netsquid.components.models.delaymodels import FixedDelayModel, FibreDelayModel, GaussianDelayModel
-from netsquid.components.models.qerrormodels import DepolarNoiseModel, DephaseNoiseModel, T1T2NoiseModel
+from netsquid.components.models.qerrormodels import DepolarNoiseModel, DephaseNoiseModel, T1T2NoiseModel, QuantumErrorModel, FibreLossModel
 from netsquid.components import ClassicalChannel, QuantumChannel
 from netsquid.nodes.connections import DirectConnection
 from routing_protocols import LinkFidelityProtocol, PathFidelityProtocol
@@ -242,10 +242,27 @@ class NetworkManager():
                         models={"emission_delay_model": FixedDelayModel(delay=float(props['source_delay']))})
                 qsource_origin.add_subcomponent(source)
                 # Setup Quantum Channels
-                #TODO: Modificar modelo de ruido al que haya en el fichero de configuración
+                #get channel noise model from config
+                #TODO: Define other noise models for qchannel. All these models apply for a quantum channel?
+                if self.get_config('links',link_name,'quantum_noise_model') == 'FibreDepolarizeModel':
+                    qchannel_noise_model = FibreDepolarizeModel(p_depol_init=float(self.get_config('links',link_name,'p_depol_init')),
+                                                                p_depol_length=float(self.get_config('links',link_name,'p_depol_length')))
+                elif self.get_config('links',link_name,'quantum_noise_model') == 'DephaseNoiseModel':
+                    qchannel_noise_model = DephaseNoiseModel(float(self.get_config('links',link_name,'dephase_qchannel_rate')))
+                elif self.get_config('links',link_name,'quantum_noise_model') == 'DepolarNoiseModel':
+                    qchannel_noise_model = DepolarNoiseModel(float(self.get_config('links',link_name,'depolar_qchannel_rate')))
+                elif self.get_config('links',link_name,'quantum_noise_model') == 'FibreLossModel':
+                    qchannel_noise_model = FibreLossModel(p_loss_init=float(self.get_config('links',link_name,'p_loss_init')),
+                                                           p_loss_length=float(self.get_config('links',link_name,'p_loss_length')))
+                elif self.get_config('links',link_name,'quantum_noise_model') == 'T1T2NoiseModel':
+                    qchannel_noise_model = T1T2NoiseModel(T1=float(self.get_config('links',link_name,'t1_qchannel_time')),
+                                              T2=float(self.get_config('links',link_name,'t2_qchannel_time')))
+                else:
+                    qchannel_noise_model = None
+
                 qchannel = QuantumChannel(f"qchannel_{qsource_origin.name}_{qsource_dest.name}_{link_name}_{index_qsource}", 
                         length = props['distance'],
-                        models={"quantum_loss_model": None, "delay_model": FibreDelayModel(c=float(props['photon_speed_fibre']))})
+                        models={"quantum_loss_model": qchannel_noise_model, "delay_model": FibreDelayModel(c=float(props['photon_speed_fibre']))})
                 port_name_a, port_name_b = self.network.add_connection(
                         qsource_origin, qsource_dest, channel_to=qchannel, 
                         label=f"qconn_{qsource_origin.name}_{qsource_dest.name}_{link_name}_{index_qsource}")
@@ -636,4 +653,42 @@ class NetworkManager():
         return qproc
 
 
+class FibreDepolarizeModel(QuantumErrorModel):
+    """Custom non-physical error model used to show the effectiveness
+    of repeater chains.
 
+    The default values are chosen to make a nice figure,
+    and don't represent any physical system.
+
+    Parameters
+    ----------
+    p_depol_init : float, optional
+        Probability of depolarization on entering a fibre.
+        Must be between 0 and 1. Default 0.009
+    p_depol_length : float, optional
+        Probability of depolarization per km of fibre.
+        Must be between 0 and 1. Default 0.025
+
+    """
+    def __init__(self, p_depol_init=0.09, p_depol_length=0.025):
+        super().__init__()
+        self.properties['p_depol_init'] = p_depol_init
+        self.properties['p_depol_length'] = p_depol_length
+        self.required_properties = ['length']
+
+    def error_operation(self, qubits, delta_time=0, **kwargs):
+        """Uses the length property to calculate a depolarization probability,
+        and applies it to the qubits.
+
+        Parameters
+        ----------
+        qubits : tuple of :obj:`~netsquid.qubits.qubit.Qubit`
+            Qubits to apply noise to.
+        delta_time : float, optional
+            Time qubits have spent on a component [ns]. Not used.
+
+        """
+        for qubit in qubits:
+            prob = 1 - (1 - self.properties['p_depol_init']) * np.power(
+                10, - kwargs['length']**2 * self.properties['p_depol_length'] / 10)
+            ns.qubits.depolarize(qubit, prob=prob)

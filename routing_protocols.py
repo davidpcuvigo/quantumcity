@@ -144,6 +144,7 @@ class PathFidelityProtocol(LocalProtocol):
         self.start_subprotocols()
 
         for i in range(self._num_runs):
+            #ic(f"{self.name} Ronda {i}")
             start_time = sim_time()
             if self._purif_rounds == 0:
                 #trigger all sources in the path
