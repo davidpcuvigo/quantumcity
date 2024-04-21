@@ -165,8 +165,10 @@ class PathFidelityProtocol(LocalProtocol):
                 evexpr_timer = EventExpression(source=self, event_type=self._evtypetimer)
                 evexpr_protocol = (self.await_port_input(self._portleft_1)) & \
                     (self.await_signal(self.subprotocols[f"CorrectProtocol_{self._path['request']}_1"], Signals.SUCCESS))
+                #if timer is triggered, qubit has been lost in a link. Else entanglement
+                # swapping has succeeded
                 evexpr = yield evexpr_timer | evexpr_protocol
-                if evexpr.second_term.value:
+                if evexpr.second_term.value: #swapping ok
                     timer_event.unschedule()
                     purification_done = True
                 else:
@@ -184,7 +186,7 @@ class PathFidelityProtocol(LocalProtocol):
                     continue
 
             else: #we have to perform purification
-                #TODO: simuar la pérdida de fotón, igual que arriba
+                #TODO: simular la pérdida de fotón, igual que arriba
                 purification_done = False
                 while not purification_done:
                     for pur_round in range(self._purif_rounds):
