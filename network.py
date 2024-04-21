@@ -480,7 +480,7 @@ class NetworkManager():
                     #        .format(dc.dataframe["Fidelity"].mean(),dc.dataframe["time"].mean()))
                     protocol.stop()
                     
-                    #ic(f"{path['request']} fid: {dc.dataframe['Fidelity'].mean()} time: {dc.dataframe['time'].mean()}")
+                    #ic(f"{path['request']} fid: {dc.dataframe['Fidelity'].mean()} time: {dc.dataframe['time'].mean()} measures: {len(dc.dataframe)}")
                     print(f"Request {request_name} purification rounds {purif_rounds} fidelity {dc.dataframe['Fidelity'].mean()}/{request_props['minfidelity']} in {dc.dataframe['time'].mean()}/{request_props['maxtime']} nanoseconds")
                     if dc.dataframe["time"].mean() > request_props['maxtime']:
                         #request cannot be fulfilled. Mark as rejected and continue

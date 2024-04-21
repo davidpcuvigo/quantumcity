@@ -11,7 +11,7 @@ from netsquid.util.simtools import sim_time
 from netsquid.qubits import qubitapi as qapi
 from netsquid.nodes.node import Node, Port
 import netsquid.qubits.operators as ops
-from pydynaa import EventExpression
+from pydynaa import EventExpression, EventType
 
 class LinkFidelityProtocol(LocalProtocol):
             
@@ -35,6 +35,7 @@ class LinkFidelityProtocol(LocalProtocol):
         trig_origin.subcomponents[f"qsource_{trig_origin.name}_{self._link}_0"].trigger()
 
         while True:
+            #TODO: Debo simular también la pérdida de Qubit, como en el PathFifelityProtocol
             yield (self.await_port_input(self._portleft) & self.await_port_input(self._portright))
             qubit_a, = self._origin.qmemory.peek([self._memory_left])
             qubit_b, = self._dest.qmemory.peek([self._memory_right])
@@ -57,6 +58,7 @@ class PathFidelityProtocol(LocalProtocol):
         self._mem_posB_1 = self._networkmanager.get_mem_position(self._path['nodes'][-1],last_link.split('-')[0],last_link.split('-')[1])
         self._portleft_1 = self._networkmanager.network.get_node(self._path['nodes'][0]).qmemory.ports[f"qin{self._mem_posA_1}"]
 
+        # preparation of entanglement swaping fron second to the last-1
         for nodepos in range(1,len(path['nodes'])-1):
             node = path['nodes'][nodepos]
             link_left = path['comms'][nodepos-1]['links'][0]
@@ -66,16 +68,26 @@ class PathFidelityProtocol(LocalProtocol):
             subprotocol = SwapProtocol(node=networkmanager.network.get_node(node), mem_left=mem_pos_left, mem_right=mem_pos_right, name=f"Swap_{node}_{path['request']}_1", request = path['request'])
             self.add_subprotocol(subprotocol)
 
+        # preparation of correcto protocol in final node
         mempos= networkmanager.get_mem_position(path['nodes'][-1],last_link.split('-')[0],last_link.split('-')[1])
         subprotocol = CorrectProtocol(networkmanager.network.get_node(path['nodes'][-1]), mempos, len(path['nodes']), f"CorrectProtocol_{path['request']}_1", path['request'])
         self.add_subprotocol(subprotocol)
 
+        # calculate total distance and delay, in order to set timer
+        self._total_delay = 0
+        for comm in path['comms']:
+            link_name = comm['links'][0].split('-')[0]
+            distance = float(networkmanager.get_config('links',link_name,'distance'))
+            photon_speed = float(networkmanager.get_config('links',link_name,'photon_speed_fibre'))
+            self._total_delay += 1e9 * distance / photon_speed
+            
         # add purification signals
         #Distil protocol will send 0 if purification successful or 1 if failed
         self._purif_result_signal = 'PURIF_DONE'
         self.add_signal(self._purif_result_signal)
         self._start_purif_signal = 'START_PURIFICATION'
         self.add_signal(self._start_purif_signal)
+        self._evtypetimer = EventType("Timer","Qubit is lost")
 
     def signal_sources(self,index=[1]):
         '''
@@ -144,16 +156,35 @@ class PathFidelityProtocol(LocalProtocol):
         self.start_subprotocols()
 
         for i in range(self._num_runs):
-            #ic(f"{self.name} Ronda {i}")
+            purification_done = False
             start_time = sim_time()
             if self._purif_rounds == 0:
                 #trigger all sources in the path
                 self.signal_sources(index=[1])
-                yield (self.await_port_input(self._portleft_1)) & \
+                timer_event = self._schedule_after(self._total_delay, self._evtypetimer)
+                evexpr_timer = EventExpression(source=self, event_type=self._evtypetimer)
+                evexpr_protocol = (self.await_port_input(self._portleft_1)) & \
                     (self.await_signal(self.subprotocols[f"CorrectProtocol_{self._path['request']}_1"], Signals.SUCCESS))
-                purification_done = True
+                evexpr = yield evexpr_timer | evexpr_protocol
+                if evexpr.second_term.value:
+                    timer_event.unschedule()
+                    purification_done = True
+                else:
+                    #qubit is lost, fidelity is 0
+                    result = {
+                        'posA': self._mem_posA_1,
+                        'posB': self._mem_posB_1,
+                        'pairsA': 0,
+                        'pairsB': 0,
+                        'fid': 0,
+                        'time': sim_time() - start_time
+                    }
+                    self.send_signal(Signals.SUCCESS, result)
+                    #go to next round
+                    continue
 
             else: #we have to perform purification
+                #TODO: simuar la pérdida de fotón, igual que arriba
                 purification_done = False
                 while not purification_done:
                     for pur_round in range(self._purif_rounds):
