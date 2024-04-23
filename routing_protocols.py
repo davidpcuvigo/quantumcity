@@ -15,10 +15,11 @@ from pydynaa import EventExpression, EventType
 
 class LinkFidelityProtocol(LocalProtocol):
             
-    def __init__(self, networkmanager, origin, dest, link, qsource_index, name=None):
+    def __init__(self, networkmanager, origin, dest, link, qsource_index, num_runs=100, name=None):
         self._origin = origin
         self._dest = dest
         self._link = link
+        self._num_runs = num_runs
         self._networkmanager = networkmanager
         self._qsource_index = qsource_index
         name = name if name else f"LinkFidelityEstimator_{origin.name}_{dest.name}"
@@ -28,19 +29,36 @@ class LinkFidelityProtocol(LocalProtocol):
         self._portright = self._dest.qmemory.ports[f"qin{self._memory_right}"]
         self.fidelities = []
         super().__init__(nodes={"A": origin, "B": dest}, name=name)
+        #Lost qubit signal
+        self._evtypetimer = EventType("Timer","Qubit is lost")
+        #time to wait until we decide the qubit is lost. To make sure we measure, we set 4 times 
+        #the expected value
+        self._delay = 4 * 1e9 * float(networkmanager.get_config('links',link,'distance'))/float(networkmanager.get_config('links',link,'photon_speed_fibre'))
 
     def run(self):
         #Signal Qsource to start. Must trigger correct source
         trig_origin = self._origin if self._networkmanager.get_config('nodes',self._origin.name,'type') == 'switch' else self._dest
         trig_origin.subcomponents[f"qsource_{trig_origin.name}_{self._link}_0"].trigger()
+        evexpr_timer = EventExpression(source=self, event_type=self._evtypetimer)
 
-        while True:
+        for i in range(self._num_runs):
             #TODO: Debo simular también la pérdida de Qubit, como en el PathFifelityProtocol
-            yield (self.await_port_input(self._portleft) & self.await_port_input(self._portright))
-            qubit_a, = self._origin.qmemory.peek([self._memory_left])
-            qubit_b, = self._dest.qmemory.peek([self._memory_right])
-            self.fidelities.append(ns.qubits.fidelity([qubit_a, qubit_b], ks.b00, squared=True))
-            #self.send_signal(Signals.SUCCESS, 0)
+            timer_event = self._schedule_after(self._delay, self._evtypetimer)
+            evexpr = yield evexpr_timer | (self.await_port_input(self._portleft) & self.await_port_input(self._portright))
+            #yield (self.await_port_input(self._portleft) & self.await_port_input(self._portright))
+            if evexpr.second_term.value: #there are qubits in both ends
+                #unschedule lost qubit timer
+                timer_event.unschedule()
+                #measure fidelity
+                qubit_a, = self._origin.qmemory.peek([self._memory_left])
+                qubit_b, = self._dest.qmemory.peek([self._memory_right])
+                self.fidelities.append(ns.qubits.fidelity([qubit_a, qubit_b], ks.b00, squared=True))
+            else:
+                #qubit is lost, we set a fidelity of 0
+                #We set a value different from 0 to avoid later log of 0
+                self.fidelities.append(1e-99)
+            
+            #trigger new fidelity measurement
             trig_origin.subcomponents[f"qsource_{trig_origin.name}_{self._link}_0"].trigger()
 
 class PathFidelityProtocol(LocalProtocol):
@@ -58,6 +76,19 @@ class PathFidelityProtocol(LocalProtocol):
         self._mem_posB_1 = self._networkmanager.get_mem_position(self._path['nodes'][-1],last_link.split('-')[0],last_link.split('-')[1])
         self._portleft_1 = self._networkmanager.network.get_node(self._path['nodes'][0]).qmemory.ports[f"qin{self._mem_posA_1}"]
 
+        # add purification signals
+        #end purification signal: Distil protocol will send 0 if purification successful or 1 if failed
+        self._purif_result_signal = 'PURIF_DONE'
+        self.add_signal(self._purif_result_signal)
+        #start purification signal
+        self._start_purif_signal = 'START_PURIFICATION'
+        self.add_signal(self._start_purif_signal)
+        #Qubit lost when qchannel model has losses
+        self._evtypetimer = EventType("Timer","Qubit is lost")
+        #add correct protocol restart signal. Needed when purification is used and one quit is lost
+        self._restart_signal = 'RESTART_CORRECT_PROTOCOL'
+        self.add_signal(self._restart_signal)
+
         # preparation of entanglement swaping fron second to the last-1
         for nodepos in range(1,len(path['nodes'])-1):
             node = path['nodes'][nodepos]
@@ -68,9 +99,10 @@ class PathFidelityProtocol(LocalProtocol):
             subprotocol = SwapProtocol(node=networkmanager.network.get_node(node), mem_left=mem_pos_left, mem_right=mem_pos_right, name=f"Swap_{node}_{path['request']}_1", request = path['request'])
             self.add_subprotocol(subprotocol)
 
-        # preparation of correcto protocol in final node
+        # preparation of correct protocol in final node
         mempos= networkmanager.get_mem_position(path['nodes'][-1],last_link.split('-')[0],last_link.split('-')[1])
-        subprotocol = CorrectProtocol(networkmanager.network.get_node(path['nodes'][-1]), mempos, len(path['nodes']), f"CorrectProtocol_{path['request']}_1", path['request'])
+        restart_expr = self.await_signal(self,self._restart_signal)
+        subprotocol = CorrectProtocol(networkmanager.network.get_node(path['nodes'][-1]), mempos, len(path['nodes']), f"CorrectProtocol_{path['request']}_1", path['request'],restart_expr)
         self.add_subprotocol(subprotocol)
 
         # calculate total distance and delay, in order to set timer
@@ -81,13 +113,6 @@ class PathFidelityProtocol(LocalProtocol):
             photon_speed = float(networkmanager.get_config('links',link_name,'photon_speed_fibre'))
             self._total_delay += 1e9 * distance / photon_speed
             
-        # add purification signals
-        #Distil protocol will send 0 if purification successful or 1 if failed
-        self._purif_result_signal = 'PURIF_DONE'
-        self.add_signal(self._purif_result_signal)
-        self._start_purif_signal = 'START_PURIFICATION'
-        self.add_signal(self._start_purif_signal)
-        self._evtypetimer = EventType("Timer","Qubit is lost")
 
     def signal_sources(self,index=[1]):
         '''
@@ -133,7 +158,8 @@ class PathFidelityProtocol(LocalProtocol):
 
         #add Classical channel for second instance of link
         mempos= self._networkmanager.get_mem_position(self._path['nodes'][-1],last_link.split('-')[0],last_link.split('-')[1])
-        subprotocol = CorrectProtocol(self._networkmanager.network.get_node(self._path['nodes'][-1]), mempos, len(self._path['nodes']), f"CorrectProtocol_{self._path['request']}_2", self._path['request'])
+        restart_expr = self.await_signal(self,self._restart_signal)
+        subprotocol = CorrectProtocol(self._networkmanager.network.get_node(self._path['nodes'][-1]), mempos, len(self._path['nodes']), f"CorrectProtocol_{self._path['request']}_2", self._path['request'],restart_expr)
         self.add_subprotocol(subprotocol)
 
         #add purification protocol
@@ -154,85 +180,105 @@ class PathFidelityProtocol(LocalProtocol):
 
     def run(self):
         self.start_subprotocols()
+        #set event type in order to detect qubit losses
+        evexpr_timer = EventExpression(source=self, event_type=self._evtypetimer)
 
         for i in range(self._num_runs):
-            purification_done = False
+            round_done = False
             start_time = sim_time()
-            if self._purif_rounds == 0:
-                #trigger all sources in the path
-                self.signal_sources(index=[1])
-                timer_event = self._schedule_after(self._total_delay, self._evtypetimer)
-                evexpr_timer = EventExpression(source=self, event_type=self._evtypetimer)
-                evexpr_protocol = (self.await_port_input(self._portleft_1)) & \
-                    (self.await_signal(self.subprotocols[f"CorrectProtocol_{self._path['request']}_1"], Signals.SUCCESS))
-                #if timer is triggered, qubit has been lost in a link. Else entanglement
-                # swapping has succeeded
-                evexpr = yield evexpr_timer | evexpr_protocol
-                if evexpr.second_term.value: #swapping ok
-                    timer_event.unschedule()
-                    purification_done = True
-                else:
-                    #qubit is lost, fidelity is 0
-                    result = {
-                        'posA': self._mem_posA_1,
-                        'posB': self._mem_posB_1,
-                        'pairsA': 0,
-                        'pairsB': 0,
-                        'fid': 0,
-                        'time': sim_time() - start_time
-                    }
-                    self.send_signal(Signals.SUCCESS, result)
-                    #go to next round
-                    continue
+            while not round_done: #need to repeat in case qubit is lost
+                if self._purif_rounds == 0:
+                    #trigger all sources in the path
+                    self.signal_sources(index=[1])
+                    timer_event = self._schedule_after(self._total_delay, self._evtypetimer)
+                    evexpr_protocol = (self.await_port_input(self._portleft_1)) & \
+                        (self.await_signal(self.subprotocols[f"CorrectProtocol_{self._path['request']}_1"], Signals.SUCCESS))
+                    #if timer is triggered, qubit has been lost in a link. Else entanglement
+                    # swapping has succeeded
+                    evexpr = yield evexpr_timer | evexpr_protocol
+                    if evexpr.second_term.value: #swapping ok
+                        timer_event.unschedule()
+                        round_done = True
+                    else:
+                        #qubit is lost, must restart
+                        #restart correction protocol
+                        self.send_signal(self._restart_signal)
+                        #repeat round
+                        continue
 
-            else: #we have to perform purification
-                #TODO: simular la pérdida de fotón, igual que arriba
-                purification_done = False
-                while not purification_done:
-                    for pur_round in range(self._purif_rounds):
-                        if pur_round == 0: #First round
-                            #trigger all sources in the path
-                            self.signal_sources(index=[1,2])
-                            #Wait for qubits in both links and corrections in both
-                            yield (self.await_port_input(self._portleft_1)) & \
-                            (self.await_signal(self.subprotocols[f"CorrectProtocol_{self._path['request']}_1"], Signals.SUCCESS)) &\
-                            (self.await_port_input(self._portleft_2)) & \
-                            (self.await_signal(self.subprotocols[f"CorrectProtocol_{self._path['request']}_2"], Signals.SUCCESS))
-                        else: #we keep the qubit in the first link and trigger EPRs in the second
-                            #trigger all sources in the path
-                            self.signal_sources(index=[2])
-                            #Wait for qubits in both links and corrections in both
-                            yield (self.await_port_input(self._portleft_2)) & \
-                            (self.await_signal(self.subprotocols[f"CorrectProtocol_{self._path['request']}_2"], Signals.SUCCESS))
-                        
-                        #trigger purification
-                        #self.send_signal(Signals.WAITING, 0)
-                        self.send_signal(self._start_purif_signal, 0)
+                else: #we have to perform purification
+                    purification_done = False
+                    while not purification_done:
+                        pur_round = 0
+                        while (pur_round <= self._purif_rounds):# and (qubit_lost == False):
+                            if pur_round == 0: #First round
+                                #trigger all sources in the path
+                                self.signal_sources(index=[1,2])
 
-                        #wait for both ends to finish purification
-                        #expr = yield (self.await_signal(self.subprotocols[f"DistilProtocol_{self._path['nodes'][0]}_{self._path['request']}"], Signals.SUCCESS) &
-                        #    self.await_signal(self.subprotocols[f"DistilProtocol_{self._path['nodes'][-1]}_{self._path['request']}"], Signals.SUCCESS))
+                                evexpr_protocol = (self.await_port_input(self._portleft_1) & \
+                                    self.await_signal(self.subprotocols[f"CorrectProtocol_{self._path['request']}_1"], Signals.SUCCESS) &\
+                                    self.await_port_input(self._portleft_2) & \
+                                    self.await_signal(self.subprotocols[f"CorrectProtocol_{self._path['request']}_2"], Signals.SUCCESS))
 
-                        expr = yield (self.await_signal(self.subprotocols[f"DistilProtocol_{self._path['nodes'][0]}_{self._path['request']}"], self._purif_result_signal) &
-                            self.await_signal(self.subprotocols[f"DistilProtocol_{self._path['nodes'][-1]}_{self._path['request']}"], self._purif_result_signal))
+                                timer_event = self._schedule_after(self._total_delay, self._evtypetimer)
 
-                        source_protocol1 = expr.second_term.atomic_source
-                        ready_signal1 = source_protocol1.get_signal_by_event(
-                            event=expr.second_term.triggered_events[0], receiver=self)
-                        source_protocol2 = expr.second_term.atomic_source
-                        ready_signal2 = source_protocol2.get_signal_by_event(
-                            event=expr.second_term.triggered_events[0], receiver=self)
-                        
-                        #if both SUCCESS signals have result 0, purification has succeeded
-                        #if any has value not equal to cero, purification must be restarted
-                        if ready_signal1.result == 0 and ready_signal2.result ==0:
-                            purification_done = True
-                        else:
-                            #self.start_subprotocols()
-                            purification_done = False
-                            break 
+                            else: #we keep the qubit in the first link and trigger EPRs in the second
+                                #trigger all sources in the path
+                                self.signal_sources(index=[2])
 
-            if purification_done:
+                                #Wait for qubits in both links and corrections in both
+                                evexpr_protocol = (self.await_port_input(self._portleft_2) & \
+                                    self.await_signal(self.subprotocols[f"CorrectProtocol_{self._path['request']}_2"], Signals.SUCCESS))
+
+                                timer_event = self._schedule_after(self._total_delay, self._evtypetimer)
+
+                            #Wait for qubits in both links and corrections in both or timer is over
+                            evexpr_proto = yield evexpr_timer | evexpr_protocol
+
+                            if evexpr_proto.second_term.value: #swapping ok
+                                #unchedule timer
+                                timer_event.unschedule()
+                                
+                                #trigger purification
+                                self.send_signal(self._start_purif_signal, 0)
+    
+                                #wait for both ends to finish purification
+                                expr_distil = yield (self.await_signal(self.subprotocols[f"DistilProtocol_{self._path['nodes'][0]}_{self._path['request']}"], self._purif_result_signal) &
+                                    self.await_signal(self.subprotocols[f"DistilProtocol_{self._path['nodes'][-1]}_{self._path['request']}"], self._purif_result_signal))
+
+                                source_protocol1 = expr_distil.second_term.atomic_source
+                                ready_signal1 = source_protocol1.get_signal_by_event(
+                                    event=expr_distil.second_term.triggered_events[0], receiver=self)
+                                source_protocol2 = expr_distil.second_term.atomic_source
+                                ready_signal2 = source_protocol2.get_signal_by_event(
+                                    event=expr_distil.second_term.triggered_events[0], receiver=self)
+                                
+                                #if both SUCCESS signals have result 0, purification has succeeded
+                                #if any has value not equal to cero, purification must be restarted
+                                if ready_signal1.result == 0 and ready_signal2.result ==0:
+                                    purification_done = True
+                                else:
+                                    #self.start_subprotocols()
+                                    #restart purification from beggining
+                                    purification_done = False
+                                    break 
+                            else: 
+                                #qubit is lost, must restart round
+                                #restart correction protocol
+                                self.send_signal(self._restart_signal)
+
+                                #restart purification from beggining
+                                purification_done = False
+                                break
+                            
+                            #so far purification protocol is ok, next purification round
+                            pur_round += 1
+
+                        #if we get to this point, we have ended the fidelity estimation round
+                        round_done = True
+
+            #round is done we measure fidelity
+            if round_done:# and purification_done:
                 #measure fidelity and send metrics to datacollector
                 qa, = self._networkmanager.network.get_node(self._path['nodes'][0]).qmemory.pop(positions=[self._mem_posA_1])
                 qb, = self._networkmanager.network.get_node(self._path['nodes'][-1]).qmemory.pop(positions=[self._mem_posB_1])
@@ -245,7 +291,7 @@ class PathFidelityProtocol(LocalProtocol):
                     'fid': fid,
                     'time': sim_time() - start_time
                 }
-                    
+                        
                 self.send_signal(Signals.SUCCESS, result)
             
 class SwapProtocol(NodeProtocol):
@@ -281,6 +327,7 @@ class SwapProtocol(NodeProtocol):
         while True:
             yield (self.await_port_input(self._qmem_input_port_l) &
                    self.await_port_input(self._qmem_input_port_r))
+    
             # Perform Bell measurement
             if self.node.qmemory.busy:
                 yield self.await_program(self.node.qmemory)
@@ -318,7 +365,7 @@ class CorrectProtocol(NodeProtocol):
         Number of nodes in the repeater chain network.
 
     """
-    def __init__(self, node, mempos, num_nodes, name, request):
+    def __init__(self, node, mempos, num_nodes, name, request,restart_expression):
         super().__init__(node, name)
         self._mempos = mempos
         self.num_nodes = num_nodes
@@ -333,29 +380,42 @@ class CorrectProtocol(NodeProtocol):
         self._program = SwapCorrectProgram()
         self._counter = 0
 
+        #Add restart signal. Needed when purification is used and one quit is lost
+        self._restart_signal = 'RESTART_CORRECT_PROTOCOL'
+        self.add_signal(self._restart_signal)
+
+        self._restart_expression = restart_expression
+
     def run(self):
         while True:
-            yield self.await_port_input(self.node.ports[f"ccon_L_{self.node.name}_{self._request}_{self._index}"])
-            message = self.node.ports[f"ccon_L_{self.node.name}_{self._request}_{self._index}"].rx_input()
+            expr = yield self.await_port_input(self.node.ports[f"ccon_L_{self.node.name}_{self._request}_{self._index}"]) |\
+                self._restart_expression
+            
+            if expr.first_term.value: #Classical correction signal
+                message = self.node.ports[f"ccon_L_{self.node.name}_{self._request}_{self._index}"].rx_input()
 
-            if message is None: #or len(message.items) != 1:
-                continue
-            else: #Port can receive more than one classical message at the same time
-                for m in message.items:
-                    #m = message.items[0]
-                    if m == ks.BellIndex.B01 or m == ks.BellIndex.B11:
-                        self._x_corr += 1
-                    if m == ks.BellIndex.B10 or m == ks.BellIndex.B11:
-                        self._z_corr += 1
-                    self._counter += 1
+                if message is None: #or len(message.items) != 1:
+                    continue
+                else: #Port can receive more than one classical message at the same time
+                    for m in message.items:
+                        #m = message.items[0]
+                        if m == ks.BellIndex.B01 or m == ks.BellIndex.B11:
+                            self._x_corr += 1
+                        if m == ks.BellIndex.B10 or m == ks.BellIndex.B11:
+                            self._z_corr += 1
+                        self._counter += 1
 
-            if self._counter == self.num_nodes - 2:
-                if self._x_corr or self._z_corr:
-                    self._program.set_corrections(self._x_corr, self._z_corr)
-                    if self.node.qmemory.busy:
-                        yield self.await_program(self.node.qmemory)
-                    yield self.node.qmemory.execute_program(self._program, qubit_mapping=[self._mempos])
-                self.send_signal(Signals.SUCCESS)
+                if self._counter == self.num_nodes - 2:
+                    if self._x_corr or self._z_corr:
+                        self._program.set_corrections(self._x_corr, self._z_corr)
+                        if self.node.qmemory.busy:
+                            yield self.await_program(self.node.qmemory)
+                        yield self.node.qmemory.execute_program(self._program, qubit_mapping=[self._mempos])
+                    self.send_signal(Signals.SUCCESS)
+                    self._x_corr = 0
+                    self._z_corr = 0
+                    self._counter = 0
+            else: #qubit is lost in one of the two links when purifying, restart correct protocol
                 self._x_corr = 0
                 self._z_corr = 0
                 self._counter = 0

@@ -104,9 +104,12 @@ links:
       end2: switch2
       distance: 5
       number_links: 4
-      #quantum_noise_model: FibreLossModel
-      p_loss_init: 0.1
-      p_loss_length: 0.1
+      quantum_noise_model: FibreLossModel
+      #quantum_noise_model: FibreDepolarizeModel
+      p_loss_init: 1
+      p_loss_length: 0.5
+      p_depol_init: 0.1
+      p_depol_length: 0.1
       source_fidelity_sq: 0.90
       source_delay: 10
       photon_speed_fibre: 200e3

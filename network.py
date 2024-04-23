@@ -295,11 +295,11 @@ class NetworkManager():
             props_link = list(link.values())[0]
             origin = self.network.get_node(props_link['end1'])
             dest = self.network.get_node(props_link['end2'])
-            protocol = LinkFidelityProtocol(self,origin,dest,link_name,0)
+            protocol = LinkFidelityProtocol(self,origin,dest,link_name,0,1000)
             protocol.start()
-            runtime = props_link['distance']*float(props_link['photon_speed_fibre'])*25
-            ns.sim_run(runtime)
-            #self._link_fidelities[list(link.keys())[0]]= [1-np.mean(protocol.fidelities),np.mean(protocol.fidelities),len(protocol.fidelities)]
+            #runtime = props_link['distance']*float(props_link['photon_speed_fibre'])*25
+            #will run 1000 times
+            ns.sim_run()
             #We want to minimize the product of the costs, not the sum. log(ab)=log(a)+log(b)
             #so we will work with logarithm
             self._link_fidelities[list(link.keys())[0]]= [-np.log(np.mean(protocol.fidelities)),np.mean(protocol.fidelities),len(protocol.fidelities)]
@@ -480,7 +480,6 @@ class NetworkManager():
                     #        .format(dc.dataframe["Fidelity"].mean(),dc.dataframe["time"].mean()))
                     protocol.stop()
                     
-                    #ic(f"{path['request']} fid: {dc.dataframe['Fidelity'].mean()} time: {dc.dataframe['time'].mean()} measures: {len(dc.dataframe)}")
                     print(f"Request {request_name} purification rounds {purif_rounds} fidelity {dc.dataframe['Fidelity'].mean()}/{request_props['minfidelity']} in {dc.dataframe['time'].mean()}/{request_props['maxtime']} nanoseconds")
                     if dc.dataframe["time"].mean() > request_props['maxtime']:
                         #request cannot be fulfilled. Mark as rejected and continue
