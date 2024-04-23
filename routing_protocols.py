@@ -388,6 +388,7 @@ class CorrectProtocol(NodeProtocol):
 
     def run(self):
         while True:
+            #Wait for a classical signal to arrive or a request from main protocol to restart
             expr = yield self.await_port_input(self.node.ports[f"ccon_L_{self.node.name}_{self._request}_{self._index}"]) |\
                 self._restart_expression
             
