@@ -1,7 +1,8 @@
 #Simulation configuration file
 
 name: Red de pruebas
-path_fidel_rounds: 100 #Number of measures to perform when estimating E2E path fidelity
+link_fidel_rounds: 1000 #Number of fidelity measures to estimate link fidelity
+path_fidel_rounds: 100 #Default number of measures to perform when estimating E2E path fidelity
 nodes:
   - switch1: #name of switch
       type: switch

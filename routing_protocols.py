@@ -23,33 +23,39 @@ class LinkFidelityProtocol(LocalProtocol):
         self._networkmanager = networkmanager
         self._qsource_index = qsource_index
         name = name if name else f"LinkFidelityEstimator_{origin.name}_{dest.name}"
+        super().__init__(nodes={"A": origin, "B": dest}, name=name)
+
+        #Get memory positions in left node and right node.
         self._memory_left = networkmanager.get_mem_position(self._origin.name, self._link, self._qsource_index)
         self._memory_right = networkmanager.get_mem_position(self._dest.name, self._link, self._qsource_index)
         self._portleft = self._origin.qmemory.ports[f"qin{self._memory_left}"]
         self._portright = self._dest.qmemory.ports[f"qin{self._memory_right}"]
+
         self.fidelities = []
-        super().__init__(nodes={"A": origin, "B": dest}, name=name)
+        
         #Lost qubit signal
         self._evtypetimer = EventType("Timer","Qubit is lost")
-        #time to wait until we decide the qubit is lost. To make sure we measure, we set 4 times 
-        #the expected value
+        #Calculate time to wait until we decide the qubit is lost.
+        #To make sure we measure, we set 4 times the expected value
         self._delay = 4 * 1e9 * float(networkmanager.get_config('links',link,'distance'))/float(networkmanager.get_config('links',link,'photon_speed_fibre'))
 
     def run(self):
         #Signal Qsource to start. Must trigger correct source
         trig_origin = self._origin if self._networkmanager.get_config('nodes',self._origin.name,'type') == 'switch' else self._dest
         trig_origin.subcomponents[f"qsource_{trig_origin.name}_{self._link}_0"].trigger()
+
         evexpr_timer = EventExpression(source=self, event_type=self._evtypetimer)
 
         for i in range(self._num_runs):
-            #TODO: Debo simular también la pérdida de Qubit, como en el PathFifelityProtocol
+            #Create timer in order to detect lost qubit
             timer_event = self._schedule_after(self._delay, self._evtypetimer)
+            #Wait for qubits to arrive at both ends or detect a lost qubit
             evexpr = yield evexpr_timer | (self.await_port_input(self._portleft) & self.await_port_input(self._portright))
-            #yield (self.await_port_input(self._portleft) & self.await_port_input(self._portright))
+            
             if evexpr.second_term.value: #there are qubits in both ends
-                #unschedule lost qubit timer
+                #Unschedule lost qubit timer
                 timer_event.unschedule()
-                #measure fidelity
+                #Measure fidelity and add it to the list
                 qubit_a, = self._origin.qmemory.peek([self._memory_left])
                 qubit_b, = self._dest.qmemory.peek([self._memory_right])
                 self.fidelities.append(ns.qubits.fidelity([qubit_a, qubit_b], ks.b00, squared=True))
@@ -96,7 +102,7 @@ class PathFidelityProtocol(LocalProtocol):
             link_right = path['comms'][nodepos]['links'][0]
             mem_pos_left = networkmanager.get_mem_position(node,link_left.split('-')[0],link_left.split('-')[1])
             mem_pos_right = networkmanager.get_mem_position(node,link_right.split('-')[0],link_right.split('-')[1])
-            subprotocol = SwapProtocol(node=networkmanager.network.get_node(node), mem_left=mem_pos_left, mem_right=mem_pos_right, name=f"Swap_{node}_{path['request']}_1", request = path['request'])
+            subprotocol = SwapProtocol(node=networkmanager.network.get_node(node), mem_left=mem_pos_left, mem_right=mem_pos_right, name=f"SwapProtocol_{node}_{path['request']}_1", request = path['request'])
             self.add_subprotocol(subprotocol)
 
         # preparation of correct protocol in final node
@@ -153,7 +159,7 @@ class PathFidelityProtocol(LocalProtocol):
             link_right = self._path['comms'][nodepos]['links'][1]
             mem_pos_left = self._networkmanager.get_mem_position(node,link_left.split('-')[0],link_left.split('-')[1])
             mem_pos_right = self._networkmanager.get_mem_position(node,link_right.split('-')[0],link_right.split('-')[1])
-            subprotocol = SwapProtocol(node=self._networkmanager.network.get_node(node), mem_left=mem_pos_left, mem_right=mem_pos_right, name=f"Swap_{node}_{self._path['request']}_2", request = self._path['request'])
+            subprotocol = SwapProtocol(node=self._networkmanager.network.get_node(node), mem_left=mem_pos_left, mem_right=mem_pos_right, name=f"SwapProtocol_{node}_{self._path['request']}_2", request = self._path['request'])
             self.add_subprotocol(subprotocol)
 
         #add Classical channel for second instance of link

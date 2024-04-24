@@ -178,6 +178,11 @@ class NetworkManager():
             en los switches: num_links x 2 + end_nodes x 2
         -Verificar que no hay links entre dos elementos de tipo endNode
         '''
+        #Verify that global mandatory parameters exist
+        if 'name' not in self._config.keys() or 'link_fidel_rounds' not in self._config.keys() \
+            or 'path_fidel_rounds' not in self._config.keys() or 'nodes' not in self._config.keys() \
+                or 'links' not in self._config.keys() or 'requests' not in self._config.keys(): 
+            raise ValueError('Invalid configuration file, check global parameters')
 
         #links cannot contain hyphens
         links = self._config['links']
@@ -295,7 +300,7 @@ class NetworkManager():
             props_link = list(link.values())[0]
             origin = self.network.get_node(props_link['end1'])
             dest = self.network.get_node(props_link['end2'])
-            protocol = LinkFidelityProtocol(self,origin,dest,link_name,0,1000)
+            protocol = LinkFidelityProtocol(self,origin,dest,link_name,0,self._config['link_fidel_rounds'])
             protocol.start()
             #runtime = props_link['distance']*float(props_link['photon_speed_fibre'])*25
             #will run 1000 times
@@ -307,7 +312,7 @@ class NetworkManager():
             ns.sim_reset()
             self._create_network() # Network must be recreated for the simulations to work
         
-    def dc_setup(self, protocol, nodeA,nodeB,posA=0,posB=0):
+    def _dc_setup(self, protocol, nodeA,nodeB,posA=0,posB=0):
         '''
         Creates a data collector in order to measure fidelity of qubits stores en nodeA and nodeB
         against a b00 bell pair
@@ -370,6 +375,7 @@ class NetworkManager():
             request_name = list(request.keys())[0]
             request_props = list(request.values())[0]
 
+            # Create network graph using available links
             self._graph = nx.Graph()
             for node in self._config['nodes']:
                 node_name = list(node.keys())[0]
@@ -396,14 +402,14 @@ class NetworkManager():
                     'purif_rounds': purif_rounds,
                     'comms': []}
                 for nodepos in range(len(shortest_path)-1):
-                    #get link connecting nodes
+                    #Get link connecting nodes
                     link = self.get_link(shortest_path[nodepos],shortest_path[nodepos+1],next_index=True)
-                    #determine which of the 2 nodes connected by the link is the source
+                    #Determine which of the 2 nodes connected by the link is the source
                     source = shortest_path[nodepos] \
                         if f"qsource_{shortest_path[nodepos]}_{link[0]}_{link[1]}" \
                             in (dict(self.network.get_node(shortest_path[nodepos]).subcomponents)).keys() \
                                 else shortest_path[nodepos+1]
-                    #add quantum link to path
+                    #Add quantum link to path
                     path['comms'].append({'links': [link[0] + '-' + str(link[1])], 'source': source})
 
                     #Get classical channel delay model
@@ -414,7 +420,7 @@ class NetworkManager():
                     elif fibre_delay_model == 'GaussianDelayModel':
                         classical_delay_model = GaussianDelayModel(delay_mean=float(self.get_config('links',link[0],'gaussian_delay_mean')),
                                                                         delay_std = float(self.get_config('links',link[0],'gaussian_delay_std')))
-                    else: # In case oter, we assume FibreDelayModel
+                    else: # In case other, we assume FibreDelayModel
                         classical_delay_model = FibreDelayModel(c=float(self.get_config('links',link[0],'photon_speed_fibre')))
 
                     #Create classical connection. We create channels even if purification is not needed
@@ -430,7 +436,7 @@ class NetworkManager():
                             port_name_node1=f"ccon_R_{shortest_path[nodepos]}_{request_name}_{i}", 
                             port_name_node2=f"ccon_L_{shortest_path[nodepos+1]}_{request_name}_{i}")
 
-                    # Forward cconn to right most node
+                    #Forward cconn to right most node
                     if f"ccon_L_{shortest_path[nodepos]}_{request_name}_1" in self.network.get_node(shortest_path[nodepos]).ports:
                         self.network.get_node(shortest_path[nodepos]).ports[f"ccon_L_{shortest_path[nodepos]}_{request_name}_1"].bind_input_handler(
                                 lambda message, _node=self.network.get_node(shortest_path[nodepos]): _node.ports[f"ccon_R_{_node.name}_{request_name}_1"].tx_output(message))
@@ -438,7 +444,7 @@ class NetworkManager():
                             self.network.get_node(shortest_path[nodepos]).ports[f"ccon_L_{shortest_path[nodepos]}_{request_name}_2"].bind_input_handler(
                                 lambda message, _node=self.network.get_node(shortest_path[nodepos]): _node.ports[f"ccon_R_{_node.name}_{request_name}_2"].tx_output(message))
 
-                # setup classical channel for purification
+                #Setup classical channel for purification
                 #calculate distance from first to last node
                 total_distance = 0
                 average_photon_speed = 0
@@ -446,8 +452,9 @@ class NetworkManager():
                     link_distance = self.get_config('links',comm['links'][0].split('-')[0],'distance')
                     link_photon_speed = float(self.get_config('links',comm['links'][0].split('-')[0],'photon_speed_fibre'))
                     total_distance += link_distance
-                    average_photon_speed += link_photon_speed
-                average_photon_speed = average_photon_speed / len(path['comms'])
+                    average_photon_speed += link_photon_speed * link_distance
+                average_photon_speed = average_photon_speed / total_distance
+
 
                 conn_purif = DirectConnection(
                     f"ccon_distil_{request_name}",
@@ -473,7 +480,7 @@ class NetworkManager():
                 protocol = PathFidelityProtocol(self,path,fidel_rounds, purif_rounds) #We measure E2E fidelity accordingly to config file times
                 
                 while end_simul == False:
-                    dc = self.dc_setup(protocol, self.network.get_node(path['nodes'][0]), self.network.get_node(path['nodes'][-1]))
+                    dc = self._dc_setup(protocol, self.network.get_node(path['nodes'][0]), self.network.get_node(path['nodes'][-1]))
                     protocol.start()
                     ns.sim_run()
                     #print("Average fidelity of generated entanglement via a repeater and with filtering: {}, with average time: {}"\
