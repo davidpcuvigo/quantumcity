@@ -184,6 +184,21 @@ class NetworkManager():
                 or 'links' not in self._config.keys() or 'requests' not in self._config.keys(): 
             raise ValueError('Invalid configuration file, check global parameters')
 
+        #Check node sintax
+        nodes = self._config['nodes']
+        nodenames = [list(node.keys())[0] for node in nodes]
+        set_names = set(nodenames)
+        if len(set_names) != len(nodenames): #there are repeated node names:
+            raise ValueError('Invalid configuration file, repeated node names')
+        for node in nodes:
+            node_props = node.values()
+            #ic(node_props[0]['type'])
+            #Only switch and endNode are allowed as node types
+            #if node['type'] not in ['switch','endNode']:
+            #    raise ValueError('Invalid configuration file, node has invalid type')
+
+
+
         #links cannot contain hyphens
         links = self._config['links']
         for link in links:
