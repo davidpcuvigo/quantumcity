@@ -23,6 +23,9 @@ nodes:
       mem_noise_model: PEND
       num_memories: 16
       gate_duration: 2
+      gate_noise_model: T1T2NoiseModel
+      t1_gate_time: 1
+      t2_gate_time: 1
   - switch3:
       type: switch
       mem_noise_model: PEND

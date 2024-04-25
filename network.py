@@ -171,7 +171,6 @@ class NetworkManager():
         #ic(self._config)
         #TODO: realiza validaciones del contenido del fichero 
         '''
-        -Por ejemplo, que no haya repetición en los nombres
         -Que no definamos más hijos clolgando de un switch que leafs se hayan definido
         -Comprobar que el número de memorias definidas en los switches es suficiente para la red definida:
             en los end_nodes siempre 4
@@ -190,19 +189,168 @@ class NetworkManager():
         set_names = set(nodenames)
         if len(set_names) != len(nodenames): #there are repeated node names:
             raise ValueError('Invalid configuration file, repeated node names')
+        
+        #Valid types
+        available_props = {'type':'string',
+                               'num_memories':'integer',
+                               'gate_duration':'integer',
+                               'gate_duration_X':'integer',
+                               'gate_duration_Z':'integer',
+                               'gate_duration_CX':'integer',
+                               'gate_duration_rotations':'integer',
+                               'measurements_duration':'integer',
+                               'gate_noise_model':'string',
+                               'dephase_gate_rate':'integer',
+                               'depolar_gate_rate':'integer',
+                               't1_gate_time':'integer',
+                               't2_gate_time':'integer',
+                               'mem_noise_model':'string',
+                               'dephase_mem_rate':'integer',
+                               'depolar_mem_rate':'integer',
+                               't1_mem_time':'float',
+                               't2_mem_time':'float'}
         for node in nodes:
-            node_props = node.values()
-            #ic(node_props[0]['type'])
-            #Only switch and endNode are allowed as node types
-            #if node['type'] not in ['switch','endNode']:
-            #    raise ValueError('Invalid configuration file, node has invalid type')
+            node_props = list(node.values())[0]
+            node_name = list(node.keys())[0]
+            
+            #Check that defined properties are valid    
+            for prop in node_props.keys():
+                #Check that property is valid
+                if prop not in available_props.keys():
+                    raise ValueError(f'Property {prop} in node {node_name} is not valid')
+                if available_props[prop] == 'integer':
+                    if not isinstance(node_props[prop],int):
+                        raise ValueError(f"node {node_name} {prop} must be of {available_props[prop]} type but is {type(prop)}")
+                    elif node_props[prop]<0:
+                        raise ValueError(f"node {node_name} {prop} cannot be negative")
+                elif available_props[prop] == 'string':
+                    if not isinstance(node_props[prop],str):
+                        raise ValueError(f"node {node_name} {prop} must be of {available_props[prop]} type but is {type(prop)}")
+                elif available_props[prop] == 'float':
+                    try:
+                        val = float(node_props[prop])
+                        if val < 0:
+                            raise ValueError(f"node {node_name} {prop} cannot be negative")
+                    except:
+                        raise ValueError(f"node {node_name} {prop} must be of {available_props[prop]} type but is {type(prop)}")
+                else:
+                    raise ValueError(f"node {node_name} incorrect type for {prop}, it is {type(prop)}")
+            
+            #Check for definition of mandatory properties
+            mandatory = ['type']
+            for prop in mandatory:
+                if prop not in node_props.keys(): 
+                    raise ValueError(f"node {node_name}: missing property {prop}")
 
+            #Only two types are allowed: switch and endNode
+            if node_props['type'] not in ['switch','endNode']:
+                raise ValueError(f'node {node_name} type can only be switch or endNode')
 
+            #If node is a switch we must define the number of  available memories
+            if node_props['type'] == 'switch' and 'num_memories' not in node_props.keys():
+                raise ValueError(f"node {node_name}: num_memories must be declared")
 
+            #If gate noise model is DephaseNoiseModel the rate must be declared
+            if 'gate_noise_model' in node_props.keys() and  \
+                node_props['gate_noise_model'] == 'DephaseNoiseModel'  \
+                and 'dephase_gate_rate' not in node_props.keys():
+                raise ValueError(f"node {node_name}: When DephaseNoiseModel is selected for gate, dephase_gate_rate must be defined")
+
+            #When gate noise model is DepolarNoiseModel the rate must be declared
+            if 'gate_noise_model' in node_props.keys() and  \
+                node_props['gate_noise_model'] == 'DepolarNoiseModel'  \
+                and 'depolar_gate_rate' not in node_props.keys():
+                raise ValueError(f"node {node_name}: When DepolarNoiseModel is selected for gate, depolar_gate_rate must be defined")    
+                
+            #If gate noise model is T1T2NoiseModel t1 & t2 times must be declared
+            if 'gate_noise_model' in node_props.keys() and  \
+                node_props['gate_noise_model'] == 'T1T2NoiseModel'  \
+                and ('t1_gate_time' not in node_props.keys() or 't2_gate_time' not in node_props.keys()):
+                raise ValueError(f"node {node_name}: When T1T2NoiseModel is selected for gate, t1_gate_time and t2_gate_time must be defined")
+
+            #If memory noise model is DephaseNoiseModel the rate must be declared
+            if 'mem_noise_model' in node_props.keys() and  \
+                node_props['mem_noise_model'] == 'DephaseNoiseModel'  \
+                and 'dephase_mem_rate' not in node_props.keys():
+                raise ValueError(f"node {node_name}: When DephaseNoiseModel is selected for memory, dephase_mem_rate must be defined")
+
+            #When memory noise model is DepolarNoiseModel the rate must be declared
+            if 'mem_noise_model' in node_props.keys() and  \
+                node_props['mem_noise_model'] == 'DepolarNoiseModel'  \
+                and 'depolar_mem_rate' not in node_props.keys():
+                raise ValueError(f"node {node_name}: When DepolarNoiseModel is selected for memory, depolar_mem_rate must be defined")    
+                
+            #If gate noise model is T1T2NoiseModel t1 & t2 times must be declared
+            if 'mem_noise_model' in node_props.keys() and  \
+                node_props['mem_noise_model'] == 'T1T2NoiseModel'  \
+                and ('t1_mem_time' not in node_props.keys() or 't2_mem_time' not in node_props.keys()):
+                raise ValueError(f"node {node_name}: When T1T2NoiseModel is selected for memory, t1_mem_time and t2_mem_time must be defined")
+
+            #TODO: Check that endNodes does not define num_memories
+            #Check that in switch nodes we have > 2*num_links
+
+        #Check link sintax TODO
         #links cannot contain hyphens
         links = self._config['links']
         for link in links:
             if list(link.keys())[0].find('-') != -1: raise ValueError ('Links cannot contain hyphens')       
+
+        
+        #Check requests sintax
+        requests = self._config['requests']
+        requestnames = [list(request.keys())[0] for request in requests]
+        set_names = set(requestnames)
+        if len(set_names) != len(requestnames): #there are repeated request names:
+            raise ValueError('Invalid configuration file, repeated request names')
+        
+        #Check valid properties
+        available_props = {'origin':'string',
+            'destination':'string',
+            'minfidelity':'float01',
+            'maxtime':'integer',
+            'path_fidel_rounds':'integer',
+            'teleport': 'list'}
+        
+        for request in requests:
+            request_props = list(request.values())[0]
+            request_name = list(request.keys())[0]
+
+            #Check that defined properties are valid    
+            for prop in request_props.keys():
+                #Check that property is valid
+                if prop not in available_props.keys():
+                    raise ValueError(f'Property {prop} in request {request_name} is not valid')
+                if available_props[prop] == 'integer':
+                    if not isinstance(request_props[prop],int):
+                        raise ValueError(f"request {request_name} {prop} must be of {available_props[prop]} type but is {type(prop)}")
+                elif available_props[prop] == 'string':
+                    if not isinstance(request_props[prop],str):
+                        raise ValueError(f"request {request_name} {prop} must be of {available_props[prop]} type but is {type(prop)}")
+                elif available_props[prop] == 'float':
+                    try:
+                        val = float(request_props[prop])
+                        if val < 0:
+                            raise ValueError(f"request {request_name} {prop} cannot be negative")
+                    except:
+                        raise ValueError(f"request {request_name} {prop} must be of {available_props[prop]} type but is {type(prop)}")
+                elif available_props[prop] == 'float01':
+                    try:
+                        val = float(request_props[prop])
+                        if val > 1 or val<0:
+                            raise ValueError(f"request {request_name} {prop} must be between 0 and 1")
+                    except:
+                        raise ValueError(f"request {request_name} {prop} must be of {available_props[prop]} type but is {type(prop)}")
+                elif available_props[prop] == 'list':
+                        if not isinstance(request_props[prop],list):
+                            raise ValueError(f"request {request_name} {prop} must be of {available_props[prop]} type but is {type(prop)}")
+                else:
+                    raise ValueError(f"request {request_name}: incorrect type for {prop}, it is {type(prop)}")
+            
+            #Check for definition of mandatory properties
+            mandatory = ['origin','destination','minfidelity','maxtime']
+            for prop in mandatory:
+                if prop not in request_props.keys(): 
+                    raise ValueError(f"request {request_name}: missing property {prop}")
 
     def _create_network(self):
         '''
