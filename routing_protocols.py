@@ -95,7 +95,7 @@ class PathFidelityProtocol(LocalProtocol):
         self._restart_signal = 'RESTART_CORRECT_PROTOCOL'
         self.add_signal(self._restart_signal)
 
-        # preparation of entanglement swaping fron second to the last-1
+        # preparation of entanglement swaping from second to the last-1
         for nodepos in range(1,len(path['nodes'])-1):
             node = path['nodes'][nodepos]
             link_left = path['comms'][nodepos-1]['links'][0]

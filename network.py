@@ -1,6 +1,7 @@
 import yaml
 from icecream import ic
 import pydynaa
+from matplotlib import use as usematplotlib
 import netsquid as ns
 import networkx as nx
 import matplotlib.pyplot as plt
@@ -466,7 +467,7 @@ class NetworkManager():
             protocol = LinkFidelityProtocol(self,origin,dest,link_name,0,self._config['link_fidel_rounds'])
             protocol.start()
             #runtime = props_link['distance']*float(props_link['photon_speed_fibre'])*25
-            #will run 1000 times
+            #will run as many times as specified in config file
             ns.sim_run()
             #We want to minimize the product of the costs, not the sum. log(ab)=log(a)+log(b)
             #so we will work with logarithm
@@ -543,7 +544,11 @@ class NetworkManager():
             for node in self._config['nodes']:
                 node_name = list(node.keys())[0]
                 node_props = list(node.values())[0]
-                self._graph.add_node(node_name)
+                if node_props['type'] =='switch':
+                    self._graph.add_node(node_name,color='#CF9239',style='filled',fillcolor='#CF9239')
+                else:
+                    self._graph.add_node(node_name,color='#5DABAB',style='filled',fillcolor='#5DABAB',shape='square')
+
             for link in self._config['links']:
                 link_name = list(link.keys())[0]
                 link_props = list(link.values())[0]
@@ -552,8 +557,15 @@ class NetworkManager():
 
             #Network graph generation, to include in report
             if first:
+                '''
+                fig = plt.figure()
+                nx.draw_networkx(self._graph,ax=fig.add_subplot())
+                usematplotlib('Agg')
+                fig.savefig('./output/graf.png')
+                '''
+                
                 gr = nx.nx_agraph.to_agraph(self._graph)
-                gr.draw('./output/graf.png', prog='neato')
+                gr.draw('./output/graf.png', prog='fdp')
                 first = 0
             
             try:
