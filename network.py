@@ -184,9 +184,144 @@ class NetworkManager():
                 or 'links' not in self._config.keys() or 'requests' not in self._config.keys(): 
             raise ValueError('Invalid configuration file, check global parameters')
 
+        #Check link sintax
+        links = self._config['links']
+            
+        #names must be unique
+        linknames = [list(link.keys())[0] for link in links]
+        set_names = set(linknames)
+        if len(set_names) != len(linknames): #there are repeated node names:
+            raise ValueError('Invalid configuration file, repeated link names')
+
+        #Valid types
+        available_props = {'end1':'string',
+                               'end2':'string',
+                               'distance':'float',
+                               'number_links':'integer',
+                               'source_fidelity_sq':'float01',
+                               'source_delay':'integer',
+                               'photon_speed_fibre':'float',
+                               'qchannel_noise_model':'string',
+                               'p_depol_init':'float01',
+                               'p_depol_length':'float01',
+                               'dephase_qchannel_rate':'float',
+                               'depolar_qchannel_rate':'float',
+                               'p_loss_init':'float01',
+                               'p_loss_length':'float01',
+                               't1_qchannel_time':'float',
+                               't2_qchannel_time':'float',
+                               'classical_delay_model':'string',
+                               'gaussian_delay_mean':'integer',
+                               'gaussian_delay_std':'integer'}
+        
+        #get list of nde names
+        nodenames = [list(node.keys())[0] for node in self._config['nodes']]
+
+        for link in links:
+            link_props = list(link.values())[0]
+            link_name = list(link.keys())[0]
+            #link names cannot contain hyphens
+            if link_name.find('-') != -1: raise ValueError (f'{link_name}: Link names cannot contain hyphens')       
+            
+            #Check that nodes are valid
+            if link_props['end1'] not in nodenames:
+                raise ValueError(f"link {link_name}: node {link_props['end1']} not defined")
+            if link_props['end2'] not in nodenames:
+                raise ValueError(f"link {link_name}: node {link_props['end2']} not defined")
+            
+            #Check that defined properties are valid    
+            for prop in link_props.keys():
+                #Check that property is valid
+                if prop not in available_props.keys():
+                    raise ValueError(f'Property {prop} in link {link_name} is not valid')
+                if available_props[prop] == 'integer':
+                    if not isinstance(link_props[prop],int):
+                        raise ValueError(f"link {link_name} {prop} must be of {available_props[prop]} type but is {type(prop)}")
+                    elif link_props[prop]<0:
+                        raise ValueError(f"link {link_name} {prop} cannot be negative")
+                elif available_props[prop] == 'string':
+                    if not isinstance(link_props[prop],str):
+                        raise ValueError(f"link {link_name} {prop} must be of {available_props[prop]} type but is {type(prop)}")
+                elif available_props[prop] == 'float':
+                    try:
+                        val = float(link_props[prop])
+                        if val < 0:
+                            raise ValueError(f"link {link_name} {prop} cannot be negative")
+                    except:
+                        raise ValueError(f"link {link_name} {prop} must be of {available_props[prop]} type but is {type(prop)}")
+                elif available_props[prop] == 'float01':
+                    try:
+                        val = float(link_props[prop])
+                        if val < 0 or val > 1:
+                            raise ValueError(f"link {link_name} {prop} must be between 0 and 1")
+                    except:
+                        raise ValueError(f"link {link_name} {prop} must be of {available_props[prop]} type but is {type(prop)}")
+                else:
+                    raise ValueError(f"link {link_name} incorrect type for {prop}, it is {type(prop)}")
+            
+            #Check for definition of mandatory properties
+            mandatory = ['end1','end2','distance','source_fidelity_sq','photon_speed_fibre']
+            for prop in mandatory:
+                if prop not in link_props.keys(): 
+                    raise ValueError(f"link {link_name}: missing property {prop}")
+
+            #number_links can only be specified between switches
+            if (self.get_config('nodes',link_props['end1'],'type') == 'endNode' or \
+                self.get_config('nodes',link_props['end2'],'type') == 'endNode') and \
+                'number_links' in link_props.keys() and link_props['number_links'] != 2:
+                raise ValueError(f"{link_name}: number_links can only be 2 between node and switch")
+
+            #Check allowed values of noise model
+            allowed_qchannel_noise_model = ['DephaseNoiseModel','DepolarNoiseModel','T1T2NoiseModel','FibreLossModel','FibreDepolarizeModel']
+            if 'qchannel_noise_model' in link_props.keys() \
+                and link_props['qchannel_noise_model'] not in allowed_qchannel_noise_model:
+                raise ValueError(f"link {link_name}: Unsupported quantum channel noise model")
+
+            #If quantum channel noise model is FibreDepolarizeModel p_depol_init and p_depol_length must be declared
+            if 'qchannel_noise_model' in link_props.keys() and  \
+                link_props['qchannel_noise_model'] == 'FibreDepolarizeModel'  \
+                and ('p_depol_init' not in link_props.keys() or 'p_depol_length' not in link_props.keys()):
+                raise ValueError(f"link {link_name}: When FibreDepolarizeModel is selected for quantum channel, p_depol_init and p_depol_length must be defined")
+            
+            #If quantum channel noise model is DephaseNoiseModel dephase_qchannel_rate must be declared
+            if 'qchannel_noise_model' in link_props.keys() and  \
+                link_props['qchannel_noise_model'] == 'DephaseNoiseModel'  \
+                'dephase_qchannel_rate' not in link_props.keys():
+                raise ValueError(f"link {link_name}: When DephaseNoiseModel is selected for quantum channel, dephase_qchannel_rate must be defined")
+            
+            #If quantum channel noise model is DepolarNoiseModel depolar_qchannel_rate must be declared
+            if 'qchannel_noise_model' in link_props.keys() and  \
+                link_props['qchannel_noise_model'] == 'DepolarNoiseModel'  \
+                'depolar_qchannel_rate' not in link_props.keys():
+                raise ValueError(f"link {link_name}: When DepolarNoiseModel is selected for quantum channel, dephase_qchannel_rate must be defined")
+
+            #If quantum channel noise model is FibreLosseModel p_loss_init and p_losslength must be declared
+            if 'qchannel_noise_model' in link_props.keys() and  \
+                link_props['qchannel_noise_model'] == 'FibreLossModel'  \
+                and ('p_loss_init' not in link_props.keys() or 'p_loss_length' not in link_props.keys()):
+                raise ValueError(f"link {link_name}: When FibreLossModel is selected for quantum channel, p_loss_init and p_loss_length must be defined")
+            
+            #If quantum channel noise model is T1T2NoiseModel t1 & t2 times must be declared
+            if 'qchannel_noise_model' in link_props.keys() and  \
+                link_props['qchannel_noise_model'] == 'T1T2NoiseModel'  \
+                and ('t1_qchannel_time' not in link_props.keys() or 't2_qchannel_time' not in link_props.keys()):
+                raise ValueError(f"link {link_name}: When T1T2NoiseModel is selected for quantum channel, t1_qchannel_time and t2_qhannel_time must be defined")
+    
+            #Check allowed values of classical channel models
+            allowed_classical_model = ['FibreDelayModel','GaussianDelayModel']
+            if 'classical_delay_model' in link_props.keys() \
+                and link_props['classical_delay_model'] not in allowed_classical_model:
+                raise ValueError(f"link {link_name}: Unsupported classical channel delay model")
+
+            #If quantum channel noise model is T1T2NoiseModel t1 & t2 times must be declared
+            if 'classical_delay_model' in link_props.keys() and  \
+                link_props['classical_delay_model'] == 'GaussianDelayModel'  \
+                and ('gaussian_delay_mean' not in link_props.keys() or 'gaussian_delay_std' not in link_props.keys()):
+                raise ValueError(f"link {link_name}: When GaussianDelayModel is selected for qclassical channel, gaussian_delay_mean and gaussian_delay_std must be defined")
+        
+
         #Check node sintax
-        nodes = self._config['nodes']
-        nodenames = [list(node.keys())[0] for node in nodes]
+        #No node names are repeated
         set_names = set(nodenames)
         if len(set_names) != len(nodenames): #there are repeated node names:
             raise ValueError('Invalid configuration file, repeated node names')
@@ -210,7 +345,8 @@ class NetworkManager():
                                'depolar_mem_rate':'integer',
                                't1_mem_time':'float',
                                't2_mem_time':'float'}
-        for node in nodes:
+        
+        for node in self._config['nodes']:
             node_props = list(node.values())[0]
             node_name = list(node.keys())[0]
             
@@ -250,6 +386,16 @@ class NetworkManager():
             #If node is a switch we must define the number of  available memories
             if node_props['type'] == 'switch' and 'num_memories' not in node_props.keys():
                 raise ValueError(f"node {node_name}: num_memories must be declared")
+            
+            #Check allowed values of noise model
+            allowed_gate_noise_model = ['DephaseNoiseModel','DepolarNoiseModel','T1T2NoiseModel']
+            allowed_mem_noise_model = ['DephaseNoiseModel','DepolarNoiseModel','T1T2NoiseModel']
+            if 'gate_noise_model' in node_props.keys() \
+                and node_props['gate_noise_model'] not in allowed_gate_noise_model:
+                raise ValueError(f"node {node_name}: Unsupported gate noise model")
+            if 'mem_noise_model' in node_props.keys() \
+                and node_props['mem_noise_model'] not in allowed_mem_noise_model:
+                raise ValueError(f"node {node_name}: Unsupported memory noise model")
 
             #If gate noise model is DephaseNoiseModel the rate must be declared
             if 'gate_noise_model' in node_props.keys() and  \
@@ -287,16 +433,21 @@ class NetworkManager():
                 and ('t1_mem_time' not in node_props.keys() or 't2_mem_time' not in node_props.keys()):
                 raise ValueError(f"node {node_name}: When T1T2NoiseModel is selected for memory, t1_mem_time and t2_mem_time must be defined")
 
-            #TODO: Check that endNodes does not define num_memories
             #Check that in switch nodes we have > 2*num_links
+            if node_props['type'] == 'endNode' and 'num_memories' in node_props.keys() and \
+                node_props['num_memories'] != 4:
+                raise ValueError(f"node {node_name}: if num_memories declared in endNode, must aways be 2")
+            elif node_props['type'] == 'switch':
+                #must check than number of memories is greater than connected links
+                total_links = 0
+                for link in self._config['links']:
+                    link_props = list(link.values())[0]
+                    if link_props['end1'] == node_name or link_props['end2'] == node_name:
+                        total_links += link_props['number_links'] \
+                            if 'number_links' in link_props.keys() else 2
+                if total_links > node_props['num_memories']:
+                    raise ValueError(f"node {node_name}: not enough memories. Need at least {total_links}")
 
-        #Check link sintax TODO
-        #links cannot contain hyphens
-        links = self._config['links']
-        for link in links:
-            if list(link.keys())[0].find('-') != -1: raise ValueError ('Links cannot contain hyphens')       
-
-        
         #Check requests sintax
         requests = self._config['requests']
         requestnames = [list(request.keys())[0] for request in requests]
@@ -312,10 +463,19 @@ class NetworkManager():
             'path_fidel_rounds':'integer',
             'teleport': 'list'}
         
+        #TODO? Check if a node is in more than one request
+        #If this happens, the second request will indicate that no resources are available
+
         for request in requests:
             request_props = list(request.values())[0]
             request_name = list(request.keys())[0]
 
+            #Check that nodes are valid
+            if request_props['origin'] not in nodenames:
+                raise ValueError(f"request {request_name}: node {request_props['origin']} not defined")
+            if request_props['destination'] not in nodenames:
+                raise ValueError(f"request {request_name}: node {request_props['destination']} not defined")
+            
             #Check that defined properties are valid    
             for prop in request_props.keys():
                 #Check that property is valid
@@ -373,7 +533,7 @@ class NetworkManager():
                 switch = Node(name, qmemory=self._create_qprocessor(f"qproc_{name}",props['num_memories'], nodename=name))
                 switches.append(switch)
             elif props['type'] == 'endNode':
-                props['num_memories'] = 4 #In an end node we always have 4 memories
+                props['num_memories'] = 4 #In an end node we always have 4 memories (2 por entanglement preparation)
                 endnode = Node(name, qmemory=self._create_qprocessor(f"qproc_{name}",props['num_memories'], nodename=name))
                 end_nodes.append(endnode)
             else:
@@ -412,18 +572,18 @@ class NetworkManager():
                 qsource_origin.add_subcomponent(source)
                 # Setup Quantum Channels
                 #get channel noise model from config
-                #TODO: Define other noise models for qchannel. All these models apply for a quantum channel?
-                if self.get_config('links',link_name,'quantum_noise_model') == 'FibreDepolarizeModel':
+                #TODO: All these models apply for a quantum channel?
+                if self.get_config('links',link_name,'qchannel_noise_model') == 'FibreDepolarizeModel':
                     qchannel_noise_model = FibreDepolarizeModel(p_depol_init=float(self.get_config('links',link_name,'p_depol_init')),
                                                                 p_depol_length=float(self.get_config('links',link_name,'p_depol_length')))
-                elif self.get_config('links',link_name,'quantum_noise_model') == 'DephaseNoiseModel':
+                elif self.get_config('links',link_name,'qchannel_noise_model') == 'DephaseNoiseModel':
                     qchannel_noise_model = DephaseNoiseModel(float(self.get_config('links',link_name,'dephase_qchannel_rate')))
-                elif self.get_config('links',link_name,'quantum_noise_model') == 'DepolarNoiseModel':
+                elif self.get_config('links',link_name,'qchannel_noise_model') == 'DepolarNoiseModel':
                     qchannel_noise_model = DepolarNoiseModel(float(self.get_config('links',link_name,'depolar_qchannel_rate')))
-                elif self.get_config('links',link_name,'quantum_noise_model') == 'FibreLossModel':
+                elif self.get_config('links',link_name,'qchannel_noise_model') == 'FibreLossModel':
                     qchannel_noise_model = FibreLossModel(p_loss_init=float(self.get_config('links',link_name,'p_loss_init')),
                                                            p_loss_length=float(self.get_config('links',link_name,'p_loss_length')))
-                elif self.get_config('links',link_name,'quantum_noise_model') == 'T1T2NoiseModel':
+                elif self.get_config('links',link_name,'qchannel_noise_model') == 'T1T2NoiseModel':
                     qchannel_noise_model = T1T2NoiseModel(T1=float(self.get_config('links',link_name,'t1_qchannel_time')),
                                               T2=float(self.get_config('links',link_name,'t2_qchannel_time')))
                 else:
@@ -445,8 +605,6 @@ class NetworkManager():
                     qsource_dest.qmemory.ports[f"qin{self.get_mem_position(qsource_dest.name,link_name,index_qsource)}"])
                 
                 # Setup Classical connections: To be done in routing preparation, depends on paths
-
-            #TODO: Configurar bien los modelos de ruido en los canales cuánticos, según lo que queramos implementar 
 
     def _measure_link_fidelity(self):
         '''
@@ -760,7 +918,7 @@ class NetworkManager():
             - instance of QuantumProcessor
 
         '''
-        #TODO: Definir modelos de ruido en memoria
+
         _INSTR_Rx = IGate("Rx_gate", ops.create_rotation_op(np.pi / 2, (1, 0, 0)))
         _INSTR_RxC = IGate("RxC_gate", ops.create_rotation_op(np.pi / 2, (1, 0, 0), conjugate=True))
 
