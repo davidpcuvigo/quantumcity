@@ -25,6 +25,10 @@ from netsquid.components.instructions import INSTR_MEASURE_BELL, INSTR_MEASURE, 
 import netsquid.qubits.operators as ops
 
 class NetworkManager():
+    '''
+    The only initiallization parameter is the name of the file 
+    storing all the network definition
+    '''
 
     def __init__(self, file):
         self.network=""
