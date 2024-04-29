@@ -1,0 +1,104 @@
+<mxfile host="Electron" modified="2024-04-24T15:28:02.541Z" agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/24.2.5 Chrome/120.0.6099.109 Electron/28.1.0 Safari/537.36" etag="2cRQOYRBc-kOWqqMVn7R" version="24.2.5" type="device">
+  <diagram name="Página-1" id="xVrf8d9cAuPvjDPpBpi5">
+    <mxGraphModel dx="880" dy="481" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="cn9PxRdH5zubQQloBJOQ-5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" parent="1" source="cn9PxRdH5zubQQloBJOQ-1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="260" y="294" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="cn9PxRdH5zubQQloBJOQ-1" value="Esperar qubit en memoria en extremo del enlace" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=none;" parent="1" vertex="1">
+          <mxGeometry x="190" y="214" width="140" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="cn9PxRdH5zubQQloBJOQ-6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" parent="1" source="cn9PxRdH5zubQQloBJOQ-2" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="460" y="294" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="cn9PxRdH5zubQQloBJOQ-2" value="Esperar qubit en memoria en el otro extremo del enlace" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=none;" parent="1" vertex="1">
+          <mxGeometry x="390" y="214" width="140" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="cn9PxRdH5zubQQloBJOQ-3" value="" style="endArrow=none;html=1;rounded=0;strokeWidth=10;" parent="1" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="190" y="304" as="sourcePoint" />
+            <mxPoint x="530" y="304" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="cn9PxRdH5zubQQloBJOQ-18" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="cn9PxRdH5zubQQloBJOQ-7" target="cn9PxRdH5zubQQloBJOQ-8" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="cn9PxRdH5zubQQloBJOQ-7" value="Leer qubit de posiciones de memoria" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=none;" parent="1" vertex="1">
+          <mxGeometry x="290" y="344" width="140" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="GbKh0f3Iw_0Q1egA7rOd-2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="cn9PxRdH5zubQQloBJOQ-8" target="cn9PxRdH5zubQQloBJOQ-9">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="140" y="449" />
+              <mxPoint x="140" y="125" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="cn9PxRdH5zubQQloBJOQ-8" value="Calcular fidelidad del par respecto de un B&lt;font style=&quot;font-size: 10px;&quot;&gt;00&lt;/font&gt;&amp;nbsp;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=none;" parent="1" vertex="1">
+          <mxGeometry x="290" y="424" width="140" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="cn9PxRdH5zubQQloBJOQ-11" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" parent="1" source="cn9PxRdH5zubQQloBJOQ-9" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="370" y="180" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="cn9PxRdH5zubQQloBJOQ-9" value="Disparar generación de EPR en fuente del enlace" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=none;" parent="1" vertex="1">
+          <mxGeometry x="300" y="100" width="140" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="cn9PxRdH5zubQQloBJOQ-10" value="" style="endArrow=none;html=1;rounded=0;strokeWidth=10;" parent="1" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="190" y="183" as="sourcePoint" />
+            <mxPoint x="730" y="183" as="targetPoint" />
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="cn9PxRdH5zubQQloBJOQ-14" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" target="cn9PxRdH5zubQQloBJOQ-1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="380" y="190" as="targetPoint" />
+            <mxPoint x="260" y="180" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="cn9PxRdH5zubQQloBJOQ-15" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" target="cn9PxRdH5zubQQloBJOQ-2" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="390" y="200" as="targetPoint" />
+            <mxPoint x="460" y="180" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="cn9PxRdH5zubQQloBJOQ-17" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" target="cn9PxRdH5zubQQloBJOQ-7" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="360" y="340" as="targetPoint" />
+            <mxPoint x="360" y="310" as="sourcePoint" />
+            <Array as="points">
+              <mxPoint x="360" y="320" />
+              <mxPoint x="360" y="320" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="GbKh0f3Iw_0Q1egA7rOd-5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="GbKh0f3Iw_0Q1egA7rOd-1" target="GbKh0f3Iw_0Q1egA7rOd-3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="GbKh0f3Iw_0Q1egA7rOd-1" value="Detectar pérdida de qubit en el canal" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="590" y="214" width="140" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="GbKh0f3Iw_0Q1egA7rOd-4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="GbKh0f3Iw_0Q1egA7rOd-3" target="cn9PxRdH5zubQQloBJOQ-9">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="GbKh0f3Iw_0Q1egA7rOd-3" value="Registrar una fidelidad de 0" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="590" y="424" width="140" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="GbKh0f3Iw_0Q1egA7rOd-6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="659" y="215" as="targetPoint" />
+            <mxPoint x="659" y="181" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

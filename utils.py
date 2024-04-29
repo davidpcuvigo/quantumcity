@@ -20,7 +20,7 @@ def generate_report(report_info):
         with report.create(Subsection('Network')):
             with report.create(Figure(position='ht!')) as fig_network:
                 image_file = os.path.join(os.path.dirname(__file__), 'output/graf.png')
-                fig_network.add_image(image_file,width='120px')
+                fig_network.add_image(image_file,width='180px')
                 fig_network.add_caption('Simulated network')
 
         with report.create(Subsection('Link fidelities')):
