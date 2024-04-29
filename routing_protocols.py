@@ -406,12 +406,20 @@ class CorrectProtocol(NodeProtocol):
                 else: #Port can receive more than one classical message at the same time
                     for m in message.items:
                         #m = message.items[0]
+                        
                         if m == ks.BellIndex.B01 or m == ks.BellIndex.B11:
                             self._x_corr += 1
                         if m == ks.BellIndex.B10 or m == ks.BellIndex.B11:
                             self._z_corr += 1
+                        '''
+                        #TODO: Decide which Bell state to use. Right now B00
+                        if m == ks.BellIndex.B10 or m == ks.BellIndex.B00:
+                            self._x_corr += 1
+                        if m == ks.BellIndex.B01 or m == ks.BellIndex.B00:
+                            self._z_corr += 1
+                        '''
                         self._counter += 1
-
+                        
                 if self._counter == self.num_nodes - 2:
                     if self._x_corr or self._z_corr:
                         self._program.set_corrections(self._x_corr, self._z_corr)
