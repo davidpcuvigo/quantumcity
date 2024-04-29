@@ -83,7 +83,7 @@ class RouteProtocol(LocalProtocol):
             qsource.trigger()
             self.send_signal(Signals.FINISHED)
  
-class DistilProtocol(NodeProtocol):
+class Distil(NodeProtocol):
     """Protocol that does local DEJMPS distillation on a node.
 
     This is done in combination with another node.
@@ -111,7 +111,7 @@ class DistilProtocol(NodeProtocol):
     _INSTR_Rx = IGate("Rx_gate", ops.create_rotation_op(np.pi / 2, (1, 0, 0)))
     _INSTR_RxC = IGate("RxC_gate", ops.create_rotation_op(np.pi / 2, (1, 0, 0), conjugate=True))
 
-    def __init__(self, node, port, role, start_expression=None, msg_header="distil", name=None, rounds= 5):
+    def __init__(self, node, port, role, start_expression=None, msg_header="distil", name=None):
         if role.upper() not in ["A", "B"]:
             raise ValueError
         conj_rotation = role.upper() == "B"
@@ -131,7 +131,6 @@ class DistilProtocol(NodeProtocol):
         self.header = msg_header
         self._qmem_positions = [None, None]
         self._waiting_on_second_qubit = False
-        self.total_rounds= rounds
         self.round=0
         if start_expression is not None and not isinstance(start_expression, EventExpression):
             raise TypeError("Start expression should be a {}, not a {}".format(EventExpression, type(start_expression)))
@@ -150,21 +149,17 @@ class DistilProtocol(NodeProtocol):
         cchannel_ready = self.await_port_input(self.port)
         qmemory_ready = self.start_expression
         while True:
-            while True:
-                expr = yield cchannel_ready | qmemory_ready
-                if expr.first_term.value:
-                    classical_message = self.port.rx_input(header=self.header)
-                    if classical_message:
-                        self.remote_qcount, self.remote_meas_result = classical_message.items
-                elif expr.second_term.value:
-                    source_protocol = expr.second_term.atomic_source
-                    ready_signal = source_protocol.get_signal_by_event(
-                        event=expr.second_term.triggered_events[0], receiver=self)
-                    print(ready_signal.result, self.node.name, self.round)
-                    yield from self._handle_new_qubit(ready_signal.result)
-                if self.round >= 3 and self.local_meas_result != self.remote_meas_result:
-                    break
-            print('hola')
+            expr = yield cchannel_ready | qmemory_ready
+            if expr.first_term.value:
+                classical_message = self.port.rx_input(header=self.header)
+                self.round += 1
+                if classical_message:
+                    self.remote_qcount, self.remote_meas_result = classical_message.items
+            elif expr.second_term.value:
+                source_protocol = expr.second_term.atomic_source
+                ready_signal = source_protocol.get_signal_by_event(
+                    event=expr.second_term.triggered_events[0], receiver=self)
+                yield from self._handle_new_qubit(ready_signal.result)
             self._check_success()
 
     def start(self):
@@ -175,7 +170,6 @@ class DistilProtocol(NodeProtocol):
         self.remote_qcount = 0
         self.remote_meas_result = None
         self._waiting_on_second_qubit = False
-        self.rounds= 0
         return super().start()
 
     def _clear_qmem_positions(self):
@@ -189,11 +183,106 @@ class DistilProtocol(NodeProtocol):
         assert not self.node.qmemory.mem_positions[memory_position].is_empty
         if self._waiting_on_second_qubit:
             # Second qubit arrived: perform distil
-            #print(self._qmem_positions[0])
             assert not self.node.qmemory.mem_positions[self._qmem_positions[0]].is_empty
             assert memory_position != self._qmem_positions[0]
             self._qmem_positions[1] = memory_position
-            self._waiting_on_second_qubit = True 
+            self._waiting_on_second_qubit = False
+            yield from self._node_do_DEJMPS()
+        else:
+            # New candidate for first qubit arrived
+            # Pop previous qubit if present:
+            pop_positions = [p for p in self._qmem_positions if p is not None and p != memory_position]
+            if len(pop_positions) > 0:
+                self.node.qmemory.pop(positions=pop_positions)
+            # Set new position:
+            self._qmem_positions[0] = memory_position
+            self._qmem_positions[1] = None
+            self.local_qcount += 1
+            self.local_meas_result = None
+            self._waiting_on_second_qubit = True
+
+    def _node_do_DEJMPS(self):
+        # Perform DEJMPS distillation protocol locally on one node
+        pos1, pos2 = self._qmem_positions
+        if self.node.qmemory.busy:
+            yield self.await_program(self.node.qmemory)
+        # We perform local DEJMPS
+        yield self.node.qmemory.execute_program(self._program, [pos1, pos2])  # If instruction not instant
+        self.local_meas_result = self._program.output["m"][0]
+        self._qmem_positions[1] = None
+        # Send local results to the remote node to allow it to check for success.
+        self.port.tx_output(Message([self.local_qcount, self.local_meas_result],
+                                    header=self.header))
+
+    def _check_success(self):
+        # Check if distillation succeeded by comparing local and remote results
+        if (self.local_qcount == self.remote_qcount and
+                self.local_meas_result is not None and
+                self.remote_meas_result is not None):
+            if self.local_meas_result == self.remote_meas_result:
+                # SUCCESS
+                self.send_signal(Signals.SUCCESS, self._qmem_positions[0])
+            else:
+                # FAILURE
+                self._clear_qmem_positions()
+                self.send_signal(Signals.FAIL, self.local_qcount)
+            self.local_meas_result = None
+            self.remote_meas_result = None
+            self._qmem_positions = [None, None]
+
+    @property
+    def is_connected(self):
+        if self.start_expression is None:
+            return False
+        if not self.check_assigned(self.port, Port):
+            return False
+        if not self.check_assigned(self.node, Node):
+            return False
+        if self.node.qmemory.num_positions < 2:
+            return False
+        return True                
+
+class DistilProtocol(LocalProtocol):
+    def __init__(self, nodes=None, name=None, max_nodes=-1, start_expression=None):
+        super().__init__(nodes, name, max_nodes)
+        self.start_expression=start_expression #This start_expression is actually defined with the start_on_signal function, created for convenience
+        self.nodes=nodes
+    def start(self):
+        super().start()
+        
+    def stop(self):
+        super().stop()
+        
+    def run(self):
+        while True:
+            quantum_signal= self.start_expression 
+            classical_signal=2 #TODO
+            signals = yield quantum_signal | classical_signal
+            if signals.first_term.value: #Quantum signal received: a qubit arrived
+                source_protocol = signals.second_term.atomic_source
+                ready_signal = source_protocol.get_signal_by_event(
+                    event=signals.second_term.triggered_events[0], receiver=self)
+                yield from self._handle_new_qubit(ready_signal.result)        
+            elif signals.second_term.value: #Classical signal received: remote results arrived            
+                classical_message = self.port.rx_input(header=self.header)
+                if classical_message:
+                    self.remote_qcount, self.remote_meas_result = classical_message.items
+                    
+    def _clear_qmem_positions(self):
+        positions = [pos for pos in self._qmem_positions if pos is not None]
+        if len(positions) > 0:
+            self.node.qmemory.pop(positions=positions)
+        self._qmem_positions = [None, None]
+
+    def _handle_new_qubit(self, memory_position):
+        # Process signalling of new entangled qubit
+        assert not self.node.qmemory.mem_positions[memory_position].is_empty
+        if self._waiting_on_second_qubit:
+            # Second qubit arrived: perform distil
+            assert not self.node.qmemory.mem_positions[self._qmem_positions[0]].is_empty
+            assert memory_position != self._qmem_positions[0]
+            self._qmem_positions[1] = memory_position
+            self._waiting_on_second_qubit = False
             yield from self._node_do_DEJMPS()
         else:
             # New candidate for first qubit arrived
@@ -217,7 +306,6 @@ class DistilProtocol(NodeProtocol):
         yield self.node.qmemory.execute_program(self._program, [pos1, pos2])  # If instruction not instant
         self.node.qmemory.pop(positions=pos2)
         self.local_meas_result = self._program.output["m"][0]
-        #self._qmem_positions[1] = None
         # Send local results to the remote node to allow it to check for success.
         self.port.tx_output(Message([self.local_qcount, self.local_meas_result],
                                     header=self.header))
@@ -250,25 +338,8 @@ class DistilProtocol(NodeProtocol):
             return False
         if self.node.qmemory.num_positions < 2:
             return False
-        return True
-                    
-class DistilProtocol(LocalProtocol):
-    def __init__(self, nodes=None, name=None, max_nodes=-1, start_expression=None):
-        super().__init__(nodes, name, max_nodes)
-        self.start_expression=start_expression #This start_expression is actually defined with the start_on_signal function, created for convenience
-        self.nodes=nodes
-    def start(self):
-        super().start()
-        
-    def stop(self):
-        super().stop()
-        
-    def run(self):
-        while True:
-            yield self.start_expression #We wait for any of the signals we defined for the protocol to start
-            qsource, = [item for item in self.node.subcomponents.items if 'qsource' in item.name] #We search for a qsource in the node
-            qsource.trigger()
-            self.send_signal(Signals.FINISHED)
+        return True                
+
                      
 class SwapProtocol(NodeProtocol):
     def __init__(self, node=None, name=None, start_expression=None, input_ports=None):
@@ -277,7 +348,7 @@ class SwapProtocol(NodeProtocol):
         self.node=node        
         port_events= [self.await_port_input(port) for port in input_ports] #await for all input ports
         self._program=GHZMeasureProgram()
-        self.combined_events = port_events[0] if len(port_events) == 1 else functools.reduce(lambda x, y: x & y, port_events) #combine the events with AND
+        self.combined_events = functools.reduce(lambda x, y: x & y, port_events) #combine the events with AND
     def start(self):
         super().start()
         
@@ -292,12 +363,30 @@ class SwapProtocol(NodeProtocol):
             m = self._program.output["m"]
             # Send result to right node on end
             self.node.ports["ccon_R"].tx_output(Message(m))
+
+class SwapCorrectProgram(QuantumProgram):
+    """Quantum processor program that applies all swap corrections."""
+    default_num_qubits = 1
+
+    def set_corrections(self, x_corr, z_corr):
+        self.x_corr = x_corr % 2
+        self.z_corr = z_corr % 2
+
+    def program(self):
+        q1, = self.get_qubit_indices(1)
+        if self.x_corr == 1:
+            self.apply(INSTR_X, q1)
+        if self.z_corr == 1:
+            self.apply(INSTR_Z, q1)
+        yield self.run()
                      
 class CorrectProtocol(NodeProtocol):
     def __init__(self, node=None, name=None, start_expression=None):
         super().__init__(node, name)
         self.start_expression=start_expression #This start_expression is actually defined with the start_on_signal function, created for convenience
         self.node=node
+        self.results=[]
+        self._program = SwapCorrectProgram()
     def start(self):
         super().start()
         
@@ -306,10 +395,28 @@ class CorrectProtocol(NodeProtocol):
         
     def run(self):
         while True:
-            yield self.start_expression #We wait for any of the signals we defined for the protocol to start
-            qsource, = [item for item in self.node.subcomponents.items if 'qsource' in item.name] #We search for a qsource in the node
-            qsource.trigger()
-            self.send_signal(Signals.FINISHED)
+            yield self.await_port_input(self.node.ports['Classical_corrections']) #We wait for any of the signals we defined for the protocol to start
+            self.results.append(self.node.ports['Classical_corrections'].rx_input().items[0])#A message must be received at the same instant it was transmitted, otherwise it is lost. (From NetSquid docs)
+            if len(self.results == (len(path) - 2)):
+                for index in self.results:
+                    if index == ks.BellIndex.B01 or index == ks.BellIndex.B11:
+                        self._x_corr += 1
+                    if index == ks.BellIndex.B10 or index == ks.BellIndex.B11:
+                        self._z_corr += 1
+                if self._x_corr or self._z_corr:
+                    self._program.set_corrections(self._x_corr, self._z_corr)
+                    if not self.node.qmemory.mem_positions['position_to_apply_correction'].is_empty:
+                        yield self.node.qmemory.execute_program(self._program, qubit_mapping=['position_to_apply_correction'])
+                    else:
+                        #This will send back to the route protocol and abort current protocols involving the path to restart the entanglement generation,
+                        # as the qubit in memory was lost and other EPR pairs need to be used.
+                        #self.send_signal(Signals.FAIL)
+                        #self._x_corr = 0
+                        #self._z_corr = 0
+                        pass
+                self._x_corr = 0
+                self._z_corr = 0
+                self.send_signal(Signals.SUCCESS)
                      
 class TeleportProtocol(NodeProtocol):
     def __init__(self, node=None, name=None, start_expression=None, role=None):
@@ -402,7 +509,7 @@ def setup_protocols(network):
     number_of_paths= 2 #TODO llamarla bien, algo como len(paths)
     for i,path in zip(range(number_of_paths),paths): #Each path gets a Local controller
         
-        protocol=LocalProtocol(nodes=path) ###Este ha de ser el route?
+        protocol=RouteProtocol(nodes=path) 
         
         for node in path[:-1]:
             protocol.add_subprotocol(EntangleNode(node=node)) #Every node except the last one generates entanglement
