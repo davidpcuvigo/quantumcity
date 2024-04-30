@@ -1,4 +1,3 @@
-
 from  time import sleep
 from netsquid.protocols import LocalProtocol, NodeProtocol, Signals
 import netsquid as ns
@@ -46,6 +45,9 @@ class LinkFidelityProtocol(LocalProtocol):
 
         evexpr_timer = EventExpression(source=self, event_type=self._evtypetimer)
 
+        #Get type of EPR to use
+        epr_state = ks.b00 if self._networkmanager.get_config('epr_pair','epr_pair') == 'PHI_PLUS' else ks.b01
+
         for i in range(self._num_runs):
             #Create timer in order to detect lost qubit
             timer_event = self._schedule_after(self._delay, self._evtypetimer)
@@ -58,7 +60,7 @@ class LinkFidelityProtocol(LocalProtocol):
                 #Measure fidelity and add it to the list
                 qubit_a, = self._origin.qmemory.peek([self._memory_left])
                 qubit_b, = self._dest.qmemory.peek([self._memory_right])
-                self.fidelities.append(ns.qubits.fidelity([qubit_a, qubit_b], ks.b00, squared=True))
+                self.fidelities.append(ns.qubits.fidelity([qubit_a, qubit_b], epr_state, squared=True))
             else:
                 #qubit is lost, we set a fidelity of 0
                 #We set a value different from 0 to avoid later log of 0
@@ -106,9 +108,10 @@ class PathFidelityProtocol(LocalProtocol):
             self.add_subprotocol(subprotocol)
 
         # preparation of correct protocol in final node
+        epr_state =  self._networkmanager.get_config('epr_pair','epr_pair')
         mempos= networkmanager.get_mem_position(path['nodes'][-1],last_link.split('-')[0],last_link.split('-')[1])
         restart_expr = self.await_signal(self,self._restart_signal)
-        subprotocol = CorrectProtocol(networkmanager.network.get_node(path['nodes'][-1]), mempos, len(path['nodes']), f"CorrectProtocol_{path['request']}_1", path['request'],restart_expr)
+        subprotocol = CorrectProtocol(networkmanager.network.get_node(path['nodes'][-1]), mempos, len(path['nodes']), f"CorrectProtocol_{path['request']}_1", path['request'],restart_expr, epr_state)
         self.add_subprotocol(subprotocol)
 
         # calculate total distance and delay, in order to set timer
@@ -118,7 +121,9 @@ class PathFidelityProtocol(LocalProtocol):
             distance = float(networkmanager.get_config('links',link_name,'distance'))
             photon_speed = float(networkmanager.get_config('links',link_name,'photon_speed_fibre'))
             self._total_delay += 1e9 * distance / photon_speed
-            
+        #We need to add some nanoseconds to timer. If distances are short we 
+        # can receive a lost qubit signal when it is not correct
+        self._total_delay += 50000    
 
     def signal_sources(self,index=[1]):
         '''
@@ -163,9 +168,10 @@ class PathFidelityProtocol(LocalProtocol):
             self.add_subprotocol(subprotocol)
 
         #add Classical channel for second instance of link
+        epr_state = epr_state =  self._networkmanager.get_config('epr_pair','epr_pair')
         mempos= self._networkmanager.get_mem_position(self._path['nodes'][-1],last_link.split('-')[0],last_link.split('-')[1])
         restart_expr = self.await_signal(self,self._restart_signal)
-        subprotocol = CorrectProtocol(self._networkmanager.network.get_node(self._path['nodes'][-1]), mempos, len(self._path['nodes']), f"CorrectProtocol_{self._path['request']}_2", self._path['request'],restart_expr)
+        subprotocol = CorrectProtocol(self._networkmanager.network.get_node(self._path['nodes'][-1]), mempos, len(self._path['nodes']), f"CorrectProtocol_{self._path['request']}_2", self._path['request'],restart_expr, epr_state)
         self.add_subprotocol(subprotocol)
 
         #add purification protocol
@@ -189,6 +195,9 @@ class PathFidelityProtocol(LocalProtocol):
         #set event type in order to detect qubit losses
         evexpr_timer = EventExpression(source=self, event_type=self._evtypetimer)
 
+        #Get type of EPR to use
+        epr_state = ks.b00 if self._networkmanager.get_config('epr_pair','epr_pair') == 'PHI_PLUS' else ks.b01
+
         for i in range(self._num_runs):
             round_done = False
             start_time = sim_time()
@@ -207,6 +216,7 @@ class PathFidelityProtocol(LocalProtocol):
                         round_done = True
                     else:
                         #qubit is lost, must restart
+                        ic(f"{self.name} Lost qubit")
                         #restart correction protocol
                         self.send_signal(self._restart_signal)
                         #repeat round
@@ -270,6 +280,7 @@ class PathFidelityProtocol(LocalProtocol):
                                     break 
                             else: 
                                 #qubit is lost, must restart round
+                                ic(f"{self.name} Lost qubit")
                                 #restart correction protocol
                                 self.send_signal(self._restart_signal)
 
@@ -288,7 +299,7 @@ class PathFidelityProtocol(LocalProtocol):
                 #measure fidelity and send metrics to datacollector
                 qa, = self._networkmanager.network.get_node(self._path['nodes'][0]).qmemory.pop(positions=[self._mem_posA_1])
                 qb, = self._networkmanager.network.get_node(self._path['nodes'][-1]).qmemory.pop(positions=[self._mem_posB_1])
-                fid = qapi.fidelity([qa, qb], ks.b00, squared=True)
+                fid = qapi.fidelity([qa, qb], epr_state, squared=True)
                 result = {
                     'posA': self._mem_posA_1,
                     'posB': self._mem_posB_1,
@@ -371,11 +382,12 @@ class CorrectProtocol(NodeProtocol):
         Number of nodes in the repeater chain network.
 
     """
-    def __init__(self, node, mempos, num_nodes, name, request,restart_expression):
+    def __init__(self, node, mempos, num_nodes, name, request,restart_expression,epr_state):
         super().__init__(node, name)
         self._mempos = mempos
         self.num_nodes = num_nodes
         self._request = request
+        self._epr_state = epr_state
 
         # get index of link
         div_pos = name.rfind('_')
@@ -407,17 +419,17 @@ class CorrectProtocol(NodeProtocol):
                     for m in message.items:
                         #m = message.items[0]
                         
-                        if m == ks.BellIndex.B01 or m == ks.BellIndex.B11:
-                            self._x_corr += 1
-                        if m == ks.BellIndex.B10 or m == ks.BellIndex.B11:
-                            self._z_corr += 1
-                        '''
-                        #TODO: Decide which Bell state to use. Right now B00
-                        if m == ks.BellIndex.B10 or m == ks.BellIndex.B00:
-                            self._x_corr += 1
-                        if m == ks.BellIndex.B01 or m == ks.BellIndex.B00:
-                            self._z_corr += 1
-                        '''
+                        if self._epr_state == 'PHI_PLUS':
+                            if m == ks.BellIndex.B01 or m == ks.BellIndex.B11:
+                                self._x_corr += 1
+                            if m == ks.BellIndex.B10 or m == ks.BellIndex.B11:
+                                self._z_corr += 1
+                        else:
+                            if m == ks.BellIndex.B10 or m == ks.BellIndex.B00:
+                                self._x_corr += 1
+                            if m == ks.BellIndex.B10 or m == ks.BellIndex.B11:
+                                self._z_corr += 1
+
                         self._counter += 1
                         
                 if self._counter == self.num_nodes - 2:

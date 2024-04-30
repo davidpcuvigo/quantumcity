@@ -10,7 +10,6 @@ import pandas as pd
 import numpy as np
 from netsquid.nodes import Node, Connection, Network
 from netsquid.components import Message, QuantumProcessor, QuantumProgram, PhysicalInstruction
-from netsquid.examples.teleportation import ClassicalConnection
 from netsquid.qubits.state_sampler import StateSampler
 from netsquid.components.qsource import QSource, SourceStatus
 from netsquid.components.models.delaymodels import FixedDelayModel, FibreDelayModel, GaussianDelayModel
@@ -64,10 +63,15 @@ class NetworkManager():
         Output:
             - value of required attribute
         '''
-        if mode not in ['nodes','links','requests']:
+        if mode not in ['name','epr_pair','link_fidel_rounds','path_fidel_rounds','nodes','links','requests']:
             raise ValueError('Unsupported mode')
         else:
             elements = self._config[mode] 
+            #Querying for a global property
+            if mode in ['name','epr_pair','link_fidel_rounds','path_fidel_rounds']: 
+                return (elements)
+            
+            #Querying for an element type
             found = False
             for element in elements:
                 if list(element.keys())[0] == name:
@@ -467,8 +471,8 @@ class NetworkManager():
             'path_fidel_rounds':'integer',
             'teleport': 'list'}
         
-        #TODO? Check if a node is in more than one request
-        #If this happens, the second request will indicate that no resources are available
+        #Check if a node is in more than one request
+        #No need to do so, if this happens, the second request will indicate that no resources are available
 
         for request in requests:
             request_props = list(request.values())[0]
@@ -559,9 +563,12 @@ class NetworkManager():
             nodeB = self.network.get_node(props['end2'])
             # Add Quantum Sources to nodes
             num_qsource = props['number_links'] if 'number_links' in props.keys() else 2
+            epr_state = ks.b00 if self._config['epr_pair'] == 'PHI_PLUS' else ks.b01
+
             state_sampler = StateSampler(
-                [ks.b00, ks.s00],
-                [props['source_fidelity_sq'], 1 - props['source_fidelity_sq']])
+                [epr_state, ks.s00, ks.s01, ks.s10, ks.s11],
+                [props['source_fidelity_sq'], (1 - props['source_fidelity_sq'])/4, (1 - props['source_fidelity_sq'])/4,
+                 (1 - props['source_fidelity_sq'])/4, (1 - props['source_fidelity_sq'])/4])
             for index_qsource in range(num_qsource):
                 if self.get_config('nodes',props['end1'],'type') == 'switch':
                     qsource_origin = nodeA 
@@ -638,15 +645,11 @@ class NetworkManager():
             ns.sim_reset()
             self._create_network() # Network must be recreated for the simulations to work
         
-    def _dc_setup(self, protocol, nodeA,nodeB,posA=0,posB=0):
+    def _dc_setup(self, protocol):
         '''
-        Creates a data collector in order to measure fidelity of qubits stores en nodeA and nodeB
-        against a b00 bell pair
+        Creates a data collector in order to measure fidelity of E2E entanglement
         Inputs:
-            - nodeA: node in one end point
-            - nodeB: node in the other end point
-            - posA: position of memory that stores qubit in nodeA
-            - posB: position of qubit that storea quit in nodeB
+            - 
         Outputs:
             - dc: instance of the configured datacollector
         '''
@@ -817,7 +820,7 @@ class NetworkManager():
                 protocol = PathFidelityProtocol(self,path,fidel_rounds, purif_rounds) #We measure E2E fidelity accordingly to config file times
                 
                 while end_simul == False:
-                    dc = self._dc_setup(protocol, self.network.get_node(path['nodes'][0]), self.network.get_node(path['nodes'][-1]))
+                    dc = self._dc_setup(protocol)
                     protocol.start()
                     ns.sim_run()
                     #print("Average fidelity of generated entanglement via a repeater and with filtering: {}, with average time: {}"\
@@ -1035,3 +1038,23 @@ class FibreDepolarizeModel(QuantumErrorModel):
             prob = 1 - (1 - self.properties['p_depol_init']) * np.power(
                 10, - kwargs['length']**2 * self.properties['p_depol_length'] / 10)
             ns.qubits.depolarize(qubit, prob=prob)
+
+class ClassicalConnection(Connection):
+    """A connection that transmits classical messages in one direction, from A to B.
+    Copied from official NetSquid's examples (teleportation)
+
+    Parameters
+    ----------
+    length : float
+        End to end length of the connection [km].
+    name : str, optional
+       Name of this connection.
+
+    """
+
+    def __init__(self, length, name="ClassicalConnection"):
+        super().__init__(name=name)
+        self.add_subcomponent(ClassicalChannel("Channel_A2B", length=length,
+                                               models={"delay_model": FibreDelayModel()}),
+                              forward_input=[("A", "send")],
+                              forward_output=[("B", "recv")])
