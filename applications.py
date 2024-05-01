@@ -90,6 +90,7 @@ class RouteProtocol(LocalProtocol):
     Diffs:
         Does not execute for a fixed number of times. Instead, waits for a signal to be received
         Does not measure qubits in memory for fidelity calculation
+        Checks for purif_rounds and creates all channels if it is greater than 0
     '''
 
     def __init__(self, networkmanager, path, start_expression, purif_rounds= 0, name=None):
