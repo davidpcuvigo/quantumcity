@@ -22,6 +22,7 @@ from netsquid.qubits import qubitapi as qapi
 from netsquid.protocols import Signals
 from netsquid.components.instructions import INSTR_MEASURE_BELL, INSTR_MEASURE, INSTR_X, INSTR_Z,  INSTR_CNOT, IGate
 import netsquid.qubits.operators as ops
+from utils import dc_setup
 
 class NetworkManager():
     '''
@@ -63,12 +64,12 @@ class NetworkManager():
         Output:
             - value of required attribute
         '''
-        if mode not in ['name','epr_pair','link_fidel_rounds','path_fidel_rounds','nodes','links','requests']:
+        if mode not in ['name','simulation_duration','epr_pair','link_fidel_rounds','path_fidel_rounds','nodes','links','requests']:
             raise ValueError('Unsupported mode')
         else:
             elements = self._config[mode] 
             #Querying for a global property
-            if mode in ['name','epr_pair','link_fidel_rounds','path_fidel_rounds']: 
+            if mode in ['name','epr_pair','simulation_duration','link_fidel_rounds','path_fidel_rounds']: 
                 return (elements)
             
             #Querying for an element type
@@ -177,19 +178,12 @@ class NetworkManager():
         Input: -
         Output: -
         '''
-        #ic(self._config)
-        #TODO: realiza validaciones del contenido del fichero 
-        '''
-        -Que no definamos más hijos clolgando de un switch que leafs se hayan definido
-        -Comprobar que el número de memorias definidas en los switches es suficiente para la red definida:
-            en los end_nodes siempre 4
-            en los switches: num_links x 2 + end_nodes x 2
-        -Verificar que no hay links entre dos elementos de tipo endNode
-        '''
+
         #Verify that global mandatory parameters exist
         if 'name' not in self._config.keys() or 'link_fidel_rounds' not in self._config.keys() \
             or 'path_fidel_rounds' not in self._config.keys() or 'nodes' not in self._config.keys() \
-                or 'links' not in self._config.keys() or 'requests' not in self._config.keys(): 
+                or 'links' not in self._config.keys() or 'requests' not in self._config.keys() \
+                    or 'epr_pair' not in self._config.keys() or 'simulation_duration' not in self._config.keys(): 
             raise ValueError('Invalid configuration file, check global parameters')
 
         #Check link sintax
@@ -228,8 +222,9 @@ class NetworkManager():
         for link in links:
             link_props = list(link.values())[0]
             link_name = list(link.keys())[0]
-            #link names cannot contain hyphens
+            #link names cannot contain hyphens or underscore
             if link_name.find('-') != -1: raise ValueError (f'{link_name}: Link names cannot contain hyphens')       
+            if link_name.find('_') != -1: raise ValueError (f'{link_name}: Link names cannot contain underscore')       
             
             #Check that nodes are valid
             if link_props['end1'] not in nodenames:
@@ -357,6 +352,9 @@ class NetworkManager():
         for node in self._config['nodes']:
             node_props = list(node.values())[0]
             node_name = list(node.keys())[0]
+
+            #nodenames cannot contain underscore
+            if node_name.find('_') != -1: raise ValueError (f'{node_name}: Node names cannot contain underscore')
             
             #Check that defined properties are valid    
             for prop in node_props.keys():
@@ -464,11 +462,12 @@ class NetworkManager():
             raise ValueError('Invalid configuration file, repeated request names')
         
         #Check valid properties
-        available_props = {'origin':'string',
-            'destination':'string',
-            'minfidelity':'float01',
-            'maxtime':'integer',
-            'path_fidel_rounds':'integer',
+        available_props = {'origin': 'string',
+            'destination': 'string',
+            'minfidelity': 'float01',
+            'maxtime': 'integer',
+            'path_fidel_rounds': 'integer',
+            'application': 'string',
             'teleport': 'list'}
         
         #Check if a node is in more than one request
@@ -477,6 +476,10 @@ class NetworkManager():
         for request in requests:
             request_props = list(request.values())[0]
             request_name = list(request.keys())[0]
+
+            #request names cannot contain underscore
+            if request_name.find('_') != -1: raise ValueError (f'{request_name}: Request names cannot contain underscore')
+            
 
             #Check that nodes are valid
             if request_props['origin'] not in nodenames:
@@ -644,30 +647,6 @@ class NetworkManager():
             ns.sim_stop()
             ns.sim_reset()
             self._create_network() # Network must be recreated for the simulations to work
-        
-    def _dc_setup(self, protocol):
-        '''
-        Creates a data collector in order to measure fidelity of E2E entanglement
-        Inputs:
-            - 
-        Outputs:
-            - dc: instance of the configured datacollector
-        '''
-        def record_stats(evexpr):
-            #Record an execution
-            protocol = evexpr.triggered_events[-1].source
-            result = protocol.get_signal_result(Signals.SUCCESS)
-            
-            return {
-                'Fidelity': result['fid'],
-                'pairsA': result['pairsA'],
-                'pairsB': result['pairsB'],
-                'time': result['time']
-            }
-
-        dc = DataCollector(record_stats, include_time_stamp=False, include_entity_name=False)
-        dc.collect_on(pydynaa.EventExpression(source = protocol, event_type=Signals.SUCCESS.value))
-        return(dc)
     
     def _release_path_resources(self, path):
         '''
@@ -776,13 +755,19 @@ class NetworkManager():
                             port_name_node1=f"ccon_R_{shortest_path[nodepos]}_{request_name}_{i}", 
                             port_name_node2=f"ccon_L_{shortest_path[nodepos+1]}_{request_name}_{i}")
 
-                    #Forward cconn to right most node
+                        #Forward cconn to right most node
+                        if f"ccon_L_{path['nodes'][nodepos]}_{request_name}_{i}" in self.network.get_node(path['nodes'][nodepos]).ports:
+                            self.network.get_node(path['nodes'][nodepos]).ports[f"ccon_L_{path['nodes'][nodepos]}_{request_name}_{i}"].bind_input_handler(self._handle_message,tag_meta=True)
+                        
+                    #TODO: DELETE when working  
+                    '''
                     if f"ccon_L_{shortest_path[nodepos]}_{request_name}_1" in self.network.get_node(shortest_path[nodepos]).ports:
                         self.network.get_node(shortest_path[nodepos]).ports[f"ccon_L_{shortest_path[nodepos]}_{request_name}_1"].bind_input_handler(
                                 lambda message, _node=self.network.get_node(shortest_path[nodepos]): _node.ports[f"ccon_R_{_node.name}_{request_name}_1"].tx_output(message))
                     if f"ccon_L_{shortest_path[nodepos]}_{request_name}_2" in self.network.get_node(shortest_path[nodepos]).ports:
                             self.network.get_node(shortest_path[nodepos]).ports[f"ccon_L_{shortest_path[nodepos]}_{request_name}_2"].bind_input_handler(
                                 lambda message, _node=self.network.get_node(shortest_path[nodepos]): _node.ports[f"ccon_R_{_node.name}_{request_name}_2"].tx_output(message))
+                    '''
 
                 #Setup classical channel for purification
                 #calculate distance from first to last node
@@ -820,11 +805,11 @@ class NetworkManager():
                 protocol = PathFidelityProtocol(self,path,fidel_rounds, purif_rounds) #We measure E2E fidelity accordingly to config file times
                 
                 while end_simul == False:
-                    dc = self._dc_setup(protocol)
+                    #TODO: DELETE line
+                    #dc = self._dc_setup(protocol)
+                    dc = dc_setup(protocol)
                     protocol.start()
                     ns.sim_run()
-                    #print("Average fidelity of generated entanglement via a repeater and with filtering: {}, with average time: {}"\
-                    #        .format(dc.dataframe["Fidelity"].mean(),dc.dataframe["time"].mean()))
                     protocol.stop()
                     
                     print(f"Request {request_name} purification rounds {purif_rounds} fidelity {dc.dataframe['Fidelity'].mean()}/{request_props['minfidelity']} in {dc.dataframe['time'].mean()}/{request_props['maxtime']} nanoseconds métricas: {len(dc.dataframe)}")
@@ -909,6 +894,14 @@ class NetworkManager():
                             'purif_rounds': '-',
                             'fidelity': 0,
                             'time': 0})
+
+    def _handle_message(self,msg):
+        input_port = msg.meta['rx_port_name']
+        forward_port = input_port.replace('ccon_L_','ccon_R_')
+        port_elements = input_port.split('_')
+        node = self.network.get_node(port_elements[2])
+        node.ports[forward_port].tx_output(msg)
+        return
 
     def _create_qprocessor(self,name,num_memories,nodename):
         '''

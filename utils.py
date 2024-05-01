@@ -3,6 +3,9 @@ from pylatex import Document, Section, Subsection, Command, Figure, Tabular, Ite
 from pylatex.utils import italic, NoEscape, bold
 from icecream import ic
 import os
+from netsquid.util.datacollector import DataCollector
+from netsquid.protocols import Signals
+import pydynaa
 
 __all__ = ['generate_report']
 
@@ -54,3 +57,27 @@ def generate_report(report_info):
 
     report.generate_pdf('./output/report',clean_tex=False)
     report.generate_tex()
+
+def dc_setup(protocol):
+        '''
+        Creates a data collector in order to measure fidelity of E2E entanglement
+        Inputs:
+            - 
+        Outputs:
+            - dc: instance of the configured datacollector
+        '''
+        def record_stats(evexpr):
+            #Record an execution
+            protocol = evexpr.triggered_events[-1].source
+            result = protocol.get_signal_result(Signals.SUCCESS)
+            #ic(protocol)
+            #ic(result)
+            
+            return {
+                'Fidelity': result['fid'],
+                'time': result['time']
+            }
+
+        dc = DataCollector(record_stats, include_time_stamp=False, include_entity_name=False)
+        dc.collect_on(pydynaa.EventExpression(source = protocol, event_type=Signals.SUCCESS.value))
+        return(dc)

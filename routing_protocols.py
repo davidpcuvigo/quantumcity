@@ -85,12 +85,12 @@ class PathFidelityProtocol(LocalProtocol):
         self._portleft_1 = self._networkmanager.network.get_node(self._path['nodes'][0]).qmemory.ports[f"qin{self._mem_posA_1}"]
 
         # add purification signals
-        #end purification signal: Distil protocol will send 0 if purification successful or 1 if failed
-        self._purif_result_signal = 'PURIF_DONE'
-        self.add_signal(self._purif_result_signal)
         #start purification signal
         self._start_purif_signal = 'START_PURIFICATION'
         self.add_signal(self._start_purif_signal)
+        #end purification signal: Distil protocol will send 0 if purification successful or 1 if failed
+        self._purif_result_signal = 'PURIF_DONE'
+        self.add_signal(self._purif_result_signal)
         #Qubit lost when qchannel model has losses
         self._evtypetimer = EventType("Timer","Qubit is lost")
         #add correct protocol restart signal. Needed when purification is used and one quit is lost
@@ -104,14 +104,14 @@ class PathFidelityProtocol(LocalProtocol):
             link_right = path['comms'][nodepos]['links'][0]
             mem_pos_left = networkmanager.get_mem_position(node,link_left.split('-')[0],link_left.split('-')[1])
             mem_pos_right = networkmanager.get_mem_position(node,link_right.split('-')[0],link_right.split('-')[1])
-            subprotocol = SwapProtocol(node=networkmanager.network.get_node(node), mem_left=mem_pos_left, mem_right=mem_pos_right, name=f"SwapProtocol_{node}_{path['request']}_1", request = path['request'])
+            subprotocol = SwapProtocol(node=networkmanager.network.get_node(node), mem_left=mem_pos_left, mem_right=mem_pos_right, name=f"SwapRouteProtocol_{node}_{path['request']}_1", request = path['request'])
             self.add_subprotocol(subprotocol)
 
         # preparation of correct protocol in final node
         epr_state =  self._networkmanager.get_config('epr_pair','epr_pair')
         mempos= networkmanager.get_mem_position(path['nodes'][-1],last_link.split('-')[0],last_link.split('-')[1])
         restart_expr = self.await_signal(self,self._restart_signal)
-        subprotocol = CorrectProtocol(networkmanager.network.get_node(path['nodes'][-1]), mempos, len(path['nodes']), f"CorrectProtocol_{path['request']}_1", path['request'],restart_expr, epr_state)
+        subprotocol = CorrectProtocol(networkmanager.network.get_node(path['nodes'][-1]), mempos, len(path['nodes']), f"CorrectRouteProtocol_{path['request']}_1", path['request'],restart_expr, epr_state)
         self.add_subprotocol(subprotocol)
 
         # calculate total distance and delay, in order to set timer
@@ -164,14 +164,14 @@ class PathFidelityProtocol(LocalProtocol):
             link_right = self._path['comms'][nodepos]['links'][1]
             mem_pos_left = self._networkmanager.get_mem_position(node,link_left.split('-')[0],link_left.split('-')[1])
             mem_pos_right = self._networkmanager.get_mem_position(node,link_right.split('-')[0],link_right.split('-')[1])
-            subprotocol = SwapProtocol(node=self._networkmanager.network.get_node(node), mem_left=mem_pos_left, mem_right=mem_pos_right, name=f"SwapProtocol_{node}_{self._path['request']}_2", request = self._path['request'])
+            subprotocol = SwapProtocol(node=self._networkmanager.network.get_node(node), mem_left=mem_pos_left, mem_right=mem_pos_right, name=f"SwapRouteProtocol_{node}_{self._path['request']}_2", request = self._path['request'])
             self.add_subprotocol(subprotocol)
 
         #add Classical channel for second instance of link
         epr_state = epr_state =  self._networkmanager.get_config('epr_pair','epr_pair')
         mempos= self._networkmanager.get_mem_position(self._path['nodes'][-1],last_link.split('-')[0],last_link.split('-')[1])
         restart_expr = self.await_signal(self,self._restart_signal)
-        subprotocol = CorrectProtocol(self._networkmanager.network.get_node(self._path['nodes'][-1]), mempos, len(self._path['nodes']), f"CorrectProtocol_{self._path['request']}_2", self._path['request'],restart_expr, epr_state)
+        subprotocol = CorrectProtocol(self._networkmanager.network.get_node(self._path['nodes'][-1]), mempos, len(self._path['nodes']), f"CorrectRouteProtocol_{self._path['request']}_2", self._path['request'],restart_expr, epr_state)
         self.add_subprotocol(subprotocol)
 
         #add purification protocol
@@ -185,10 +185,10 @@ class PathFidelityProtocol(LocalProtocol):
         #start_expression = self.await_signal(self, Signals.WAITING)
         start_expression = self.await_signal(self, self._start_purif_signal)
         if purif_proto == 'distil':
-            self.add_subprotocol(Distil(nodeA, nodeA.ports[f"ccon_distil_{nodeA.name}_{self._path['request']}"],
-            'A',self._mem_posA_1,self._mem_posA_2,start_expression, msg_header='distil', name=f"DistilProtocol_{nodeA.name}_{self._path['request']}"))
-            self.add_subprotocol(Distil(nodeB, nodeB.ports[f"ccon_distil_{nodeB.name}_{self._path['request']}"],
-            'B',self._mem_posB_1,self._mem_posB_2,start_expression, msg_header='distil',name=f"DistilProtocol_{nodeB.name}_{self._path['request']}"))
+            self.add_subprotocol(DistilProtocol(nodeA, nodeA.ports[f"ccon_distil_{nodeA.name}_{self._path['request']}"],
+            'A',self._mem_posA_1,self._mem_posA_2,start_expression, msg_header='distil', name=f"DistilRouteProtocol_{nodeA.name}_{self._path['request']}"))
+            self.add_subprotocol(DistilProtocol(nodeB, nodeB.ports[f"ccon_distil_{nodeB.name}_{self._path['request']}"],
+            'B',self._mem_posB_1,self._mem_posB_2,start_expression, msg_header='distil',name=f"DistilRouteProtocol_{nodeB.name}_{self._path['request']}"))
 
     def run(self):
         self.start_subprotocols()
@@ -199,6 +199,7 @@ class PathFidelityProtocol(LocalProtocol):
         epr_state = ks.b00 if self._networkmanager.get_config('epr_pair','epr_pair') == 'PHI_PLUS' else ks.b01
 
         for i in range(self._num_runs):
+            #ic(f"{self.name} en ejecución")
             round_done = False
             start_time = sim_time()
             while not round_done: #need to repeat in case qubit is lost
@@ -207,7 +208,7 @@ class PathFidelityProtocol(LocalProtocol):
                     self.signal_sources(index=[1])
                     timer_event = self._schedule_after(self._total_delay, self._evtypetimer)
                     evexpr_protocol = (self.await_port_input(self._portleft_1)) & \
-                        (self.await_signal(self.subprotocols[f"CorrectProtocol_{self._path['request']}_1"], Signals.SUCCESS))
+                        (self.await_signal(self.subprotocols[f"CorrectRouteProtocol_{self._path['request']}_1"], Signals.SUCCESS))
                     #if timer is triggered, qubit has been lost in a link. Else entanglement
                     # swapping has succeeded
                     evexpr = yield evexpr_timer | evexpr_protocol
@@ -232,9 +233,9 @@ class PathFidelityProtocol(LocalProtocol):
                                 self.signal_sources(index=[1,2])
 
                                 evexpr_protocol = (self.await_port_input(self._portleft_1) & \
-                                    self.await_signal(self.subprotocols[f"CorrectProtocol_{self._path['request']}_1"], Signals.SUCCESS) &\
+                                    self.await_signal(self.subprotocols[f"CorrectRouteProtocol_{self._path['request']}_1"], Signals.SUCCESS) &\
                                     self.await_port_input(self._portleft_2) & \
-                                    self.await_signal(self.subprotocols[f"CorrectProtocol_{self._path['request']}_2"], Signals.SUCCESS))
+                                    self.await_signal(self.subprotocols[f"CorrectRouteProtocol_{self._path['request']}_2"], Signals.SUCCESS))
 
                                 timer_event = self._schedule_after(self._total_delay, self._evtypetimer)
 
@@ -244,7 +245,7 @@ class PathFidelityProtocol(LocalProtocol):
 
                                 #Wait for qubits in both links and corrections in both
                                 evexpr_protocol = (self.await_port_input(self._portleft_2) & \
-                                    self.await_signal(self.subprotocols[f"CorrectProtocol_{self._path['request']}_2"], Signals.SUCCESS))
+                                    self.await_signal(self.subprotocols[f"CorrectRouteProtocol_{self._path['request']}_2"], Signals.SUCCESS))
 
                                 timer_event = self._schedule_after(self._total_delay, self._evtypetimer)
 
@@ -259,8 +260,8 @@ class PathFidelityProtocol(LocalProtocol):
                                 self.send_signal(self._start_purif_signal, 0)
     
                                 #wait for both ends to finish purification
-                                expr_distil = yield (self.await_signal(self.subprotocols[f"DistilProtocol_{self._path['nodes'][0]}_{self._path['request']}"], self._purif_result_signal) &
-                                    self.await_signal(self.subprotocols[f"DistilProtocol_{self._path['nodes'][-1]}_{self._path['request']}"], self._purif_result_signal))
+                                expr_distil = yield (self.await_signal(self.subprotocols[f"DistilRouteProtocol_{self._path['nodes'][0]}_{self._path['request']}"], self._purif_result_signal) &
+                                    self.await_signal(self.subprotocols[f"DistilRouteProtocol_{self._path['nodes'][-1]}_{self._path['request']}"], self._purif_result_signal))
 
                                 source_protocol1 = expr_distil.second_term.atomic_source
                                 ready_signal1 = source_protocol1.get_signal_by_event(
@@ -303,8 +304,6 @@ class PathFidelityProtocol(LocalProtocol):
                 result = {
                     'posA': self._mem_posA_1,
                     'posB': self._mem_posB_1,
-                    'pairsA': 0,
-                    'pairsB': 0,
                     'fid': fid,
                     'time': sim_time() - start_time
                 }
@@ -447,7 +446,7 @@ class CorrectProtocol(NodeProtocol):
                 self._z_corr = 0
                 self._counter = 0
 
-class Distil(NodeProtocol):
+class DistilProtocol(NodeProtocol):
     """Protocol that does local DEJMPS distillation on a node.
 
     This is done in combination with another node.
