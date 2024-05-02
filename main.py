@@ -54,7 +54,6 @@ ns.sim_run(duration=duration)
 for key,value in dc.items():
     print(f"Request {key} fidelity {value.dataframe['Fidelity'].mean()} in {value.dataframe['time'].mean()} nanoseconds métricas: {len(value.dataframe)}")
 
-
 '''
 print('Salida temporal para verificar resultados en detalle')
 ic(net.get_paths())

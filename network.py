@@ -24,6 +24,11 @@ from netsquid.components.instructions import INSTR_MEASURE_BELL, INSTR_MEASURE, 
 import netsquid.qubits.operators as ops
 from utils import dc_setup
 
+class Switch(Node):
+    def __init__(self,name,qmemory):
+        self._queue = []
+        super().__init__(name,qmemory=qmemory)
+
 class NetworkManager():
     '''
     The only initiallization parameter is the name of the file 
@@ -541,7 +546,7 @@ class NetworkManager():
             name = list(node.keys())[0]
             props = list(node.values())[0]
             if props['type'] == 'switch':
-                switch = Node(name, qmemory=self._create_qprocessor(f"qproc_{name}",props['num_memories'], nodename=name))
+                switch = Switch(name, qmemory=self._create_qprocessor(f"qproc_{name}",props['num_memories'], nodename=name))
                 switches.append(switch)
             elif props['type'] == 'endNode':
                 props['num_memories'] = 4 #In an end node we always have 4 memories (2 por entanglement preparation)
