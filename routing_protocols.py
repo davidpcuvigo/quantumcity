@@ -406,6 +406,12 @@ class CorrectProtocol(NodeProtocol):
                 else: #Port can receive more than one classical message at the same time
                     for m in message.items:
                         #m = message.items[0]
+                        '''
+                        if m == ks.BellIndex.B10 or m == ks.BellIndex.B00:
+                            self._x_corr += 1
+                        if m == ks.BellIndex.B10 or m == ks.BellIndex.B11:
+                            self._z_corr += 1
+                        '''    
                         if m == ks.BellIndex.B01 or m == ks.BellIndex.B11:
                             self._x_corr += 1
                         if m == ks.BellIndex.B10 or m == ks.BellIndex.B11:

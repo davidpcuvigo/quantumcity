@@ -21,6 +21,7 @@ from routing_protocols import LinkFidelityProtocol, PathFidelityProtocol
 from netsquid.qubits import ketstates as ks
 from netsquid.qubits import qubitapi as qapi
 from netsquid.protocols import Signals
+from netsquid_nv.nv_center import NVQuantumProcessor
 from netsquid.components.instructions import INSTR_MEASURE_BELL, INSTR_MEASURE, INSTR_X, INSTR_Z,  INSTR_CNOT, IGate
 import netsquid.qubits.operators as ops
 
@@ -560,8 +561,8 @@ class NetworkManager():
             # Add Quantum Sources to nodes
             num_qsource = props['number_links'] if 'number_links' in props.keys() else 2
             state_sampler = StateSampler(
-                [ks.b00, ks.s00],
-                [props['source_fidelity_sq'], 1 - props['source_fidelity_sq']])
+                [ks.b00, ks.s00, ks.s01, ks.s10, ks.s11],
+                [props['source_fidelity_sq'], (1 - props['source_fidelity_sq'])/4,(1 - props['source_fidelity_sq'])/4,(1 - props['source_fidelity_sq'])/4,(1 - props['source_fidelity_sq'])/4])
             for index_qsource in range(num_qsource):
                 if self.get_config('nodes',props['end1'],'type') == 'switch':
                     qsource_origin = nodeA 
@@ -986,7 +987,7 @@ class NetworkManager():
                                 duration=gate_duration_rotations,
                                 quantum_noise_model=gate_noise_model)
         ]
-
+        nvqproc=NVQuantumProcessor(num_positions=num_memories)
         #build quantum processor
         qproc = QuantumProcessor(name, 
                                  num_positions=num_memories, 
