@@ -185,7 +185,7 @@ requests:
   - request3: #name of request
       origin: node6
       destination: node5
-      minfidelity: 0.80
+      minfidelity: 0.90
       maxtime: 500000 # nanoseconds
       path_fidel_rounds: 100
       application: Capacity
@@ -193,7 +193,7 @@ requests:
   - request4: #name of request
       origin: node7
       destination: node8
-      minfidelity: 0.80
+      minfidelity: 0.90
       maxtime: 400000 # nanoseconds
       path_fidel_rounds: 200
       application: Capacity

@@ -805,8 +805,6 @@ class NetworkManager():
                 protocol = PathFidelityProtocol(self,path,fidel_rounds, purif_rounds) #We measure E2E fidelity accordingly to config file times
                 
                 while end_simul == False:
-                    #TODO: DELETE line
-                    #dc = self._dc_setup(protocol)
                     dc = dc_setup(protocol)
                     protocol.start()
                     ns.sim_run()
