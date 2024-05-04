@@ -1,12 +1,7 @@
 import yaml
 from icecream import ic
-import pydynaa
-from matplotlib import use as usematplotlib
 import netsquid as ns
 import networkx as nx
-import matplotlib.pyplot as plt
-from netsquid.util.datacollector import DataCollector
-import pandas as pd
 import numpy as np
 from netsquid.nodes import Node, Connection, Network
 from netsquid.components import Message, QuantumProcessor, QuantumProgram, PhysicalInstruction
@@ -18,8 +13,6 @@ from netsquid.components import ClassicalChannel, QuantumChannel
 from netsquid.nodes.connections import DirectConnection
 from routing_protocols import LinkFidelityProtocol, PathFidelityProtocol
 from netsquid.qubits import ketstates as ks
-from netsquid.qubits import qubitapi as qapi
-from netsquid.protocols import Signals
 from netsquid.components.instructions import INSTR_MEASURE_BELL, INSTR_MEASURE, INSTR_X, INSTR_Z,  INSTR_CNOT, IGate
 import netsquid.qubits.operators as ops
 from utils import dc_setup
@@ -524,7 +517,7 @@ class NetworkManager():
                     raise ValueError(f"request {request_name}: incorrect type for {prop}, it is {type(prop)}")
             
             #Check for definition of mandatory properties
-            mandatory = ['origin','destination','minfidelity','maxtime']
+            mandatory = ['origin','destination','minfidelity','maxtime','application']
             for prop in mandatory:
                 if prop not in request_props.keys(): 
                     raise ValueError(f"request {request_name}: missing property {prop}")
@@ -641,6 +634,7 @@ class NetworkManager():
             props_link = list(link.values())[0]
             origin = self.network.get_node(props_link['end1'])
             dest = self.network.get_node(props_link['end2'])
+
             protocol = LinkFidelityProtocol(self,origin,dest,link_name,0,self._config['link_fidel_rounds'])
             protocol.start()
             #runtime = props_link['distance']*float(props_link['photon_speed_fibre'])*25

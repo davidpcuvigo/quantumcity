@@ -28,8 +28,6 @@ class LinkFidelityProtocol(LocalProtocol):
 
         self.fidelities = []
         
-        #Lost qubit signal
-        self._evtypetimer = EventType("Timer","Qubit is lost")
         #Calculate time to wait until we decide the qubit is lost.
         #To make sure we measure, we set 4 times the expected value
         self._delay = 4 * 1e9 * float(networkmanager.get_config('links',link,'distance'))/float(networkmanager.get_config('links',link,'photon_speed_fibre'))
@@ -39,14 +37,16 @@ class LinkFidelityProtocol(LocalProtocol):
         trig_origin = self._origin if self._networkmanager.get_config('nodes',self._origin.name,'type') == 'switch' else self._dest
         trig_origin.subcomponents[f"qsource_{trig_origin.name}_{self._link}_0"].trigger()
 
-        evexpr_timer = EventExpression(source=self, event_type=self._evtypetimer)
+        #Lost qubit signal
+        evtypetimer = EventType("Timer","Qubit is lost")
+        evexpr_timer = EventExpression(source=self, event_type=evtypetimer)
 
         #Get type of EPR to use
         epr_state = ks.b00 if self._networkmanager.get_config('epr_pair','epr_pair') == 'PHI_PLUS' else ks.b01
 
         for i in range(self._num_runs):
             #Create timer in order to detect lost qubit
-            timer_event = self._schedule_after(self._delay, self._evtypetimer)
+            timer_event = self._schedule_after(self._delay, evtypetimer)
             #Wait for qubits to arrive at both ends or detect a lost qubit
             evexpr = yield evexpr_timer | (self.await_port_input(self._portleft) & self.await_port_input(self._portright))
             

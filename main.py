@@ -38,21 +38,25 @@ for path in net.get_paths():
     if application == 'Capacity':
         app = CapacityApplication(path, net, f"CapacityApplication_{path['request']}")
     elif application == 'Teleport':
-        app = TeleportationApplication(path, net, f"TeleportationApplication_{path['request']}")
+        qubits = net.get_config('requests',path['request'],'teleport')
+        epr_pair = net.get_config('epr_pair','epr_pair')
+        app = TeleportationApplication(path, net, qubits, f"TeleportationApplication_{path['request']}")
     elif application == 'TeleportCirc':
         app = CircTeleportationApplication(path, net, f"CircTeleportationApplication_{path['request']}")
     else:
         raise ValueError('Unsupported application')
 
     app.start()
-    dc[path['request']] = app.dc
+    dc[path['request']] = [application, app.dc]
 
 #Run simulation
 duration = net.get_config('simulation_duration','simulation_duration')
 ns.sim_run(duration=duration)
 
 for key,value in dc.items():
-    print(f"Request {key} fidelity {value.dataframe['Fidelity'].mean()} in {value.dataframe['time'].mean()} nanoseconds métricas: {len(value.dataframe)}")
+    if value[0] == 'Capacity':
+        print(f"Request {key} was able to generate {len(value[1].dataframe)} entanglements with mean fidelity {value[1].dataframe['Fidelity'].mean()} in {value[1].dataframe['time'].mean()} nanoseconds")
+        print(f"Generation rate was {1e9*len(value[1].dataframe)/float(net.get_config('simulation_duration','simulation_duration'))} entanglements per second")
 
 '''
 print('Salida temporal para verificar resultados en detalle')

@@ -49,8 +49,6 @@ class RouteProtocol(LocalProtocol):
         #end purification signal: Distil protocol will send 0 if purification successful or 1 if failed
         self._purif_result_signal = 'PURIF_DONE'
         self.add_signal(self._purif_result_signal)
-        #Qubit lost when qchannel model has losses
-        self._evtypetimer = EventType("Timer","Qubit is lost")
         #add correct protocol restart signal. Needed when purification is used and one quit is lost
         self._restart_signal = 'RESTART_CORRECT_PROTOCOL'
         self.add_signal(self._restart_signal)
@@ -154,11 +152,14 @@ class RouteProtocol(LocalProtocol):
 
     def run(self):
         self.start_subprotocols()
+        #Qubit lost when qchannel model has losses
+        evtypetimer = EventType("Timer","Qubit is lost")
         #set event type in order to detect qubit losses
-        evexpr_timer = EventExpression(source=self, event_type=self._evtypetimer)
+        evexpr_timer = EventExpression(source=self, event_type=evtypetimer)
 
+        #TODO: Borrar este bloque
         #Get type of EPR to use
-        epr_state = ks.b00 if self._networkmanager.get_config('epr_pair','epr_pair') == 'PHI_PLUS' else ks.b01
+        #epr_state = ks.b00 if self._networkmanager.get_config('epr_pair','epr_pair') == 'PHI_PLUS' else ks.b01
 
         #for i in range(self._num_runs):
         while True:
@@ -170,7 +171,7 @@ class RouteProtocol(LocalProtocol):
                 if self._purif_rounds == 0:
                     #trigger all sources in the path
                     self.signal_sources(index=[1])
-                    timer_event = self._schedule_after(self._total_delay, self._evtypetimer)
+                    timer_event = self._schedule_after(self._total_delay, evtypetimer)
 
                     evexpr_protocol = (self.await_port_input(self._portleft_1)) & \
                         (self.await_signal(self.subprotocols[f"CorrectProtocol_{self._path['request']}_1"], Signals.SUCCESS))
@@ -202,7 +203,7 @@ class RouteProtocol(LocalProtocol):
                                     self.await_port_input(self._portleft_2) & \
                                     self.await_signal(self.subprotocols[f"CorrectProtocol_{self._path['request']}_2"], Signals.SUCCESS))
 
-                                timer_event = self._schedule_after(self._total_delay, self._evtypetimer)
+                                timer_event = self._schedule_after(self._total_delay, evtypetimer)
 
                             else: #we keep the qubit in the first link and trigger EPRs in the second
                                 #trigger all sources in the path
@@ -212,7 +213,7 @@ class RouteProtocol(LocalProtocol):
                                 evexpr_protocol = (self.await_port_input(self._portleft_2) & \
                                     self.await_signal(self.subprotocols[f"CorrectProtocol_{self._path['request']}_2"], Signals.SUCCESS))
 
-                                timer_event = self._schedule_after(self._total_delay, self._evtypetimer)
+                                timer_event = self._schedule_after(self._total_delay, evtypetimer)
 
                             #Wait for qubits in both links and corrections in both or timer is over
                             evexpr_proto = yield evexpr_timer | evexpr_protocol
