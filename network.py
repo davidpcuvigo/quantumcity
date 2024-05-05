@@ -466,7 +466,8 @@ class NetworkManager():
             'maxtime': 'integer',
             'path_fidel_rounds': 'integer',
             'application': 'string',
-            'teleport': 'list'}
+            'teleport': 'list',
+            'qber_states': 'list'}
         
         #Check if a node is in more than one request
         #No need to do so, if this happens, the second request will indicate that no resources are available

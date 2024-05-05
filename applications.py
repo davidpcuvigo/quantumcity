@@ -15,7 +15,26 @@ from network import ClassicalConnection
 from netsquid.components.models.delaymodels import FixedDelayModel, FibreDelayModel, GaussianDelayModel
 import cmath
 
+'''
+Available applications:
+    - Capacity: Will generate end to end entanglement during the simulation and will measure the 
+    maximum generation rate for each request.
+    - Teleportation: Will teleport continuously the list of qubits. After one teleportation,
+    a new one will start. Will measure fidelity and the amount of teleported qubits.
+    - QBER: Will teleport 0's and 1's, coded as |0> and |1>, and will measure the bit errors.
+    - TeleportationWithDemand: Will teleport the list of qubits, but following the specified generation
+    rate. Will measure the mean fidelity and total number of teleported qubits, but also the size 
+    of the queue at the source node.
+'''
+
 class GeneralApplication(LocalProtocol):
+    '''
+    Superclass of all applications.  Will instantiate RouteProtocol and Datacollector.
+    Constructor parameters:
+        - path: dictionary with path parameters
+        - netwokmanager: instance of the network manager class being used in the simulation
+        - name: string, name of the instance
+    '''
 
     def __init__(self, path, networkmanager, name=None):
         #Signal that asks for entanglement
@@ -34,6 +53,14 @@ class GeneralApplication(LocalProtocol):
         self.dc = dc_setup(self)
     
 class CapacityApplication(GeneralApplication):
+    '''
+    This class implements and application that generates end to end entanglement continously
+    and measures the fidelity of the entangled pairs
+    Constructor parameters:
+        - path: dictionary with path parameters
+        - netwokmanager: instance of the network manager class being used in the simulation
+        - name: string, name of the instance
+    '''
 
     def __init__(self, path, networkmanager, name=None):
         name = name if name else f"CapacityApplication_Unidentified"
@@ -66,7 +93,7 @@ class CapacityApplication(GeneralApplication):
             result = {
                 'posA': mem_posA_1,
                 'posB': mem_posB_1,
-                'fid': fid,
+                'Fidelity': fid,
                 'time': sim_time() - start_time
             }
             #send result to datacollector
@@ -74,12 +101,24 @@ class CapacityApplication(GeneralApplication):
 
 
 class TeleportationApplication(GeneralApplication):
+    '''
+    Class that implements three type of applications:
+        Teleportation: Will teleport one qubit after another, without an input demand rate.
+                 Qubits will be teleported as soon as the previous one has been transmitted.
+        TeleportationWithDemand: Origin node will generate qubits with a specified rate.
+                 They will be stored in a local queue and sent as a slot is available.
+        QBER: 
+    '''
+    #TODO: Ahora mismo este protocolo implementa las 3 aplicaciones. Revisar si sería mejor
+    #hacer una clase de teleportación y que cada aplicación sea una clase que hereda de ella
+    #e implementa el método run
 
-    def __init__(self, path, networkmanager, qubits, epr_pair, name=None):
+    def __init__(self, path, networkmanager, qubits, epr_pair, app, name=None):
         name = name if name else f"TeleportApplication_Unidentified"
         super().__init__(path, networkmanager)
 
         self._qubits = qubits
+        self._app = app
 
         mem_posB_1 = self._networkmanager.get_mem_position(self._path['nodes'][-1],self._path['comms'][-1]['links'][0].split('-')[0],0)
         #mem_posB_1=0
@@ -146,6 +185,7 @@ class TeleportationApplication(GeneralApplication):
 
         set_qstate_formalism(QFormalism.KET)
         qubit = create_qubits(1)
+        original_qubit = create_qubits(1)
 
         first_node = self._networkmanager.network.get_node(self._path['nodes'][0])
         last_node = self._networkmanager.network.get_node(self._path['nodes'][-1])
@@ -154,6 +194,7 @@ class TeleportationApplication(GeneralApplication):
         tx_qubit = 0 #Position of qubit to transmit
 
         while True:
+            start_time = sim_time()
             #TODO: Implementar el demand rate. Ahora mismo lo hace de forma continua, sin seguir distribución dada
 
             #Get state to teleport. First normalize it
@@ -172,7 +213,6 @@ class TeleportationApplication(GeneralApplication):
                 #store qubit un memory position
                 first_node.qmemory.put(qubit, 2, replace = False)
 
-                start_time = sim_time()
                 #Request entanglement to RouteProtocol
                 self.send_signal(self._ent_request)
 
@@ -190,17 +230,33 @@ class TeleportationApplication(GeneralApplication):
                 yield self.await_signal(self.subprotocols[f"TeleportCorrectProtocol_{self._path['request']}"],Signals.SUCCESS)
 
                 result_qubit, = last_node.qmemory.pop(0)
-                fid = qapi.fidelity(result_qubit, state, squared = True)
-                qapi.discard(result_qubit)
-                result = {
-                    'posA': mem_posA_1,
-                    'posB': mem_posB_1,
-                    'fid': fid,
-                    'time': sim_time() - start_time
-                }
- 
+
+                if self._app == 'Teleportation':
+                    fid = qapi.fidelity(result_qubit, state, squared = True)
+                    qapi.discard(result_qubit)
+                    result = {
+                        'posA': mem_posA_1,
+                        'posB': mem_posB_1,
+                        'Fidelity': fid,
+                        'time': sim_time() - start_time
+                    }
+    
+                elif self._app == 'QBER':
+                    #in result_qubit the teleported one
+                    #ic(qubit[0], result_qubit)
+                    assign_qstate(original_qubit, state)
+
+                    m_origin = qapi.measure(original_qubit[0])
+                    m_res = qapi.measure(result_qubit)
+                    error = 1 if m_origin != m_res else 0
+                    qapi.discard(result_qubit)
+                    result = {
+                        'error': error,
+                        'time': sim_time() - start_time
+                    }
+
                 #send result to datacollector
-                self.send_signal(Signals.SUCCESS, result)
+                self.send_signal(Signals.SUCCESS, result) 
             else:
                 self.await_timer(1000)
 

@@ -114,7 +114,7 @@ class PathFidelityProtocol(LocalProtocol):
             result = {
                 'posA': mem_posA_1,
                 'posB': mem_posB_1,
-                'fid': fid,
+                'Fidelity': fid,
                 'time': sim_time() - start_time
             }
             #send result to datacollector

@@ -4,18 +4,18 @@ name: Red de pruebas
 link_fidel_rounds: 100 #Number of fidelity measures to estimate link fidelity
 path_fidel_rounds: 100 #Default number of measures to perform when estimating E2E path fidelity
 epr_pair: 'PSI_PLUS' #Allowed values are PHI_PLUS or PSI_PLUS
-simulation_duration: 10000000 #Duration of application simulation phase
+simulation_duration: 100000000 #Duration of application simulation phase
 
 nodes:
   - switch1: #name of switch
       type: switch
       num_memories: 32
-      gate_duration: 1
-      gate_duration_X: 1
-      gate_duration_Z: 1
-      gate_duration_CX: 1
-      gate_duration_rotations: 1
-      measurements_duration: 1
+      gate_duration: 30
+      #gate_duration_X: 1
+      #gate_duration_Z: 1
+      #gate_duration_CX: 1
+      #gate_duration_rotations: 1
+      measurements_duration: 50
       #gate_noise_model: DephaseNoiseModel
       #dephase_gate_rate: 200
       #mem_noise_model: T1T2NoiseModel
@@ -23,52 +23,68 @@ nodes:
       #t2_mem_time: 1e10
   - node1: #name of endNode
       type: endNode
-      gate_duration: 1
+      gate_duration: 30
+      measurements_duration: 50
   - node2:
       type: endNode
-      gate_duration: 1
+      gate_duration: 30
+      measurements_duration: 50
   - node3:
       type: endNode
-      gate_duration: 1
+      gate_duration: 30
+      measurements_duration: 50
   - node4:
       type: endNode
-      gate_duration: 1
+      gate_duration: 30
+      measurements_duration: 50
   - node5:
       type: endNode
-      gate_duration: 1
+      gate_duration: 30
+      measurements_duration: 50
   - node6:
       type: endNode
-      gate_duration: 1
+      gate_duration: 30
+      measurements_duration: 50
   - node7:
       type: endNode
-      gate_duration: 1
+      gate_duration: 30
+      measurements_duration: 50
   - node8:
       type: endNode
-      gate_duration: 1
+      gate_duration: 30
+      measurements_duration: 50
   - node9:
       type: endNode
-      gate_duration: 1
+      gate_duration: 30
+      measurements_duration: 50
   - node10:
       type: endNode
-      gate_duration: 1
+      gate_duration: 30
+      measurements_duration: 50
   - node11:
       type: endNode
-      gate_duration: 1
+      gate_duration: 30
+      measurements_duration: 50
   - node12:
       type: endNode
-      gate_duration: 1
+      gate_duration: 30
+      measurements_duration: 50
   - node13:
       type: endNode
-      gate_duration: 1
+      gate_duration: 30
+      measurements_duration: 50
   - node14:
       type: endNode
-      gate_duration: 1
+      gate_duration: 30
+      measurements_duration: 50
   - node15:
       type: endNode
-      gate_duration: 1
+      gate_duration: 30
+      measurements_duration: 50
   - node16:
       type: endNode
-      gate_duration: 1
+      gate_duration: 30
+      measurements_duration: 50
 links:
   - nodeswitch1: #name of link
       end1: node1
@@ -98,7 +114,7 @@ links:
       end1: node4
       end2: switch1
       distance: 5
-      source_fidelity_sq: 1
+      source_fidelity_sq: 0.7
       source_delay: 10000
       photon_speed_fibre: 200e3
       classical_delay_model: FibreDelayModel
@@ -222,8 +238,8 @@ requests:
       minfidelity: 0.70
       maxtime: 500000 # nanoseconds
       #path_fidel_rounds: 100
-      application: Capacity
-      teleport: [(1,0),(0,1)] #Lista de (alpha, beta). alpha|0> + beta|1> Estados a teleportar
+      application: QBER
+      qber_states: [[1,0],[0,1]] #List of |0> and |1> to measure QBER
   - request4: #name of request
       origin: node7
       destination: node8

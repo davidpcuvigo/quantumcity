@@ -70,13 +70,13 @@ def dc_setup(protocol):
             #Record an execution
             protocol = evexpr.triggered_events[-1].source
             result = protocol.get_signal_result(Signals.SUCCESS)
-            #ic(protocol)
-            #ic(result)
+
+            return(result)
             
-            return {
-                'Fidelity': result['fid'],
-                'time': result['time']
-            }
+            #return {
+            #    'Fidelity': result['fid'],
+            #    'time': result['time']
+            #}
 
         dc = DataCollector(record_stats, include_time_stamp=False, include_entity_name=False)
         dc.collect_on(pydynaa.EventExpression(source = protocol, event_type=Signals.SUCCESS.value))

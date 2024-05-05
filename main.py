@@ -4,7 +4,7 @@ import logging
 import netsquid as ns
 from netsquid.util import simlog
 from utils import generate_report
-from applications import CapacityApplication, TeleportationApplication, CircTeleportationApplication
+from applications import CapacityApplication, TeleportationApplication, RateTeleportationApplication
 
 try:
     from pylatex import Document
@@ -40,9 +40,13 @@ for path in net.get_paths():
     elif application == 'Teleport':
         qubits = net.get_config('requests',path['request'],'teleport')
         epr_pair = net.get_config('epr_pair','epr_pair')
-        app = TeleportationApplication(path, net, qubits, epr_pair, f"TeleportationApplication_{path['request']}")
-    elif application == 'TeleportCirc':
-        app = CircTeleportationApplication(path, net, f"CircTeleportationApplication_{path['request']}")
+        app = TeleportationApplication(path, net, qubits, epr_pair, 'Teleportation', f"TeleportationApplication_{path['request']}")
+    elif application == 'TeleportationWithDemand':
+        pass
+    elif application == 'QBER':
+        qubits = net.get_config('requests',path['request'],'qber_states')
+        epr_pair = net.get_config('epr_pair','epr_pair')
+        app = TeleportationApplication(path, net, qubits, epr_pair, 'QBER', f"QBERApplication_{path['request']}")
     else:
         raise ValueError('Unsupported application')
 
@@ -54,12 +58,35 @@ duration = net.get_config('simulation_duration','simulation_duration')
 ns.sim_run(duration=duration)
 
 for key,value in dc.items():
-    print("------------------------------------------")
+    print(f"----Request {key}: Application: {value[0]} --------------------------------------")
     if value[0] == 'Capacity':
-        print(f"Request {key} was able to generate {len(value[1].dataframe)} entanglements with mean fidelity {value[1].dataframe['Fidelity'].mean()} in {value[1].dataframe['time'].mean()} nanoseconds")
-        print(f"Generation rate was {1e9*len(value[1].dataframe)/float(net.get_config('simulation_duration','simulation_duration'))} entanglements per second")
+        #print(f"Request {key} was able to generate {len(value[1].dataframe)} entanglements with mean fidelity {value[1].dataframe['Fidelity'].mean()} in {value[1].dataframe['time'].mean()} nanoseconds")
+        #print(f"Generation rate was {1e9*len(value[1].dataframe)/float(net.get_config('simulation_duration','simulation_duration'))} entanglements per second")
+        print(f"Request: {key}")
+        print(f"         Generated entanglements: {len(value[1].dataframe)}")
+        print(f"         Mean fidelity: {value[1].dataframe['Fidelity'].mean()}")
+        print(f"         Mean time: {value[1].dataframe['time'].mean()} nanoseconds")
+        print(f"Entanglement generation rate: {1e9*len(value[1].dataframe)/float(net.get_config('simulation_duration','simulation_duration'))} entanglements per second")
+              
     elif value[0] == 'Teleport':
-        print(f"Request {key} performed {len(value[1].dataframe)} teleportations with a mean fidelity of {value[1].dataframe['Fidelity'].mean()} and a mean time of {value[1].dataframe['time'].mean()} nanoseconds")
+        #print(f"Request {key} performed {len(value[1].dataframe)} teleportations with a mean fidelity of {value[1].dataframe['Fidelity'].mean()} and a mean time of {value[1].dataframe['time'].mean()} nanoseconds")
+        print(f"Request: {key}")
+        print(f"         Teleported states: {len(value[1].dataframe)}")
+        print(f"         Mean fidelity: {value[1].dataframe['Fidelity'].mean()}")
+        print(f"         Mean time: {value[1].dataframe['time'].mean()} nanoseconds")
+    elif value[0] == 'QBER':
+        ok = value[1].dataframe['error'].value_counts().loc[0]
+        total = value[1].dataframe['error'].count()
+        #print(f"Request {key} performed {len(value[1].dataframe)} measurements with a QBER of {(total - ok) / total}%")
+        print(f"Request: {key}")
+        print(f"         Performed measurements: {len(value[1].dataframe)}")
+        print(f"         Mean time: {value[1].dataframe['time'].mean()} nanoseconds")
+        print(f"QBER: {(total - ok) / total}%")   
+    elif value[0] == 'TeleportationWithDemand':
+        pass
+    else:
+        pass
+    print()
 
 '''
 print('Salida temporal para verificar resultados en detalle')
