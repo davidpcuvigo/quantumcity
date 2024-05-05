@@ -13,7 +13,7 @@ from netsquid.components import QuantumProgram
 from protocols import SwapCorrectProgram
 from network import ClassicalConnection
 from netsquid.components.models.delaymodels import FixedDelayModel, FibreDelayModel, GaussianDelayModel
-
+import cmath
 
 class GeneralApplication(LocalProtocol):
 
@@ -132,9 +132,6 @@ class TeleportationApplication(GeneralApplication):
     def run(self):
         self.start_subprotocols()
 
-        #Get type of EPR to use in links
-        epr_state = ks.b00 if self._networkmanager.get_config('epr_pair','epr_pair') == 'PHI_PLUS' else ks.b01
-
         #Though in this simulations positions in nodes are always 0, we query in case this is changed in the future
         first_link = self._path['comms'][0]['links'][0]
         last_link = self._path['comms'][-1]['links'][0]
@@ -148,14 +145,25 @@ class TeleportationApplication(GeneralApplication):
         self._program.apply(INSTR_MEASURE_BELL, [q1, q2], output_key="m", inplace=False)
 
         set_qstate_formalism(QFormalism.KET)
-        state = np.array([[1], [0]], dtype=complex)
-        #matrix = np.kron(state,state)
         qubit = create_qubits(1)
 
         first_node = self._networkmanager.network.get_node(self._path['nodes'][0])
         last_node = self._networkmanager.network.get_node(self._path['nodes'][-1])
 
+        num_qubits = len(self._qubits) #Number of qubits to teleport
+        tx_qubit = 0 #Position of qubit to transmit
+
         while True:
+            #TODO: Implementar el demand rate. Ahora mismo lo hace de forma continua, sin seguir distribución dada
+
+            #Get state to teleport. First normalize it
+            alpha = complex(self._qubits[tx_qubit][0])
+            beta = complex(self._qubits[tx_qubit][1])
+            norm = cmath.sqrt(np.conjugate(alpha)*alpha + np.conjugate(beta)*beta)
+            state = np.array([[alpha], [beta]], dtype=complex)/norm
+
+            #Set position of next qubit to transmit
+            tx_qubit = tx_qubit + 1 if tx_qubit < num_qubits-1 else 0
             
             assign_qstate(qubit, state)
 
@@ -172,27 +180,34 @@ class TeleportationApplication(GeneralApplication):
                 yield self.await_signal(self.subprotocols[f"RouteProtocol_{self._path['request']}"],Signals.SUCCESS)
 
                 #Measure in Bell basis positions 0 and 2
-                yield first_node.qmemory.execute_program(self._program, qubit_mapping=[mem_posTeleport, mem_posA_1])
-                
+                yield first_node.qmemory.execute_program(self._program, qubit_mapping=[mem_posTeleport,mem_posA_1])
                 m, = self._program.output["m"]
+
                 # Send result to right node on end
                 first_node.ports[f"ccon_R_{self._path['nodes'][0]}_{self._path['request']}_teleport"].tx_output(Message(m))
 
                 #Wait for Teleportation to complete
                 yield self.await_signal(self.subprotocols[f"TeleportCorrectProtocol_{self._path['request']}"],Signals.SUCCESS)
 
-                res, = last_node.qmemory.pop(0)
-
+                result_qubit, = last_node.qmemory.pop(0)
+                fid = qapi.fidelity(result_qubit, state, squared = True)
+                qapi.discard(result_qubit)
+                result = {
+                    'posA': mem_posA_1,
+                    'posB': mem_posB_1,
+                    'fid': fid,
+                    'time': sim_time() - start_time
+                }
+ 
+                #send result to datacollector
+                self.send_signal(Signals.SUCCESS, result)
             else:
                 self.await_timer(1000)
-            
-            #self._networkmanager.network.get_node(self._path['nodes'][0]).qmemory.ports['qin2']
 
-
-class CircTeleportationApplication(GeneralApplication):
+class RateTeleportationApplication(GeneralApplication):
 
     def __init__(self, path, networkmanager, name=None):
-        name = name if name else f"CircTeleportationApplication_Unidentified"
+        name = name if name else f"RateTeleportationApplication_Unidentified"
         super().__init__(path, networkmanager,)
     
     def run(self):
@@ -229,8 +244,9 @@ class TeleportCorrectProtocol(NodeProtocol):
             yield self.await_port_input(self.node.ports[f"ccon_L_{self.node.name}_{self._request}_teleport"]) 
             
             message = self.node.ports[f"ccon_L_{self.node.name}_{self._request}_teleport"].rx_input()
+
             if message is not None:
-                m = message.items
+                m = message.items[0]
                 if self._epr_state == 'PHI_PLUS':
                     if m == ks.BellIndex.B01 or m == ks.BellIndex.B11:
                         self._x_corr += 1
