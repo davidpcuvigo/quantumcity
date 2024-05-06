@@ -253,7 +253,9 @@ requests:
       minfidelity: 0.70
       maxtime: 400000 # nanoseconds
       #path_fidel_rounds: 200
-      application: Capacity
+      application: TeleportationWithDemand
+      teleport: [[1,1],[1,0],[0,1],[2,8],[0.3+1j,4]] #List of [alpha, beta]. alpha|0> + beta|1>. States to teleport. Will be normalized
+      demand_rate: 100000 #(Hz)
   - request6: #name of request
       origin: node3
       destination: node5

@@ -300,12 +300,12 @@ class SwapProtocol(NodeProtocol):
                    self.await_port_input(self._qmem_input_port_r))
             
             #Add to node queue
-            self.node._queue.append(self.name)
+            self.node._swap_queue.append(self.name)
     
             #More than two requests can arrive at the same time to qprocessor
             not_serviced = True
             while not_serviced:
-                if self.name == self.node._queue[0]: #First in queue, can be serviced   
+                if self.name == self.node._swap_queue[0]: #First in queue, can be serviced   
 
                     #Check for future removal. We manage qprocessor with FIFO queue
                     # Perform Bell measurement
@@ -314,7 +314,7 @@ class SwapProtocol(NodeProtocol):
 
                     yield self.node.qmemory.execute_program(self._program, qubit_mapping=[self._mem_right, self._mem_left])
                     #Serviced, remove from queue
-                    self.node._queue.pop(0)
+                    self.node._swap_queue.pop(0)
                     not_serviced = False
                 else: #Must wait for other to complete
                     yield self.await_timer(duration=100) #Nothing to do, just wait

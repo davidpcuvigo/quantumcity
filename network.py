@@ -19,8 +19,27 @@ from utils import dc_setup
 
 class Switch(Node):
     def __init__(self,name,qmemory):
-        self._queue = []
+        self._swap_queue = []
         super().__init__(name,qmemory=qmemory)
+
+class EndNode(Node):
+    def __init__(self,name,qmemory):
+        #TODO: Change queue to quantum memory queue?
+        self._transmit_queue = []
+        super().__init__(name,qmemory=qmemory)
+
+    def request_teleport(self,state):
+        self._transmit_queue.append(state)
+
+    def retrieve_teleport(self):
+        if len(self._transmit_queue) > 0:
+            return self._transmit_queue.pop(0)
+        else:
+            return(None)
+        
+    def get_queue_size(self):
+        return(len(self._transmit_queue))
+        
 
 class NetworkManager():
     '''
@@ -467,7 +486,8 @@ class NetworkManager():
             'path_fidel_rounds': 'integer',
             'application': 'string',
             'teleport': 'list',
-            'qber_states': 'list'}
+            'qber_states': 'list',
+            'demand_rate': 'float'}
         
         #Check if a node is in more than one request
         #No need to do so, if this happens, the second request will indicate that no resources are available
@@ -544,7 +564,7 @@ class NetworkManager():
                 switches.append(switch)
             elif props['type'] == 'endNode':
                 props['num_memories'] = 4 #In an end node we always have 4 memories (2 por entanglement preparation)
-                endnode = Node(name, qmemory=self._create_qprocessor(f"qproc_{name}",props['num_memories'], nodename=name))
+                endnode = EndNode(name, qmemory=self._create_qprocessor(f"qproc_{name}",props['num_memories'], nodename=name))
                 end_nodes.append(endnode)
             else:
                 raise ValueError('Undefined network element found')

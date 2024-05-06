@@ -4,7 +4,7 @@ import logging
 import netsquid as ns
 from netsquid.util import simlog
 from utils import generate_report
-from applications import CapacityApplication, TeleportationApplication, RateTeleportationApplication
+from applications import CapacityApplication, TeleportationApplication, DemandGeneratorProtocol
 
 try:
     from pylatex import Document
@@ -40,13 +40,16 @@ for path in net.get_paths():
     elif application == 'Teleport':
         qubits = net.get_config('requests',path['request'],'teleport')
         epr_pair = net.get_config('epr_pair','epr_pair')
-        app = TeleportationApplication(path, net, qubits, epr_pair, 'Teleportation', f"TeleportationApplication_{path['request']}")
+        app = TeleportationApplication(path, net, qubits, epr_pair, 'Teleportation', name = f"TeleportationApplication_{path['request']}")
     elif application == 'TeleportationWithDemand':
-        pass
+        qubits = net.get_config('requests',path['request'],'teleport')
+        demand_rate = net.get_config('requests',path['request'],'demand_rate')
+        epr_pair = net.get_config('epr_pair','epr_pair')
+        app = TeleportationApplication(path, net, qubits, epr_pair, 'TeleportationWithDemand', rate=demand_rate, name=f"TeleportationWithDemandApplication_{path['request']}")
     elif application == 'QBER':
         qubits = net.get_config('requests',path['request'],'qber_states')
         epr_pair = net.get_config('epr_pair','epr_pair')
-        app = TeleportationApplication(path, net, qubits, epr_pair, 'QBER', f"QBERApplication_{path['request']}")
+        app = TeleportationApplication(path, net, qubits, epr_pair, 'QBER', name = f"QBERApplication_{path['request']}")
     else:
         raise ValueError('Unsupported application')
 
@@ -83,7 +86,14 @@ for key,value in dc.items():
         print(f"         Mean time: {value[1].dataframe['time'].mean()} nanoseconds")
         print(f"QBER: {(total - ok) / total}%")   
     elif value[0] == 'TeleportationWithDemand':
-        pass
+        nodename = net.get_config('requests',key,'origin')
+        node = net.network.get_node(nodename)
+        queue_size = node.get_queue_size()
+        print(f"Request: {key}")
+        print(f"         Teleported states: {len(value[1].dataframe)}")
+        print(f"         Mean fidelity: {value[1].dataframe['Fidelity'].mean()}")
+        print(f"         Mean time: {value[1].dataframe['time'].mean()} nanoseconds")
+        print(f"Size of queue after simlation time: {queue_size}")
     else:
         pass
     print()

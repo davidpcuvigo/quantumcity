@@ -113,7 +113,7 @@ class TeleportationApplication(GeneralApplication):
     #hacer una clase de teleportación y que cada aplicación sea una clase que hereda de ella
     #e implementa el método run
 
-    def __init__(self, path, networkmanager, qubits, epr_pair, app, name=None):
+    def __init__(self, path, networkmanager, qubits, epr_pair, app, rate = 0, name=None):
         name = name if name else f"TeleportApplication_Unidentified"
         super().__init__(path, networkmanager)
 
@@ -125,6 +125,9 @@ class TeleportationApplication(GeneralApplication):
         self.add_subprotocol(TeleportCorrectProtocol(networkmanager.network.get_node(path['nodes'][-1]),mem_posB_1,f"TeleportCorrectProtocol_{path['request']}",path['request'],epr_pair))
 
         self._build_teleport_classic()
+
+        if app == 'TeleportationWithDemand': #Request demand is modelled
+            self.add_subprotocol(DemandGeneratorProtocol(networkmanager.network.get_node(path['nodes'][0]),rate,qubits,f"DemandGeneratorProtocol_{path['request']}"))
 
     def _build_teleport_classic(self):
         '''
@@ -194,18 +197,32 @@ class TeleportationApplication(GeneralApplication):
         tx_qubit = 0 #Position of qubit to transmit
 
         while True:
+        
+            if self._app in ['Teleportation','QBER']:
+                #No demand, we'll request as soon as the ir a slot
+                #Get state to teleport. First normalize it
+                alpha = complex(self._qubits[tx_qubit][0])
+                beta = complex(self._qubits[tx_qubit][1])
+                norm = cmath.sqrt(np.conjugate(alpha)*alpha + np.conjugate(beta)*beta)
+                state = np.array([[alpha], [beta]], dtype=complex)/norm
+
+                #Set position of next qubit to transmit
+                tx_qubit = tx_qubit + 1 if tx_qubit < num_qubits-1 else 0
+
+            elif self._app == 'TeleportationWithDemand':
+                #We have to request a qubit base on generation demand
+                waiting_state = True
+                while waiting_state:
+                    #retrieve state from queue
+                    state = first_node.retrieve_teleport()
+
+                    #If no qubit to transmit, wait 1000 nanoseconds
+                    if state is None:
+                        yield self.await_timer(1000)
+                    else:
+                        waiting_state = False
+                        
             start_time = sim_time()
-            #TODO: Implementar el demand rate. Ahora mismo lo hace de forma continua, sin seguir distribución dada
-
-            #Get state to teleport. First normalize it
-            alpha = complex(self._qubits[tx_qubit][0])
-            beta = complex(self._qubits[tx_qubit][1])
-            norm = cmath.sqrt(np.conjugate(alpha)*alpha + np.conjugate(beta)*beta)
-            state = np.array([[alpha], [beta]], dtype=complex)/norm
-
-            #Set position of next qubit to transmit
-            tx_qubit = tx_qubit + 1 if tx_qubit < num_qubits-1 else 0
-            
             assign_qstate(qubit, state)
 
             #If position is not being used, we can store the qubit
@@ -231,7 +248,7 @@ class TeleportationApplication(GeneralApplication):
 
                 result_qubit, = last_node.qmemory.pop(0)
 
-                if self._app == 'Teleportation':
+                if self._app in ['Teleportation','TeleportationWithDemand']:
                     fid = qapi.fidelity(result_qubit, state, squared = True)
                     qapi.discard(result_qubit)
                     result = {
@@ -260,14 +277,30 @@ class TeleportationApplication(GeneralApplication):
             else:
                 self.await_timer(1000)
 
-class RateTeleportationApplication(GeneralApplication):
+class DemandGeneratorProtocol(NodeProtocol):
 
-    def __init__(self, path, networkmanager, name=None):
-        name = name if name else f"RateTeleportationApplication_Unidentified"
-        super().__init__(path, networkmanager,)
+    def __init__(self, node, rate, qubits, name=None):
+        name = name if name else f"DemandGenerator_Unidentified"
+        super().__init__(node, name)
+        self._time_between_states = 1e9 / rate
+        self._qubits = qubits
     
     def run(self):
-        pass
+        num_qubits = len(self._qubits) #Number of qubits to teleport
+        tx_qubit = 0 #Position of qubit to transmit
+        while True:
+            yield self.await_timer(self._time_between_states)
+            
+            #Get state to teleport. First normalize it
+            alpha = complex(self._qubits[tx_qubit][0])
+            beta = complex(self._qubits[tx_qubit][1])
+            norm = cmath.sqrt(np.conjugate(alpha)*alpha + np.conjugate(beta)*beta)
+            state = np.array([[alpha], [beta]], dtype=complex)/norm
+
+            #Set position of next qubit to transmit
+            tx_qubit = tx_qubit + 1 if tx_qubit < num_qubits-1 else 0
+            
+            self.node.request_teleport(state)
 
 
 class TeleportCorrectProtocol(NodeProtocol):
