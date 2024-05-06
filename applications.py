@@ -107,11 +107,8 @@ class TeleportationApplication(GeneralApplication):
                  Qubits will be teleported as soon as the previous one has been transmitted.
         TeleportationWithDemand: Origin node will generate qubits with a specified rate.
                  They will be stored in a local queue and sent as a slot is available.
-        QBER: 
+        QBER: Measure binary digits encoded in quantum states
     '''
-    #TODO: Ahora mismo este protocolo implementa las 3 aplicaciones. Revisar si sería mejor
-    #hacer una clase de teleportación y que cada aplicación sea una clase que hereda de ella
-    #e implementa el método run
 
     def __init__(self, path, networkmanager, qubits, epr_pair, app, rate = 0, name=None):
         name = name if name else f"TeleportApplication_Unidentified"

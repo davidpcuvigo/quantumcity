@@ -157,10 +157,6 @@ class RouteProtocol(LocalProtocol):
         #set event type in order to detect qubit losses
         evexpr_timer = EventExpression(source=self, event_type=evtypetimer)
 
-        #TODO: Borrar este bloque
-        #Get type of EPR to use
-        #epr_state = ks.b00 if self._networkmanager.get_config('epr_pair','epr_pair') == 'PHI_PLUS' else ks.b01
-
         #for i in range(self._num_runs):
         while True:
             #Wait for an entanglement request

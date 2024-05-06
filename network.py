@@ -542,6 +542,20 @@ class NetworkManager():
             for prop in mandatory:
                 if prop not in request_props.keys(): 
                     raise ValueError(f"request {request_name}: missing property {prop}")
+            
+            #Check for valid applications
+            if request_props['application'] not in ['Capacity','QBER','Teleport','TeleportationWithDemand']:
+                raise ValueError(f"request {request_name}: Unsupported application")
+            
+            #If TeleportApplication, teleport parameter must be specified
+            if request_props['application'] in ['Teleport','TeleportationWithDemand'] and 'teleport' not in request_props.keys():
+                raise ValueError(f"request {request_name}: If application is Teleport, states to teleport must be specified in teleport property")
+            
+            #If QBER, qber_states parameter must be specified
+            if request_props['application'] =='QBER' and 'qber_states' not in request_props.keys():
+                raise ValueError(f"request {request_name}: If application is QBER, states to teleport must be specified in qber_states property")
+            
+
 
     def _create_network(self):
         '''
@@ -682,9 +696,7 @@ class NetworkManager():
                 conn = self.network.get_connection(nodeA, nodeB,f"cconn_{nodeA.name}_{nodeB.name}_{path['request']}_{i}")
                 self.network.remove_connection(conn)
                 #Unable to delete ports. Will remain unconnected
-                #TODO: Check how to delete ports
-                #nodeA.ports[f"ccon_R_{nodeA.name}_{request_name}_{i}"].remove()
-                #nodeB.ports[f"ccon_L_{nodeB.name}_{request_name}_{i}"].remove()
+
         #remove classical purification connection
         connA = self.network.get_connection(self.network.get_node(path['nodes'][0]), 
                 self.network.get_node(path['nodes'][-1]),
@@ -778,16 +790,6 @@ class NetworkManager():
                         #Forward cconn to right most node
                         if f"ccon_L_{path['nodes'][nodepos]}_{request_name}_{i}" in self.network.get_node(path['nodes'][nodepos]).ports:
                             self.network.get_node(path['nodes'][nodepos]).ports[f"ccon_L_{path['nodes'][nodepos]}_{request_name}_{i}"].bind_input_handler(self._handle_message,tag_meta=True)
-                        
-                    #TODO: DELETE when working  
-                    '''
-                    if f"ccon_L_{shortest_path[nodepos]}_{request_name}_1" in self.network.get_node(shortest_path[nodepos]).ports:
-                        self.network.get_node(shortest_path[nodepos]).ports[f"ccon_L_{shortest_path[nodepos]}_{request_name}_1"].bind_input_handler(
-                                lambda message, _node=self.network.get_node(shortest_path[nodepos]): _node.ports[f"ccon_R_{_node.name}_{request_name}_1"].tx_output(message))
-                    if f"ccon_L_{shortest_path[nodepos]}_{request_name}_2" in self.network.get_node(shortest_path[nodepos]).ports:
-                            self.network.get_node(shortest_path[nodepos]).ports[f"ccon_L_{shortest_path[nodepos]}_{request_name}_2"].bind_input_handler(
-                                lambda message, _node=self.network.get_node(shortest_path[nodepos]): _node.ports[f"ccon_R_{_node.name}_{request_name}_2"].tx_output(message))
-                    '''
 
                 #Setup classical channel for purification
                 #calculate distance from first to last node
