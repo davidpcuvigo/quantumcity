@@ -289,6 +289,12 @@ class DemandGeneratorProtocol(NodeProtocol):
     '''
     Class that implements the protocol generating qubits following
     the specified demand rate
+    Parameters
+    ------------------------
+    node: EndNode instance where is is running
+    rate: demand_rate in Hz
+    qubits: list of states to teleport. Once at the end, it will start from the begginning
+    name: name of protocol
     '''
     def __init__(self, node, rate, qubits, name=None):
         name = name if name else f"DemandGenerator_Unidentified"
