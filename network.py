@@ -22,6 +22,39 @@ class Switch(Node):
         self._swap_queue = []
         super().__init__(name,qmemory=qmemory)
 
+    def add_request(self,request):
+        '''
+        Receives the protocol that wants to perform the swapping operation
+        Input:
+            - request: name of th requestor protocol (string)
+        Output:
+            No output
+        '''
+        self._swap_queue.append(request)
+
+    def get_request(self,strategy):
+        '''
+        Retrieve an operation to execute from the queue.
+        Can be the first one or the last one
+        Input:
+            - strategy: if first in queue should be returned or last (first|last)
+        Output:
+            - protocol_name: name of the protocol for which the entanglement will be executed
+        '''
+        protocol_name = self._swap_queue[0] if strategy == 'first' else self._swap_queue[-1]
+        return(protocol_name)
+
+    def remove_request(self,strategy):
+        '''
+        Delete an operation from the queue.
+        Can be the first one or the last one
+        Input:
+            - strategy: if first in queue should be deleted or last (first|last)
+        Output:
+            No output
+        '''
+        self._swap_queue.pop(0) if strategy == 'first' else self._swap_queue.pop()  
+
 class EndNode(Node):
     def __init__(self,name,qmemory):
         #TODO: Change queue to quantum memory queue?
@@ -544,7 +577,7 @@ class NetworkManager():
                     raise ValueError(f"request {request_name}: missing property {prop}")
             
             #Check for valid applications
-            if request_props['application'] not in ['Capacity','QBER','Teleport','TeleportationWithDemand']:
+            if request_props['application'] not in ['Capacity','QBER','Teleportation','TeleportationWithDemand']:
                 raise ValueError(f"request {request_name}: Unsupported application")
             
             #If TeleportApplication, teleport parameter must be specified
@@ -555,7 +588,11 @@ class NetworkManager():
             if request_props['application'] =='QBER' and 'qber_states' not in request_props.keys():
                 raise ValueError(f"request {request_name}: If application is QBER, states to teleport must be specified in qber_states property")
             
-
+            #Of QBER, qber_stater must be [1,0] or [0,1]
+            if 'qber_states' in request_props.keys():
+                for state in request_props['qber_states']:
+                    if state not in [[1,0],[0,1]]:
+                        raise ValueError(f"request {request_name}: qber_states can only be 0's or 1's")
 
     def _create_network(self):
         '''

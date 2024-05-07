@@ -37,7 +37,7 @@ for path in net.get_paths():
     application = net.get_config('requests',path['request'],'application')
     if application == 'Capacity':
         app = CapacityApplication(path, net, f"CapacityApplication_{path['request']}")
-    elif application == 'Teleport':
+    elif application == 'Teleportation':
         qubits = net.get_config('requests',path['request'],'teleport')
         epr_pair = net.get_config('epr_pair','epr_pair')
         app = TeleportationApplication(path, net, qubits, epr_pair, 'Teleportation', name = f"TeleportationApplication_{path['request']}")
@@ -68,15 +68,18 @@ for key,value in dc.items():
         print(f"Request: {key}")
         print(f"         Generated entanglements: {len(value[1].dataframe)}")
         print(f"         Mean fidelity: {value[1].dataframe['Fidelity'].mean()}")
+        print(f"         STD fidelity: {value[1].dataframe['Fidelity'].std()}")
         print(f"         Mean time: {value[1].dataframe['time'].mean()} nanoseconds")
-        print(f"Entanglement generation rate: {1e9*len(value[1].dataframe)/float(net.get_config('simulation_duration','simulation_duration'))} entanglements per second")
-              
-    elif value[0] == 'Teleport':
+        print(f"         STD time: {value[1].dataframe['time'].std()} nanoseconds")
+        print(f"Entanglement generation rate: {1e9*len(value[1].dataframe)/float(net.get_config('simulation_duration','simulation_duration'))} entanglements per second")    
+    elif value[0] == 'Teleportation':
         #print(f"Request {key} performed {len(value[1].dataframe)} teleportations with a mean fidelity of {value[1].dataframe['Fidelity'].mean()} and a mean time of {value[1].dataframe['time'].mean()} nanoseconds")
         print(f"Request: {key}")
         print(f"         Teleported states: {len(value[1].dataframe)}")
         print(f"         Mean fidelity: {value[1].dataframe['Fidelity'].mean()}")
+        print(f"         STD fidelity: {value[1].dataframe['Fidelity'].std()}")
         print(f"         Mean time: {value[1].dataframe['time'].mean()} nanoseconds")
+        print(f"         STD time: {value[1].dataframe['time'].std()} nanoseconds")
     elif value[0] == 'QBER':
         ok = value[1].dataframe['error'].value_counts().loc[0]
         total = value[1].dataframe['error'].count()
@@ -84,6 +87,7 @@ for key,value in dc.items():
         print(f"Request: {key}")
         print(f"         Performed measurements: {len(value[1].dataframe)}")
         print(f"         Mean time: {value[1].dataframe['time'].mean()} nanoseconds")
+        print(f"         STD time: {value[1].dataframe['time'].std()} nanoseconds")
         print(f"QBER: {(total - ok) / total}%")   
     elif value[0] == 'TeleportationWithDemand':
         nodename = net.get_config('requests',key,'origin')
@@ -92,12 +96,17 @@ for key,value in dc.items():
         print(f"Request: {key}")
         print(f"         Teleported states: {len(value[1].dataframe)}")
         print(f"         Mean fidelity: {value[1].dataframe['Fidelity'].mean()}")
+        print(f"         STD fidelity: {value[1].dataframe['Fidelity'].std()}")
         print(f"         Mean time: {value[1].dataframe['time'].mean()} nanoseconds")
+        print(f"         STD time: {value[1].dataframe['time'].std()} nanoseconds")
         print(f"Size of queue after simlation time: {queue_size}")
     else:
         pass
     print()
 
+
+#TODO: Implementar código para representar evolución. Por ejemplo, si se especifica en demand_rate 
+# [0,100,1000] implicará medir comenzando con una tasa de 0 e ir incrementando de 100 en 100 hasta 1000
 '''
 print('Salida temporal para verificar resultados en detalle')
 ic(net.get_paths())

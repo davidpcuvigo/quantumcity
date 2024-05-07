@@ -90,7 +90,7 @@ links:
       end1: node1
       end2: switch1
       distance: 5
-      source_fidelity_sq: 1
+      source_fidelity_sq: 0.9
       source_delay: 10000
       photon_speed_fibre: 200e3
       classical_delay_model: FibreDelayModel
@@ -229,7 +229,7 @@ requests:
       minfidelity: 0.70
       maxtime: 400000 # nanoseconds
       #path_fidel_rounds: 100
-      application: Teleport
+      application: Teleportation
       teleport: [[1,1],[1,0],[0,1],[2,8],[0.3+1j,4]] #List of [alpha, beta]. alpha|0> + beta|1>. States to teleport. Will be normalized
       #demand_rate: 10000 (Hz)
   - request3: #name of request
