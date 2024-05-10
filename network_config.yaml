@@ -4,7 +4,7 @@ name: Red de pruebas
 link_fidel_rounds: 100 #Number of fidelity measures to estimate link fidelity
 path_fidel_rounds: 100 #Default number of measures to perform when estimating E2E path fidelity
 epr_pair: 'PSI_PLUS' #Allowed values are PHI_PLUS or PSI_PLUS
-simulation_duration: 1000000 #Duration of application simulation phase
+simulation_duration: 10000000 #Duration of application simulation phase
 
 nodes:
   - switch1: #name of switch
@@ -104,7 +104,7 @@ links:
       end1: node1
       end2: switch1
       distance: 5
-      source_fidelity_sq: 0.9
+      source_fidelity_sq: 0.95
       source_delay: 100
       photon_speed_fibre: 200e3
       classical_delay_model: FibreDelayModel

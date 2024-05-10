@@ -2,9 +2,10 @@ from network import NetworkManager
 from icecream import ic
 import pandas as pd
 import logging
+import os
 import netsquid as ns
 from netsquid.util import simlog
-from utils import generate_report, validate_conf, check_parameter, load_config
+from utils import generate_report, validate_conf, check_parameter, load_config, create_plot
 import yaml
 from applications import CapacityApplication, TeleportationApplication
 
@@ -107,53 +108,59 @@ for sim in range(steps):
     duration = net.get_config('simulation_duration','simulation_duration')
     ns.sim_run(duration=duration)
 
+    print('----------------')
+
     #Acumulate results in general dataframe in case we want evolution
     for key,detail in dc.items():
         if detail[0] == 'Capacity':
             sim_result = {'Application':detail[0],
+                          'Request': key,
                             'Parameter': element + '$' + property, 
                             'Value': value,
                             'Generated Entanglements': len(detail[1].dataframe),
-                            'Mean Fidelity': detail[1].dataframe['Fidelity'].mean(),
-                            'STD Fidelity': detail[1].dataframe['Fidelity'].std(),
-                            'Mean Time': detail[1].dataframe['time'].mean(),
-                            'STD Time': detail[1].dataframe['time'].std(),
-                            'Generation Rate': 1e9*len(detail[1].dataframe)/float(config['simulation_duration'])
+                            'Mean Fidelity': 0 if len(detail[1].dataframe) == 0 else detail[1].dataframe['Fidelity'].mean(),
+                            'STD Fidelity': 0 if len(detail[1].dataframe) == 0 else detail[1].dataframe['Fidelity'].std(),
+                            'Mean Time': 0 if len(detail[1].dataframe) == 0 else detail[1].dataframe['time'].mean(),
+                            'STD Time': 0 if len(detail[1].dataframe) == 0 else detail[1].dataframe['time'].std(),
+                            'Generation Rate': 0 if len(detail[1].dataframe) == 0 else 1e9*len(detail[1].dataframe)/float(config['simulation_duration'])
                             }
         elif detail[0] == 'Teleportation':
             sim_result = {'Application':detail[0],
+                          'Request': key,
                             'Parameter': element + '$' + property, 
                             'Value': value,
                             'Teleported States': len(detail[1].dataframe),
-                            'Mean Fidelity': detail[1].dataframe['Fidelity'].mean(),
-                            'STD Fidelity': detail[1].dataframe['Fidelity'].std(),
-                            'Mean Time': detail[1].dataframe['time'].mean(),
-                            'STD Time': detail[1].dataframe['time'].std()
+                            'Mean Fidelity': 0 if len(detail[1].dataframe) == 0 else detail[1].dataframe['Fidelity'].mean(),
+                            'STD Fidelity': 0 if len(detail[1].dataframe) == 0 else detail[1].dataframe['Fidelity'].std(),
+                            'Mean Time': 0 if len(detail[1].dataframe) == 0 else detail[1].dataframe['time'].mean(),
+                            'STD Time': 0 if len(detail[1].dataframe) == 0 else detail[1].dataframe['time'].std()
                             }
         elif detail[0] == 'QBER':
-            ok = detail[1].dataframe['error'].value_counts().loc[0]
-            total = detail[1].dataframe['error'].count()
+            ok = 0 if len(detail[1].dataframe) == 0 else detail[1].dataframe['error'].value_counts().loc[0]
+            total = 0 if len(detail[1].dataframe) == 0 else detail[1].dataframe['error'].count()
             sim_result = {'Application':detail[0],
+                          'Request': key,
                             'Parameter': element + '$' + property, 
                             'Value': value,
                             'Performed Measurements': len(detail[1].dataframe),
-                            'Mean Time': detail[1].dataframe['time'].mean(),
-                            'STD Time': detail[1].dataframe['time'].std(),
-                            'QBER': (total - ok) / total
+                            'Mean Time': 0 if len(detail[1].dataframe) == 0 else detail[1].dataframe['time'].mean(),
+                            'STD Time': 0 if len(detail[1].dataframe) == 0 else detail[1].dataframe['time'].std(),
+                            'QBER': 100 if len(detail[1].dataframe) == 0 else (total - ok) / total
                             }
         elif detail[0] == 'TeleportationWithDemand':
             nodename = net.get_config('requests',key,'origin')
             node = net.network.get_node(nodename)
-            queue_size = node.get_queue_size()
+            #queue_size = node.get_queue_size()
             sim_result = {'Application':detail[0],
+                          'Request': key,
                             'Parameter': element + '$' + property, 
                             'Value': value,
                             'Teleported States': len(detail[1].dataframe),
-                            'Mean Fidelity': detail[1].dataframe['Fidelity'].mean(),
-                            'STD Fidelity': detail[1].dataframe['Fidelity'].std(),
-                            'Mean Time': detail[1].dataframe['time'].mean(),
-                            'STD Time': detail[1].dataframe['time'].std(),
-                            'Queue Size': queue_size
+                            'Mean Fidelity': 0 if len(detail[1].dataframe) == 0 else detail[1].dataframe['Fidelity'].mean(),
+                            'STD Fidelity': 0 if len(detail[1].dataframe) == 0 else detail[1].dataframe['Fidelity'].std(),
+                            'Mean Time': 0 if len(detail[1].dataframe) == 0 else detail[1].dataframe['time'].mean(),
+                            'STD Time': 0 if len(detail[1].dataframe) == 0 else detail[1].dataframe['time'].std(),
+                            'Queue Size': 0 if len(detail[1].dataframe) == 0 else detail[1].dataframe['queue_size'].std()
                             }
         else:
             raise ValueError('Unsupported application')
@@ -161,13 +168,18 @@ for sim in range(steps):
         if key not in results.keys(): results[key] = [] #Initialize list
         results[key].append(sim_result)
 
-    #Al this point in results we have de simulation data
-    simulation_data = {}
-    for key in results.keys():
-        df_sim_result = pd.DataFrame(results[key])
-        simulation_data[key] = df_sim_result
+#Al this point in results we have de simulation data
+simulation_data = {}
+for key in results.keys():
+    df_sim_result = pd.DataFrame(results[key])
+    simulation_data[key] = df_sim_result
+    #df_sim_result.set_index('Value', inplace = True)
 
 #Print results
+try:
+    os.remove('./output/results.csv')
+except:
+    pass
 for key,value in simulation_data.items():
     print(f"----Request {key}: Application: {value.iloc[0]['Application']} --------------------------------------")
     if value.iloc[0]['Application'] == 'Capacity':
@@ -196,6 +208,11 @@ for key,value in simulation_data.items():
         print(f"         STD time: {value['STD Time'].tolist()} nanoseconds")
         print(f"Queue size at end of simulation: {value['Queue Size'].tolist()}")
     print()
+    #If evolution, plot graphs
+    if mode == 'E': create_plot(value,key,value.iloc[0]['Application'])
+
+    #Save data to disk
+    value.to_csv('./output/results.csv', mode='a', index=False, header=False)
 
 if print_report: 
     generate_report(net.get_info_report())

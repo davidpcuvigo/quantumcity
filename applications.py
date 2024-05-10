@@ -251,7 +251,7 @@ class TeleportationApplication(GeneralApplication):
 
                 result_qubit, = last_node.qmemory.pop(0)
 
-                if self._app in ['Teleportation','TeleportationWithDemand']:
+                if self._app in ['Teleportation']:
                     fid = qapi.fidelity(result_qubit, state, squared = True)
                     qapi.discard(result_qubit)
                     result = {
@@ -259,6 +259,17 @@ class TeleportationApplication(GeneralApplication):
                         'posB': mem_posB_1,
                         'Fidelity': fid,
                         'time': sim_time() - start_time
+                    }
+
+                elif self._app in ['TeleportationWithDemand']:
+                    fid = qapi.fidelity(result_qubit, state, squared = True)
+                    qapi.discard(result_qubit)
+                    result = {
+                        'posA': mem_posA_1,
+                        'posB': mem_posB_1,
+                        'Fidelity': fid,
+                        'time': sim_time() - start_time,
+                        'queue_size': first_node.get_queue_size()
                     }
     
                 elif self._app == 'QBER':

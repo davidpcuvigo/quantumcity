@@ -6,6 +6,7 @@ import os
 from netsquid.util.datacollector import DataCollector
 from netsquid.protocols import Signals
 import pydynaa
+from matplotlib import pyplot as plt
 
 
 def generate_report(report_info):
@@ -71,11 +72,7 @@ def dc_setup(protocol):
             result = protocol.get_signal_result(Signals.SUCCESS)
 
             return(result)
-            
-            #return {
-            #    'Fidelity': result['fid'],
-            #    'time': result['time']
-            #}
+
 
         dc = DataCollector(record_stats, include_time_stamp=False, include_entity_name=False)
         dc.collect_on(pydynaa.EventExpression(source = protocol, event_type=Signals.SUCCESS.value))
@@ -466,6 +463,14 @@ def validate_conf(config):
                         raise ValueError(f"request {request_name}: qber_states can only be 0's or 1's")
                     
 def check_parameter(element, parameter):
+    '''
+    This method verifies that a specified parameter to measure belongs to an elemento
+    Input:
+        - element:string that indicates type: nodes, links or requests
+        - parameter: property that characterizes the element
+    Output:
+        - result: Bool. False if parameter is incorrect
+    '''
     #By default parameter is correct
     result = True
 
@@ -477,7 +482,7 @@ def check_parameter(element, parameter):
     if element == 'nodes' and parameter not in ['gate_duration','gate_duration_X','gate_duration_Z',
                                                'gate_duration_CX','gate_duration_rotations','measurements_duration',
                                                'dephase_gate_rate','depolar_gate_rate','t1_gate_time',
-                                               't2_gate_time','dephase_mem_rate','depolar_mem_rate'
+                                               't2_gate_time','dephase_mem_rate','depolar_mem_rate',
                                                't1_mem_time','t2_mem_time']:
         return False
     elif element == 'links' and parameter not in ['endNode_distance','switch_distance',
@@ -537,3 +542,55 @@ def load_config(config, element, property, value):
             instance[instance_name]['distance'] = value
 
     return(config)
+
+
+def create_plot(data, request, app):
+    """Show a plot of fidelity verus depolarization rate.
+
+    """
+    val_name = data.iloc[0]['Parameter']
+    if app == 'Capacity':
+        fig, axs = plt.subplots(1,3,figsize=(20,20),constrained_layout=True)
+        fig.suptitle(request + ' - Capacity', fontsize=14)
+
+        axs[0].plot(data['Value'],data['Generation Rate'],label='Entanglement generation rate (eps)')
+        axs[1].plot(data['Value'],data['Mean Fidelity'],label='Mean fidelity')
+        axs[2].plot(data['Value'],data['Mean Time'],label='Mean time (ns)')
+        for i in [0,1,2]:
+            axs[i].legend()
+            axs[i].set_xlabel(val_name)
+    elif app == 'Teleportation':
+        fig, axs = plt.subplots(1,3,figsize=(20,20),constrained_layout=True)
+        fig.suptitle(request + ' - Teleportation', fontsize=14)
+
+        axs[0].plot(data['Value'],data['Teleported States'],label='Number of teleported states')
+        axs[1].plot(data['Value'],data['Mean Fidelity'],label='Mean fidelity')
+        axs[2].plot(data['Value'],data['Mean Time'],label='Mean time (ns)')
+        for i in [0,1,2]:
+            axs[i].legend()
+            axs[i].set_xlabel(val_name)
+    elif app == 'QBER':
+        fig, axs = plt.subplots(1,3,figsize=(20,20),constrained_layout=True)
+        fig.suptitle(request + ' - QBER', fontsize=14)
+
+        axs[0].plot(data['Value'],data['Performed Measurements'],label='Number of measurements')
+        axs[1].plot(data['Value'],data['Mean Time'],label='Mean time (ns)')
+        axs[2].plot(data['Value'],data['QBER'],label='QBER')
+        for i in [0,1,2]:
+            axs[i].legend()
+            axs[i].set_xlabel(val_name)
+    elif app == 'TeleportationWithDemand':
+        fig, axs = plt.subplots(2,2,figsize=(20,20),constrained_layout=True)
+        fig.suptitle(request + ' - TeleportationWithDemand', fontsize=14)
+
+        axs[0,0].plot(data['Value'],data['Teleported States'],label='Number of teleported states')
+        axs[0,1].plot(data['Value'],data['Queue Size'],label='Queue Size')
+        axs[1,0].plot(data['Value'],data['Mean Fidelity'],label='Mean fidelity')
+        axs[1,1].plot(data['Value'],data['Mean Time'],label='Mean time (ns)')
+
+        for i in [0,1]:
+            for j in [0,1]:
+                axs[i,j].legend()
+                axs[i,j].set_xlabel(val_name)
+
+    plt.show()
