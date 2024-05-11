@@ -466,7 +466,7 @@ def validate_conf(config):
                     raise ValueError(f"request {request_name}: missing property {prop}")
             
             #Check for valid applications
-            if request_props['application'] not in ['Capacity','QBER','Teleportation','TeleportationWithDemand']:
+            if request_props['application'] not in ['Capacity','QBER','Teleportation','TeleportationWithDemand','CHSH']:
                 raise ValueError(f"request {request_name}: Unsupported application")
             
             #If TeleportApplication, teleport parameter must be specified
@@ -625,5 +625,13 @@ def create_plot(data, request, app):
                 axs[i,j].set_xlabel(val_name)
 
         axs[2,1].remove()
+    elif app == 'CHSH':
+        fig, axs = plt.subplots(1,2,figsize=(20,20),constrained_layout=True)
+        fig.suptitle(request + ' - CHSH', fontsize=14)
+        axs[0].plot(data['Value'],data['Wins'],label='% of Wins')
+        axs[0].legend()
+        axs[0].set_xlabel(val_name)
+
+        axs[1].remove()
 
     plt.show()

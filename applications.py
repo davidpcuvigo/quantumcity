@@ -14,6 +14,8 @@ from protocols import SwapCorrectProgram
 from network import ClassicalConnection
 from netsquid.components.models.delaymodels import FixedDelayModel, FibreDelayModel, GaussianDelayModel
 import cmath
+from random import randint
+from netsquid.qubits.operators import Operator, X, Z
 
 '''
 Available applications:
@@ -284,9 +286,9 @@ class TeleportationApplication(GeneralApplication):
                     #In result_qubit the teleported one
                     assign_qstate(original_qubit, state)
 
-                    #MEasure original qubit and teleported one in Z basis and compare
-                    m_origin = qapi.measure(original_qubit[0])
-                    m_res = qapi.measure(result_qubit)
+                    #Measure original qubit and teleported one in Z basis and compare
+                    m_origin,prob_or = qapi.measure(original_qubit[0])
+                    m_res,prob_res = qapi.measure(result_qubit)
                     error = 1 if m_origin != m_res else 0
 
                     qapi.discard(result_qubit)
@@ -391,4 +393,66 @@ class TeleportCorrectProtocol(NodeProtocol):
                 self.send_signal(Signals.SUCCESS)
                 self._x_corr = 0
                 self._z_corr = 0
-                
+
+class CHSHApplication(GeneralApplication):
+    '''
+    This class implements and application that generates end to end entanglement continously
+    and measures the fidelity of the entangled pairs
+    Constructor parameters:
+        - path: dictionary with path parameters
+        - netwokmanager: instance of the network manager class being used in the simulation
+        - name: string, name of the instance
+    '''
+
+    def __init__(self, path, networkmanager, name=None):
+        name = name if name else f"CHSHApplication_Unidentified"
+        super().__init__(path, networkmanager)
+    
+    def run(self):
+        self.start_subprotocols()
+
+        #Get type of EPR to use
+        epr_state = ks.b00 if self._networkmanager.get_config('epr_pair','epr_pair') == 'PHI_PLUS' else ks.b01
+
+        #Though in this simulations positions in nodes are always 0, we query in case this is changed in the future
+        first_link = self._path['comms'][0]['links'][0]
+        last_link = self._path['comms'][-1]['links'][0]
+        mem_posA_1 = self._networkmanager.get_mem_position(self._path['nodes'][0],first_link.split('-')[0],first_link.split('-')[1])
+        mem_posB_1 = self._networkmanager.get_mem_position(self._path['nodes'][-1],last_link.split('-')[0],last_link.split('-')[1])
+
+        #Define Bob's operators
+        B0 = (1/np.sqrt(2))*(X+Z)
+        B1 = (1/np.sqrt(2))*(Z-X)
+
+        while True:
+            start_time = sim_time()
+            #Send signal for entanglement generation
+            self.send_signal(self._ent_request)
+
+            #Wait for  entanglement to be generated on both ends
+            yield self.await_signal(self.subprotocols[f"RouteProtocol_{self._path['request']}"],Signals.SUCCESS)
+
+            #Generate x and y, which will be use for Alice and Bob measurements
+            x = randint(0,1)
+            y = randint(0,1)
+
+            qa, = self._networkmanager.network.get_node(self._path['nodes'][0]).qmemory.pop(positions=[mem_posA_1])
+            qb, = self._networkmanager.network.get_node(self._path['nodes'][-1]).qmemory.pop(positions=[mem_posB_1])
+            
+            #Measure Alice's qubit. In Z base if x=0 or X if x = 1
+            observable = Z if x == 0 else X
+            measure_a,prob_a = qapi.measure(qa, observable=observable)
+
+            #Measure Bob's qubit.
+            observable = B0 if y == 0 else B1
+            measure_b,prob_b = qapi.measure(qb, observable=observable)
+
+            #Check if a xor b = x * y
+            wins = 1 if (measure_a + measure_b) % 2 == x * y else 0
+            result = {
+                'wins': wins,
+                'time': sim_time() - start_time
+            }
+
+            #send result to datacollector
+            self.send_signal(Signals.SUCCESS, result)

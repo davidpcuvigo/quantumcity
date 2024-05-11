@@ -7,7 +7,7 @@ import netsquid as ns
 from netsquid.util import simlog
 from utils import generate_report, validate_conf, check_parameter, load_config, create_plot
 import yaml
-from applications import CapacityApplication, TeleportationApplication
+from applications import CapacityApplication, TeleportationApplication, CHSHApplication
 
 try:
     from pylatex import Document
@@ -98,6 +98,8 @@ for sim in range(steps):
             qubits = net.get_config('requests',path['request'],'qber_states')
             epr_pair = net.get_config('epr_pair','epr_pair')
             app = TeleportationApplication(path, net, qubits, epr_pair, 'QBER', name = f"QBERApplication_{path['request']}")
+        elif application == 'CHSH':
+            app = CHSHApplication(path, net, name = f"QBERApplication_{path['request']}")
         else:
             raise ValueError('Unsupported application')
 
@@ -163,6 +165,18 @@ for sim in range(steps):
                             'Queue Size': 0 if len(detail[1].dataframe) == 0 else detail[1].dataframe['queue_size'].max(),
                             'Discarded Qubits': 0 if len(detail[1].dataframe) == 0 else detail[1].dataframe['discarded_qubits'].max()
                             }
+        elif application == 'CHSH':
+            wins = 0 if len(detail[1].dataframe) == 0 else len(detail[1].dataframe[detail[1].dataframe['wins']==1])
+            total = 0 if len(detail[1].dataframe) == 0 else detail[1].dataframe['wins'].count()
+            sim_result = {'Application':detail[0],
+                          'Request': key,
+                            'Parameter': element + '$' + property, 
+                            'Value': value,
+                            'Measurements': len(detail[1].dataframe),
+                            'Wins': 0 if total == 0 else (wins)/total,
+                            'Mean Time': 0 if len(detail[1].dataframe) == 0 else detail[1].dataframe['time'].mean(),
+                            'STD Time': 0 if len(detail[1].dataframe) == 0 else detail[1].dataframe['time'].std(),
+                            }
         else:
             raise ValueError('Unsupported application')
 
@@ -209,6 +223,11 @@ for key,value in simulation_data.items():
         print(f"         STD time: {value['STD Time'].tolist()} nanoseconds")
         print(f"Queue size at end of simulation: {value['Queue Size'].tolist()}")
         print(f"Discarded qubits: {value['Discarded Qubits'].tolist()}")
+    elif value.iloc[0]['Application'] == 'CHSH':
+        print(f"        Measurements: {value['Measurements'].tolist()}")
+        print(f"         Mean time: {value['Mean Time'].tolist()} nanoseconds")
+        print(f"         STD time: {value['STD Time'].tolist()} nanoseconds")
+        print(f"Wins: {value['Wins'].tolist()}")
     print()
     #If evolution, plot graphs
     if mode == 'E': create_plot(value,key,value.iloc[0]['Application'])
