@@ -87,6 +87,12 @@ nodes:
       type: endNode
       gate_duration: 30
       measurements_duration: 50
+      teleport_queue_size: 10
+      teleport_queue_technology: 'Quantum'
+      teleport_strategy: 'Newest'
+      mem_noise_model: T1T2NoiseModel
+      t1_mem_time: 1e5
+      t2_mem_time: 1e5
   - node14:
       type: endNode
       gate_duration: 30
@@ -104,7 +110,7 @@ links:
       end1: node1
       end2: switch1
       distance: 5
-      source_fidelity_sq: 0.95
+      source_fidelity_sq: 1
       source_delay: 100
       photon_speed_fibre: 200e3
       classical_delay_model: FibreDelayModel
@@ -128,7 +134,7 @@ links:
       end1: node4
       end2: switch1
       distance: 5
-      source_fidelity_sq: 0.7
+      source_fidelity_sq: 1
       source_delay: 100
       photon_speed_fibre: 200e3
       classical_delay_model: FibreDelayModel
@@ -208,7 +214,7 @@ links:
       end1: node14
       end2: switch1
       distance: 5
-      source_fidelity_sq: 0.98
+      source_fidelity_sq: 1
       source_delay: 100
       photon_speed_fibre: 200e3
       classical_delay_model: FibreDelayModel
@@ -224,7 +230,7 @@ links:
       end1: node16
       end2: switch1
       distance: 5
-      source_fidelity_sq: 0.97
+      source_fidelity_sq: 1
       source_delay: 100
       photon_speed_fibre: 200e3
       classical_delay_model: FibreDelayModel
@@ -232,7 +238,7 @@ links:
       end1: switch1
       end2: switch2
       distance: 20
-      source_fidelity_sq: 0.97
+      source_fidelity_sq: 1
       source_delay: 100
       photon_speed_fibre: 200e3
       classical_delay_model: FibreDelayModel

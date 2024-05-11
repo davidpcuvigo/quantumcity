@@ -14,6 +14,8 @@ from routing_protocols import LinkFidelityProtocol, PathFidelityProtocol
 from netsquid.qubits import ketstates as ks
 from netsquid.components.instructions import INSTR_MEASURE_BELL, INSTR_MEASURE, INSTR_X, INSTR_Z,  INSTR_CNOT, IGate
 import netsquid.qubits.operators as ops
+from netsquid.qubits import assign_qstate, create_qubits
+from netsquid.qubits import qubitapi as qapi
 from utils import dc_setup
 
 class Switch(Node):
@@ -55,22 +57,100 @@ class Switch(Node):
         self._swap_queue.pop(0) if strategy == 'first' else self._swap_queue.pop()  
 
 class EndNode(Node):
-    def __init__(self,name,qmemory):
+    def __init__(self, name, queue_size, qmemory):
         #TODO: Change queue to quantum memory queue?
-        self._transmit_queue = []
-        super().__init__(name,qmemory=qmemory)
+        self._state_transmit_queue = []
+        self._mem_transmit_queue = []
+        self._queue_size = queue_size
+        super().__init__(name, qmemory=qmemory)
+        self._discarded_states = 0
 
-    def request_teleport(self,state):
-        self._transmit_queue.append(state)
 
-    def retrieve_teleport(self):
-        if len(self._transmit_queue) > 0:
-            return self._transmit_queue.pop(0)
+    def request_teleport(self, state, strategy):
+        '''
+        Insert new teleportation request. Will be inserted at the end of the list
+        Strategy when retrieven the qubit will be processed in retrieve_teleport method
+        Input:
+            - state: list with state representation [alpha, beta]
+            - strategy: teleportation strategy ('Oldest': send in FIFO, 'Newest': Send in LIFO mode)
+        '''
+        #Assign qubit to state representation
+        qubit = create_qubits(1)
+        assign_qstate(qubit,state)
+
+        #If queue is full we should check strategy
+        if len(self._state_transmit_queue) == self._queue_size:
+            if strategy == 'Oldest': 
+                #If we are priorizing oldest qubits, we should discard new request
+                self._discarded_states += 1
+            else:
+                #Discard oldest request and insert new one
+                self._state_transmit_queue.pop(0)
+                self._state_transmit_queue.append(state)
+  
+                if self.qmemory.num_positions > 4: #We are using quantum memory for storage
+                    # Replace memory position with oldest qubit with new one
+                    mempos = self._mem_transmit_queue.pop(0)
+                    #TODO: Check if we must insert validation of qprocessor being used
+                    self.qmemory.put(qubit, mempos, replace = True)
+                    self._mem_transmit_queue.append(mempos)
+
+                self._discarded_states += 1
         else:
-            return(None)
+            self._state_transmit_queue.append(state)
+            if self.qmemory.num_positions > 4: #We are using quantum memory for storage
+                mempos_list = self.qmemory.unused_positions
+                #Only positions equal or above 4 are used as storage
+                mempos = min(i for i in mempos_list if i > 3)
+
+                self.qmemory.put(qubit, mempos, replace = True)
+                self._mem_transmit_queue.append(mempos)
+
+    def retrieve_teleport(self, strategy):
+        '''
+        Return state and qubit that should be teleported
+        Input:
+            - strategy: teleportation strategy ('Oldest': send in FIFO, 'Newest': Send in LIFO mode)
+        Output:
+            - state: list with state representation [alpha, beta]
+            - qubit: qubit
+        '''
+        qubit = []
+        if len(self._state_transmit_queue) > 0:
+            if strategy == 'Oldest': 
+                #FIFO
+                state = self._state_transmit_queue.pop(0)
+                if self.qmemory.num_positions > 4: 
+                    #Quantum memory being used
+                    mempos = self._mem_transmit_queue.pop(0)
+                    qubit = self.qmemory.pop(mempos, skip_noise=False)
+            else: 
+                #LIFO
+                state = self._state_transmit_queue.pop()
+                if self.qmemory.num_positions > 4: 
+                    #Quantum memory being used
+                    mempos = self._mem_transmit_queue.pop()
+                    qubit = self.qmemory.pop(mempos, skip_noise=False)
+
+            if self.qmemory.num_positions == 4: 
+                #Working with classical memories, we code state in qubit
+                assign_qstate(qubit, state)
+
+            return([state,qubit[0]])
+        else:
+            return([None, None])
         
     def get_queue_size(self):
-        return(len(self._transmit_queue))
+        '''
+        Getter for _transmit_queue
+        '''
+        return(len(self._state_transmit_queue))
+    
+    def get_discarded(self):
+        '''
+        Getter for _discarded_states
+        '''
+        return(self._discarded_states)
         
 
 class NetworkManager():
@@ -239,8 +319,14 @@ class NetworkManager():
                 switch = Switch(name, qmemory=self._create_qprocessor(f"qproc_{name}",props['num_memories'], nodename=name))
                 switches.append(switch)
             elif props['type'] == 'endNode':
-                props['num_memories'] = 4 #In an end node we always have 4 memories (2 por entanglement preparation)
-                endnode = EndNode(name, qmemory=self._create_qprocessor(f"qproc_{name}",props['num_memories'], nodename=name))
+                if 'teleport_queue_technology' in props.keys() and props['teleport_queue_technology'] == 'Quantum':
+                    #If teleportation queue in node is implemented with quantum memories
+                    num_memories = 4 + props['teleport_queue_size']
+                else: #Queue is implemented with classical memories
+                    num_memories = 4
+                queue_size = props['teleport_queue_size'] if 'teleport_queue_technology' in props.keys() else 0
+                
+                endnode = EndNode(name, queue_size, qmemory=self._create_qprocessor(f"qproc_{name}",num_memories, nodename=name))
                 end_nodes.append(endnode)
             else:
                 raise ValueError('Undefined network element found')
@@ -494,7 +580,7 @@ class NetworkManager():
                     ns.sim_run()
                     protocol.stop()
                     
-                    print(f"Request {request_name} purification rounds {purif_rounds} fidelity {dc.dataframe['Fidelity'].mean()}/{request_props['minfidelity']} in {dc.dataframe['time'].mean()}/{request_props['maxtime']} nanoseconds métricas: {len(dc.dataframe)}")
+                    print(f"Request {request_name} purification rounds {purif_rounds} fidelity {dc.dataframe['Fidelity'].mean()}/{request_props['minfidelity']} in {dc.dataframe['time'].mean()}/{request_props['maxtime']} nanoseconds, data points: {len(dc.dataframe)}")
                     if dc.dataframe["time"].mean() > request_props['maxtime']:
                         #request cannot be fulfilled. Mark as rejected and continue
                         self._requests_status.append({
@@ -670,7 +756,7 @@ class NetworkManager():
                                  num_positions=num_memories, 
                                  phys_instructions = physical_instructions,
                                  fallback_to_nonphysical=False,
-                                 mem_moise_models=[mem_noise_model] * num_memories)
+                                 mem_noise_models=[mem_noise_model] * num_memories)
         return qproc
 
 

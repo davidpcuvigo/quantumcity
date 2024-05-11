@@ -124,7 +124,8 @@ class TeleportationApplication(GeneralApplication):
         self._build_teleport_classic()
 
         if app == 'TeleportationWithDemand': #Request demand is modelled
-            self.add_subprotocol(DemandGeneratorProtocol(networkmanager.network.get_node(path['nodes'][0]),rate,qubits,f"DemandGeneratorProtocol_{path['request']}"))
+            teleport_strategy = networkmanager.get_config('nodes',self._path['nodes'][0],'teleport_strategy')
+            self.add_subprotocol(DemandGeneratorProtocol(networkmanager.network.get_node(path['nodes'][0]),rate,qubits,teleport_strategy,f"DemandGeneratorProtocol_{path['request']}"))
 
     def _build_teleport_classic(self):
         '''
@@ -196,6 +197,10 @@ class TeleportationApplication(GeneralApplication):
         num_qubits = len(self._qubits) #Number of qubits to teleport
         tx_qubit = 0 #Position of qubit to transmit
 
+        #Get teleportation strategy if implementing Demand
+        if self._app == 'TeleportationWithDemand':
+            teleport_strategy = self._networkmanager.get_config('nodes',self._path['nodes'][0],'teleport_strategy')
+
         while True:
         
             if self._app in ['Teleportation','QBER']:
@@ -209,12 +214,15 @@ class TeleportationApplication(GeneralApplication):
                 #Set position of next qubit to transmit
                 tx_qubit = tx_qubit + 1 if tx_qubit < num_qubits-1 else 0
 
+                assign_qstate(qubit, state)
+
             elif self._app == 'TeleportationWithDemand':
                 #We have to request a qubit based on generation demand
                 waiting_state = True
                 while waiting_state:
-                    #retrieve state from queue
-                    state = first_node.retrieve_teleport()
+                    #retrieve state from queue.We get the state reprsentation in return, 
+                    # but also qubit is updated with the retrieved qubit
+                    [state, qubit[0]] = first_node.retrieve_teleport(teleport_strategy)
 
                     #If no qubit to transmit, wait 1000 nanoseconds
                     if state is None:
@@ -226,7 +234,6 @@ class TeleportationApplication(GeneralApplication):
 
             #Transform ket representation into qubit
             start_time = sim_time()
-            assign_qstate(qubit, state)
 
             #If position is not being used, we can store the qubit
             if 2 in self._networkmanager.network.get_node(self._path['nodes'][0]).qmemory.unused_positions:
@@ -269,12 +276,12 @@ class TeleportationApplication(GeneralApplication):
                         'posB': mem_posB_1,
                         'Fidelity': fid,
                         'time': sim_time() - start_time,
-                        'queue_size': first_node.get_queue_size()
+                        'queue_size': first_node.get_queue_size(),
+                        'discarded_qubits': first_node.get_discarded()
                     }
     
                 elif self._app == 'QBER':
                     #In result_qubit the teleported one
-                    #ic(qubit[0], result_qubit)
                     assign_qstate(original_qubit, state)
 
                     #MEasure original qubit and teleported one in Z basis and compare
@@ -304,11 +311,12 @@ class DemandGeneratorProtocol(NodeProtocol):
     qubits: list of states to teleport. Once at the end, it will start from the begginning
     name: name of protocol
     '''
-    def __init__(self, node, rate, qubits, name=None):
+    def __init__(self, node, rate, qubits, teleport_strtategy, name=None):
         name = name if name else f"DemandGenerator_Unidentified"
         super().__init__(node, name)
         self._time_between_states = 1e9 / rate
         self._qubits = qubits
+        self._teleport_strategy = teleport_strtategy
     
     def run(self):
         num_qubits = len(self._qubits) #Number of qubits to teleport
@@ -327,7 +335,7 @@ class DemandGeneratorProtocol(NodeProtocol):
             tx_qubit = tx_qubit + 1 if tx_qubit < num_qubits-1 else 0
             
             #Add qubit to queue in origin
-            self.node.request_teleport(state)
+            self.node.request_teleport(state, self._teleport_strategy)
 
 
 class TeleportCorrectProtocol(NodeProtocol):

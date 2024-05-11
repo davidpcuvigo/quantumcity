@@ -160,7 +160,8 @@ for sim in range(steps):
                             'STD Fidelity': 0 if len(detail[1].dataframe) == 0 else detail[1].dataframe['Fidelity'].std(),
                             'Mean Time': 0 if len(detail[1].dataframe) == 0 else detail[1].dataframe['time'].mean(),
                             'STD Time': 0 if len(detail[1].dataframe) == 0 else detail[1].dataframe['time'].std(),
-                            'Queue Size': 0 if len(detail[1].dataframe) == 0 else detail[1].dataframe['queue_size'].std()
+                            'Queue Size': 0 if len(detail[1].dataframe) == 0 else detail[1].dataframe['queue_size'].max(),
+                            'Discarded Qubits': 0 if len(detail[1].dataframe) == 0 else detail[1].dataframe['discarded_qubits'].max()
                             }
         else:
             raise ValueError('Unsupported application')
@@ -207,6 +208,7 @@ for key,value in simulation_data.items():
         print(f"         Mean time: {value['Mean Time'].tolist()} nanoseconds")
         print(f"         STD time: {value['STD Time'].tolist()} nanoseconds")
         print(f"Queue size at end of simulation: {value['Queue Size'].tolist()}")
+        print(f"Discarded qubits: {value['Discarded Qubits'].tolist()}")
     print()
     #If evolution, plot graphs
     if mode == 'E': create_plot(value,key,value.iloc[0]['Application'])

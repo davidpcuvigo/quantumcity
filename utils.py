@@ -127,13 +127,21 @@ def validate_conf(config):
         nodenames = [list(node.keys())[0] for node in config['nodes']]
         #Get name and type of nodes
         nodenames = []
+        #Get nodes type for later usage in link validation section
+        #Also get teleport queue memory options, if applicable for usage in request validation section
         nodetypes = {}
+        node_tx_memories = {}
         for node in config['nodes']:
             nodename = list(node.keys())[0]
             nodenames.append(nodename)
             nodeprops = list(node.values())[0]
             if 'type' in nodeprops.keys():
                 nodetypes[nodename] = nodeprops['type']
+                if nodeprops['type'] == 'endNode':
+                    tel_q_size = 'not_set' if 'teleport_queue_size' not in nodeprops.keys() else nodeprops['teleport_queue_size']
+                    tel_q_tech = 'not_set' if 'teleport_queue_technology' not in nodeprops.keys() else nodeprops['teleport_queue_technology']
+                    tel_strat= 'not_set' if 'teleport_strategy' not in nodeprops.keys() else nodeprops['teleport_strategy']
+                    node_tx_memories[nodename] = [tel_q_size, tel_q_tech, tel_strat]
             else:
                 raise ValueError(f"Node {nodename}: No type specified")
 
@@ -265,7 +273,10 @@ def validate_conf(config):
                                'dephase_mem_rate':'integer',
                                'depolar_mem_rate':'integer',
                                't1_mem_time':'float',
-                               't2_mem_time':'float'}
+                               't2_mem_time':'float',
+                               'teleport_queue_size':'integer',
+                               'teleport_queue_technology':'string',
+                               'teleport_strategy':'string'}
         
         for node in config['nodes']:
             node_props = list(node.values())[0]
@@ -356,6 +367,16 @@ def validate_conf(config):
                 node_props['mem_noise_model'] == 'T1T2NoiseModel'  \
                 and ('t1_mem_time' not in node_props.keys() or 't2_mem_time' not in node_props.keys()):
                 raise ValueError(f"node {node_name}: When T1T2NoiseModel is selected for memory, t1_mem_time and t2_mem_time must be defined")
+
+            #Check allowed values of teleport memory options
+            allowed_teleport_technologies = ['Quantum','Classical']
+            allowed_teleport_strategies = ['Oldest','Newest']
+            if 'teleport_queue_technology' in node_props.keys() \
+                and node_props['teleport_queue_technology'] not in allowed_teleport_technologies:
+                raise ValueError(f"node {node_name}: Unsupported teleport queue technology")
+            if 'teleport_strategy' in node_props.keys() \
+                and node_props['teleport_strategy'] not in allowed_teleport_strategies:
+                raise ValueError(f"node {node_name}: Unsupported teleportation strategy")
 
             #Check that in switch nodes we have > 2*num_links
             if node_props['type'] == 'endNode' and 'num_memories' in node_props.keys() and \
@@ -451,7 +472,14 @@ def validate_conf(config):
             #If TeleportApplication, teleport parameter must be specified
             if request_props['application'] in ['Teleport','TeleportationWithDemand'] and 'teleport' not in request_props.keys():
                 raise ValueError(f"request {request_name}: If application is Teleport, states to teleport must be specified in teleport property")
-            
+            node_tx_memories
+            #If TeleportWithDemand application, queue technology in origin node must be set
+            if request_props['application'] == 'TeleportationWithDemand' and (
+                node_tx_memories[request_props['origin']][0] == 'not_set' or
+                node_tx_memories[request_props['origin']][1] == 'not_set' or
+                node_tx_memories[request_props['origin']][2] == 'not_set' 
+            ):
+                raise ValueError(f"request {request_name}: If application is TeleportationWithDemand, you must specify queue memory options")
             #If QBER, qber_states parameter must be specified
             if request_props['application'] =='QBER' and 'qber_states' not in request_props.keys():
                 raise ValueError(f"request {request_name}: If application is QBER, states to teleport must be specified in qber_states property")
@@ -483,7 +511,7 @@ def check_parameter(element, parameter):
                                                'gate_duration_CX','gate_duration_rotations','measurements_duration',
                                                'dephase_gate_rate','depolar_gate_rate','t1_gate_time',
                                                't2_gate_time','dephase_mem_rate','depolar_mem_rate',
-                                               't1_mem_time','t2_mem_time']:
+                                               't1_mem_time','t2_mem_time','teleport_queue_size']:
         return False
     elif element == 'links' and parameter not in ['endNode_distance','switch_distance',
                                                  'source_fidelity_sq','source_delay','photon_speed_fibre',
@@ -522,7 +550,7 @@ def load_config(config, element, property, value):
             raise ValueError(f"Node {nodename}: No type specified")
 
     #cast to integer for those that must be int
-    if property in ['source_delay','gaussian_delay_mean','gaussian_delay_std','gate_duration',
+    if property in ['source_delay','gaussian_delay_mean','gaussian_delay_std','gate_duration','teleport_queue_size',
                     'gate_duration_X','gate_duration_Z','gate_duration_CX','gate_duration_rotations',
                     'measurements_duration','dephase_gate_rate','depolar_gate_rate','t1_gate_time',
                     't2_gate_time','dephase_mem_rate','depolar_mem_rate','maxtime','path_fidel_rounds']:
@@ -580,17 +608,22 @@ def create_plot(data, request, app):
             axs[i].legend()
             axs[i].set_xlabel(val_name)
     elif app == 'TeleportationWithDemand':
-        fig, axs = plt.subplots(2,2,figsize=(20,20),constrained_layout=True)
+        fig, axs = plt.subplots(3,2,figsize=(20,20),constrained_layout=True)
         fig.suptitle(request + ' - TeleportationWithDemand', fontsize=14)
 
-        axs[0,0].plot(data['Value'],data['Teleported States'],label='Number of teleported states')
-        axs[0,1].plot(data['Value'],data['Queue Size'],label='Queue Size')
+        axs[0,0].plot(data['Value'],data['Queue Size'],label='Queue Size')
+        axs[0,1].plot(data['Value'],data['Discarded Qubits'],label='Discarded Qubits')
         axs[1,0].plot(data['Value'],data['Mean Fidelity'],label='Mean fidelity')
         axs[1,1].plot(data['Value'],data['Mean Time'],label='Mean time (ns)')
+        axs[2,0].plot(data['Value'],data['Teleported States'],label='Number of teleported states')
+        #We insert a fake subplot, to avoid warning. Later is removed
+        axs[2,1].plot(data['Value'],data['Teleported States'],label='Will be deleted')
 
-        for i in [0,1]:
+        for i in [0,1,2]:
             for j in [0,1]:
                 axs[i,j].legend()
                 axs[i,j].set_xlabel(val_name)
+
+        axs[2,1].remove()
 
     plt.show()
