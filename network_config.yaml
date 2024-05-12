@@ -3,7 +3,7 @@
 name: Red de pruebas
 link_fidel_rounds: 100 #Number of fidelity measures to estimate link fidelity
 path_fidel_rounds: 100 #Default number of measures to perform when estimating E2E path fidelity
-epr_pair: 'PHI_PLUS' #Allowed values are PHI_PLUS or PSI_PLUS
+epr_pair: 'PSI_PLUS' #Allowed values are PHI_PLUS or PSI_PLUS
 simulation_duration: 10000000 #Duration of application simulation phase
 
 nodes:

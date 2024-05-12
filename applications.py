@@ -15,7 +15,7 @@ from network import ClassicalConnection
 from netsquid.components.models.delaymodels import FixedDelayModel, FibreDelayModel, GaussianDelayModel
 import cmath
 from random import randint
-from netsquid.qubits.operators import Operator, X, Z
+from netsquid.qubits.operators import Operator, X, Z, I
 
 '''
 Available applications:
@@ -27,6 +27,7 @@ Available applications:
     - TeleportationWithDemand: Will teleport the list of qubits, but following the specified generation
     rate. Will measure the mean fidelity and total number of teleported qubits, but also the size 
     of the queue at the source node.
+    - CHSH: Experiments to validate Bell inequalities
 '''
 
 class GeneralApplication(LocalProtocol):
@@ -66,7 +67,7 @@ class CapacityApplication(GeneralApplication):
 
     def __init__(self, path, networkmanager, name=None):
         name = name if name else f"CapacityApplication_Unidentified"
-        super().__init__(path, networkmanager)
+        super().__init__(path, networkmanager, name=name)
     
     def run(self):
         self.start_subprotocols()
@@ -114,7 +115,7 @@ class TeleportationApplication(GeneralApplication):
 
     def __init__(self, path, networkmanager, qubits, epr_pair, app, rate = 0, name=None):
         name = name if name else f"TeleportApplication_Unidentified"
-        super().__init__(path, networkmanager)
+        super().__init__(path, networkmanager, name=name)
 
         self._qubits = qubits
         self._app = app
@@ -313,12 +314,12 @@ class DemandGeneratorProtocol(NodeProtocol):
     qubits: list of states to teleport. Once at the end, it will start from the begginning
     name: name of protocol
     '''
-    def __init__(self, node, rate, qubits, teleport_strtategy, name=None):
+    def __init__(self, node, rate, qubits, teleport_strategy, name=None):
         name = name if name else f"DemandGenerator_Unidentified"
         super().__init__(node, name)
         self._time_between_states = 1e9 / rate
         self._qubits = qubits
-        self._teleport_strategy = teleport_strtategy
+        self._teleport_strategy = teleport_strategy
     
     def run(self):
         num_qubits = len(self._qubits) #Number of qubits to teleport
@@ -406,13 +407,10 @@ class CHSHApplication(GeneralApplication):
 
     def __init__(self, path, networkmanager, name=None):
         name = name if name else f"CHSHApplication_Unidentified"
-        super().__init__(path, networkmanager)
+        super().__init__(path, networkmanager, name=name)
     
     def run(self):
         self.start_subprotocols()
-
-        #Get type of EPR to use
-        epr_state = ks.b00 if self._networkmanager.get_config('epr_pair','epr_pair') == 'PHI_PLUS' else ks.b01
 
         #Though in this simulations positions in nodes are always 0, we query in case this is changed in the future
         first_link = self._path['comms'][0]['links'][0]
@@ -420,9 +418,21 @@ class CHSHApplication(GeneralApplication):
         mem_posA_1 = self._networkmanager.get_mem_position(self._path['nodes'][0],first_link.split('-')[0],first_link.split('-')[1])
         mem_posB_1 = self._networkmanager.get_mem_position(self._path['nodes'][-1],last_link.split('-')[0],last_link.split('-')[1])
 
+        #Define Alices's operators
+        if self._networkmanager.get_config('epr_pair','epr_pair') == 'PHI_PLUS':
+            A0 = Z
+            A1 = X
+        else:
+            A0 = Z
+            A1 = X
+
         #Define Bob's operators
-        B0 = (1/np.sqrt(2))*(X+Z)
-        B1 = (1/np.sqrt(2))*(Z-X)
+        if self._networkmanager.get_config('epr_pair','epr_pair') == 'PHI_PLUS':
+            B0 = (1/np.sqrt(2))*(X+Z)
+            B1 = (1/np.sqrt(2))*(Z-X)
+        else:
+            B0 = (1/np.sqrt(2))*(I-Z+X)
+            B1 = (1/np.sqrt(2))*(I-Z-X)
 
         while True:
             start_time = sim_time()
@@ -440,7 +450,7 @@ class CHSHApplication(GeneralApplication):
             qb, = self._networkmanager.network.get_node(self._path['nodes'][-1]).qmemory.pop(positions=[mem_posB_1])
             
             #Measure Alice's qubit. In Z base if x=0 or X if x = 1
-            observable = Z if x == 0 else X
+            observable = A0 if x == 0 else A1
             measure_a,prob_a = qapi.measure(qa, observable=observable)
 
             #Measure Bob's qubit.

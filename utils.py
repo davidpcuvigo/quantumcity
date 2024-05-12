@@ -9,7 +9,17 @@ import pydynaa
 from matplotlib import pyplot as plt
 
 
-def generate_report(report_info):
+def generate_report(report_info, simulation_data, mode):
+    '''
+    Generates latex/pdf report
+    Input:
+     - report_info: Dictionary. Key will be the used value for each iteration. If Fidex mode
+     was selected, value will be 0.
+     - simulation_data: Dictionary. Key is the request name and value is a dataframe with a row for 
+     each value corresponding to the different simulations.
+     - mode: 'F' for Fixed and 'E' for Evolution. In the first case will only print values, but
+     if evolution mode is selected will include graphs.
+    '''
     report = Document('./output/report')
     report.preamble.append(Command('title', 'Simulation report'))
     report.preamble.append(Command('author','UVigo'))
@@ -28,29 +38,31 @@ def generate_report(report_info):
 
         with report.create(Subsection('Link fidelities')):
             report.append('Fidelity and Cost of each of the links\n')
-            with report.create(Tabular('l|l|l|l')) as table:
-                table.add_hline()
-                table.add_row(('link','cost','fidelity','number of rounds'))
-                table.add_hline()
-                for key, value in report_info['link_fidelities'].items():
-                    table.add_row((key,value[0],value[1],value[2]))
-        with report.create(Subsection('Path simulation')):                
-            #report.append('Request fulfillment\n')
-            with report.create(Tabular('l|l|l|l|l')) as table:      
-                table.add_hline()
-                table.add_row(['request','result','fidelity','time','purification rounds'])
-                table.add_hline()
-                for reg in report_info['requests_status']:
-                    table.add_row(bold(reg['request']),reg['result'],reg['fidelity'],reg['time'],reg['purif_rounds'])
-                table.add_hline()
-            report.append('\n')
-            report.append('\n')
-            with report.create(Tabular('l|p{3.75in}')) as table:
-                table.add_hline()
-                table.add_row('request','shortest path')
-                table.add_hline()
-                for reg in report_info['requests_status']:
-                    table.add_row(bold(reg['request']),reg['shortest_path'])
+            if mode == 'F':
+                with report.create(Tabular('l|l|l|l')) as table:
+                    table.add_hline()
+                    table.add_row(('link','cost','fidelity','number of rounds'))
+                    table.add_hline()
+                    for key, value in report_info[0]['link_fidelities'].items():
+                        table.add_row((key,value[0],value[1],value[2]))
+        with report.create(Subsection('Path simulation')):  
+            if mode == 'F':              
+                #report.append('Request fulfillment\n')
+                with report.create(Tabular('l|l|l|l|l')) as table:      
+                    table.add_hline()
+                    table.add_row(['request','result','fidelity','time','purification rounds'])
+                    table.add_hline()
+                    for reg in report_info[0]['requests_status']:
+                        table.add_row(bold(reg['request']),reg['result'],reg['fidelity'],reg['time'],reg['purif_rounds'])
+                    table.add_hline()
+                report.append('\n')
+                report.append('\n')
+                with report.create(Tabular('l|p{3.75in}')) as table:
+                    table.add_hline()
+                    table.add_row('request','shortest path')
+                    table.add_hline()
+                    for reg in report_info[0]['requests_status']:
+                        table.add_row(bold(reg['request']),reg['shortest_path'])
 
     with report.create(Section('Fase de simulación')):
         report.append('Esta parte está pendiente')

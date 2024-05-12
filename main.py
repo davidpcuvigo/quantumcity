@@ -65,6 +65,7 @@ else:
     raise ValueError('Unsupported operation. Valid: E or F')
 
 results = {} #This list will store data of the different sumulations
+report_info = {} #Dictionary with complete data for latex/pdf report
 for sim in range(steps):
     #reset simulation to start over
     ns.sim_reset()
@@ -99,7 +100,7 @@ for sim in range(steps):
             epr_pair = net.get_config('epr_pair','epr_pair')
             app = TeleportationApplication(path, net, qubits, epr_pair, 'QBER', name = f"QBERApplication_{path['request']}")
         elif application == 'CHSH':
-            app = CHSHApplication(path, net, name = f"QBERApplication_{path['request']}")
+            app = CHSHApplication(path, net, name = f"CHSHApplication_{path['request']}")
         else:
             raise ValueError('Unsupported application')
 
@@ -109,6 +110,9 @@ for sim in range(steps):
     #Run simulation
     duration = net.get_config('simulation_duration','simulation_duration')
     ns.sim_run(duration=duration)
+
+    #Store simulation information for final report
+    report_info[value] = net.get_info_report()
 
     print('----------------')
 
@@ -183,12 +187,11 @@ for sim in range(steps):
         if key not in results.keys(): results[key] = [] #Initialize list
         results[key].append(sim_result)
 
-#Al this point in results we have de simulation data
+#Al this point in results we have the simulation data
 simulation_data = {}
 for key in results.keys():
     df_sim_result = pd.DataFrame(results[key])
     simulation_data[key] = df_sim_result
-    #df_sim_result.set_index('Value', inplace = True)
 
 #Print results
 try:
@@ -236,13 +239,4 @@ for key,value in simulation_data.items():
     value.to_csv('./output/results.csv', mode='a', index=False, header=False)
 
 if print_report: 
-    generate_report(net.get_info_report())
-
-'''
-print('Salida temporal para verificar resultados en detalle')
-ic(net.get_paths())
-ic(net._requests_status)
-ic(net._available_links)
-ic(net._link_fidelities)
-ic(net._memory_assignment)
-'''
+    generate_report(report_info, simulation_data, mode)

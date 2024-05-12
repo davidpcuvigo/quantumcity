@@ -390,7 +390,7 @@ class NetworkManager():
                 port_name_a, port_name_b = self.network.add_connection(
                         qsource_origin, qsource_dest, channel_to=qchannel, 
                         label=f"qconn_{qsource_origin.name}_{qsource_dest.name}_{link_name}_{index_qsource}")
-                
+
                 #Setup quantum ports
                 qsource_origin.subcomponents[f"qsource_{qsource_origin.name}_{link_name}_{index_qsource}"].ports["qout1"].forward_output(
                     qsource_origin.ports[port_name_a])
@@ -479,15 +479,8 @@ class NetworkManager():
                 if self._available_links[link_name]['avail']>0:
                     self._graph.add_edge(link_props['end1'],link_props['end2'],weight=self._link_fidelities[link_name][0])
 
-            #Network graph generation, to include in report
-            if first:
-                '''
-                fig = plt.figure()
-                nx.draw_networkx(self._graph,ax=fig.add_subplot())
-                usematplotlib('Agg')
-                fig.savefig('./output/graf.png')
-                '''
-                
+            #Network graph generation, to include in report. Only generated in first iteration
+            if first:               
                 gr = nx.nx_agraph.to_agraph(self._graph)
                 gr.draw('./output/graf.png', prog='fdp')
                 first = 0
@@ -552,7 +545,7 @@ class NetworkManager():
 
 
                 conn_purif = DirectConnection(
-                    f"ccon_distil_{request_name}",
+                    f"cconn_distil_{request_name}",
                     ClassicalChannel(f"cconn_distil_{shortest_path[0]}_{shortest_path[-1]}_{request_name}", 
                                      length=total_distance,
                                      models={'delay_model': FibreDelayModel(c=average_photon_speed)}),
