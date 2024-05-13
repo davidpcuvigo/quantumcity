@@ -133,7 +133,8 @@ def validate_conf(config):
                                't2_qchannel_time':'float',
                                'classical_delay_model':'string',
                                'gaussian_delay_mean':'integer',
-                               'gaussian_delay_std':'integer'}
+                               'gaussian_delay_std':'integer',
+                               'qchannel_loss_model':'string'}
         
         #get list of nde names
         nodenames = [list(node.keys())[0] for node in config['nodes']]
@@ -213,7 +214,7 @@ def validate_conf(config):
                 raise ValueError(f"{link_name}: number_links can only be 2 between node and switch")
 
             #Check allowed values of noise model
-            allowed_qchannel_noise_model = ['DephaseNoiseModel','DepolarNoiseModel','T1T2NoiseModel','FibreLossModel','FibreDepolarizeModel']
+            allowed_qchannel_noise_model = ['DephaseNoiseModel','DepolarNoiseModel','T1T2NoiseModel','FibreDepolarizeModel','FibreDepolGaussModel','None']
             if 'qchannel_noise_model' in link_props.keys() \
                 and link_props['qchannel_noise_model'] not in allowed_qchannel_noise_model:
                 raise ValueError(f"link {link_name}: Unsupported quantum channel noise model")
@@ -236,18 +237,24 @@ def validate_conf(config):
                 'depolar_qchannel_rate' not in link_props.keys():
                 raise ValueError(f"link {link_name}: When DepolarNoiseModel is selected for quantum channel, dephase_qchannel_rate must be defined")
 
-            #If quantum channel noise model is FibreLosseModel p_loss_init and p_losslength must be declared
-            if 'qchannel_noise_model' in link_props.keys() and  \
-                link_props['qchannel_noise_model'] == 'FibreLossModel'  \
-                and ('p_loss_init' not in link_props.keys() or 'p_loss_length' not in link_props.keys()):
-                raise ValueError(f"link {link_name}: When FibreLossModel is selected for quantum channel, p_loss_init and p_loss_length must be defined")
-            
             #If quantum channel noise model is T1T2NoiseModel t1 & t2 times must be declared
             if 'qchannel_noise_model' in link_props.keys() and  \
                 link_props['qchannel_noise_model'] == 'T1T2NoiseModel'  \
                 and ('t1_qchannel_time' not in link_props.keys() or 't2_qchannel_time' not in link_props.keys()):
                 raise ValueError(f"link {link_name}: When T1T2NoiseModel is selected for quantum channel, t1_qchannel_time and t2_qhannel_time must be defined")
     
+            #Check allowed values of loss model
+            allowed_qchannel_loss_model = ['FibreLossModel','None']
+            if 'qchannel_loss_model' in link_props.keys() \
+                and link_props['qchannel_loss_model'] not in allowed_qchannel_loss_model:
+                raise ValueError(f"link {link_name}: Unsupported quantum channel loss model")
+            
+            #If quantum channel noise model is FibreLosseModel p_loss_init and p_losslength must be declared
+            if 'qchannel_loss_model' in link_props.keys() and  \
+                link_props['qchannel_loss_model'] == 'FibreLossModel'  \
+                and ('p_loss_init' not in link_props.keys() or 'p_loss_length' not in link_props.keys()):
+                raise ValueError(f"link {link_name}: When FibreLossModel is selected for quantum channel, p_loss_init and p_loss_length must be defined")
+            
             #Check allowed values of classical channel models
             allowed_classical_model = ['FibreDelayModel','GaussianDelayModel']
             if 'classical_delay_model' in link_props.keys() \

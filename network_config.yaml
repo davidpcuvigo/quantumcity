@@ -210,6 +210,10 @@ links:
       source_delay: 100
       photon_speed_fibre: 200e3
       classical_delay_model: FibreDelayModel
+      #qchannel_loss_model: FibreLossModel
+      qchannel_noise_model: FibreDepolGaussModel
+      p_loss_init: 0.009
+      p_loss_length: 0.009
   - nodeswitch14: #name of link
       end1: node14
       end2: switch1
