@@ -4,10 +4,24 @@ name: Red de pruebas
 link_fidel_rounds: 100 #Number of fidelity measures to estimate link fidelity
 path_fidel_rounds: 100 #Default number of measures to perform when estimating E2E path fidelity
 epr_pair: 'PSI_PLUS' #Allowed values are PHI_PLUS or PSI_PLUS
-simulation_duration: 100000000 #Duration of application simulation phase
+simulation_duration: 10000000 #Duration of application simulation phase
 
 nodes:
   - switch1: #name of switch
+      type: switch
+      num_memories: 34
+      gate_duration: 30
+      #gate_duration_X: 1
+      #gate_duration_Z: 1
+      #gate_duration_CX: 1
+      #gate_duration_rotations: 1
+      measurements_duration: 50
+      #gate_noise_model: DephaseNoiseModel
+      #dephase_gate_rate: 200
+      #mem_noise_model: T1T2NoiseModel
+      #t1_mem_time: 1e10
+      #t2_mem_time: 1e10
+  - switch2: #name of switch
       type: switch
       num_memories: 32
       gate_duration: 30
@@ -73,6 +87,12 @@ nodes:
       type: endNode
       gate_duration: 30
       measurements_duration: 50
+      teleport_queue_size: 10
+      teleport_queue_technology: 'Quantum'
+      teleport_strategy: 'Newest'
+      mem_noise_model: T1T2NoiseModel
+      t1_mem_time: 1e5
+      t2_mem_time: 1e5
   - node14:
       type: endNode
       gate_duration: 30
@@ -91,7 +111,7 @@ links:
       end2: switch1
       distance: 5
       source_fidelity_sq: 1
-      source_delay: 10000
+      source_delay: 100
       photon_speed_fibre: 200e3
       classical_delay_model: FibreDelayModel
   - nodeswitch2: #name of link
@@ -99,7 +119,7 @@ links:
       end2: switch1
       distance: 5
       source_fidelity_sq: 1
-      source_delay: 10000
+      source_delay: 100
       photon_speed_fibre: 200e3
       classical_delay_model: FibreDelayModel
   - nodeswitch3: #name of link
@@ -107,15 +127,15 @@ links:
       end2: switch1
       distance: 5
       source_fidelity_sq: 1
-      source_delay: 10000
+      source_delay: 100
       photon_speed_fibre: 200e3
       classical_delay_model: FibreDelayModel
   - nodeswitch4: #name of link
       end1: node4
       end2: switch1
       distance: 5
-      source_fidelity_sq: 0.7
-      source_delay: 10000
+      source_fidelity_sq: 1
+      source_delay: 100
       photon_speed_fibre: 200e3
       classical_delay_model: FibreDelayModel
   - nodeswitch5: #name of link
@@ -123,7 +143,7 @@ links:
       end2: switch1
       distance: 5
       source_fidelity_sq: 1
-      source_delay: 10000
+      source_delay: 100
       photon_speed_fibre: 200e3
       classical_delay_model: FibreDelayModel
   - nodeswitch6: #name of link
@@ -131,7 +151,7 @@ links:
       end2: switch1
       distance: 5
       source_fidelity_sq: 1
-      source_delay: 10000
+      source_delay: 100
       photon_speed_fibre: 200e3
       classical_delay_model: FibreDelayModel
   - nodeswitch7: #name of link
@@ -139,7 +159,7 @@ links:
       end2: switch1
       distance: 5
       source_fidelity_sq: 1
-      source_delay: 10000
+      source_delay: 100
       photon_speed_fibre: 200e3
       classical_delay_model: FibreDelayModel
   - nodeswitch8: #name of link
@@ -147,23 +167,23 @@ links:
       end2: switch1
       distance: 5
       source_fidelity_sq: 1
-      source_delay: 10000
+      source_delay: 100
       photon_speed_fibre: 200e3
       classical_delay_model: FibreDelayModel
   - nodeswitch9: #name of link
       end1: node9
       end2: switch1
-      distance: 5
+      distance: 0.5
       source_fidelity_sq: 1
-      source_delay: 10000
+      source_delay: 100
       photon_speed_fibre: 200e3
       classical_delay_model: FibreDelayModel
   - nodeswitch10: #name of link
       end1: node10
       end2: switch1
-      distance: 5
+      distance: 0.5
       source_fidelity_sq: 1
-      source_delay: 10000
+      source_delay: 100
       photon_speed_fibre: 200e3
       classical_delay_model: FibreDelayModel
   - nodeswitch11: #name of link
@@ -171,7 +191,7 @@ links:
       end2: switch1
       distance: 5
       source_fidelity_sq: 1
-      source_delay: 10000
+      source_delay: 100
       photon_speed_fibre: 200e3
       classical_delay_model: FibreDelayModel
   - nodeswitch12: #name of link
@@ -179,7 +199,7 @@ links:
       end2: switch1
       distance: 5
       source_fidelity_sq: 1
-      source_delay: 10000
+      source_delay: 100
       photon_speed_fibre: 200e3
       classical_delay_model: FibreDelayModel
   - nodeswitch13: #name of link
@@ -187,15 +207,15 @@ links:
       end2: switch1
       distance: 5
       source_fidelity_sq: 1
-      source_delay: 10000
+      source_delay: 100
       photon_speed_fibre: 200e3
       classical_delay_model: FibreDelayModel
   - nodeswitch14: #name of link
       end1: node14
       end2: switch1
       distance: 5
-      source_fidelity_sq: 0.98
-      source_delay: 10000
+      source_fidelity_sq: 1
+      source_delay: 100
       photon_speed_fibre: 200e3
       classical_delay_model: FibreDelayModel
   - nodeswitch15: #name of link
@@ -203,15 +223,23 @@ links:
       end2: switch1
       distance: 5
       source_fidelity_sq: 1
-      source_delay: 10000
+      source_delay: 100
       photon_speed_fibre: 200e3
       classical_delay_model: FibreDelayModel
   - nodeswitch16: #name of link
       end1: node16
       end2: switch1
       distance: 5
-      source_fidelity_sq: 0.97
-      source_delay: 10000
+      source_fidelity_sq: 1
+      source_delay: 100
+      photon_speed_fibre: 200e3
+      classical_delay_model: FibreDelayModel
+  - interwitch1: #name of link
+      end1: switch1
+      end2: switch2
+      distance: 20
+      source_fidelity_sq: 1
+      source_delay: 100
       photon_speed_fibre: 200e3
       classical_delay_model: FibreDelayModel
 
@@ -229,7 +257,7 @@ requests:
       minfidelity: 0.70
       maxtime: 400000 # nanoseconds
       #path_fidel_rounds: 100
-      application: Teleport
+      application: Teleportation
       teleport: [[1,1],[1,0],[0,1],[2,8],[0.3+1j,4]] #List of [alpha, beta]. alpha|0> + beta|1>. States to teleport. Will be normalized
       #demand_rate: 10000 (Hz)
   - request3: #name of request
@@ -276,4 +304,4 @@ requests:
       minfidelity: 0.70
       maxtime: 400000 # nanoseconds
       #path_fidel_rounds: 200
-      application: Capacity
+      application: CHSH

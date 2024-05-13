@@ -14,6 +14,8 @@ from protocols import SwapCorrectProgram
 from network import ClassicalConnection
 from netsquid.components.models.delaymodels import FixedDelayModel, FibreDelayModel, GaussianDelayModel
 import cmath
+from random import randint
+from netsquid.qubits.operators import Operator, X, Z, I
 
 '''
 Available applications:
@@ -25,6 +27,7 @@ Available applications:
     - TeleportationWithDemand: Will teleport the list of qubits, but following the specified generation
     rate. Will measure the mean fidelity and total number of teleported qubits, but also the size 
     of the queue at the source node.
+    - CHSH: Experiments to validate Bell inequalities
 '''
 
 class GeneralApplication(LocalProtocol):
@@ -64,7 +67,7 @@ class CapacityApplication(GeneralApplication):
 
     def __init__(self, path, networkmanager, name=None):
         name = name if name else f"CapacityApplication_Unidentified"
-        super().__init__(path, networkmanager)
+        super().__init__(path, networkmanager, name=name)
     
     def run(self):
         self.start_subprotocols()
@@ -112,7 +115,7 @@ class TeleportationApplication(GeneralApplication):
 
     def __init__(self, path, networkmanager, qubits, epr_pair, app, rate = 0, name=None):
         name = name if name else f"TeleportApplication_Unidentified"
-        super().__init__(path, networkmanager)
+        super().__init__(path, networkmanager, name=name)
 
         self._qubits = qubits
         self._app = app
@@ -124,7 +127,8 @@ class TeleportationApplication(GeneralApplication):
         self._build_teleport_classic()
 
         if app == 'TeleportationWithDemand': #Request demand is modelled
-            self.add_subprotocol(DemandGeneratorProtocol(networkmanager.network.get_node(path['nodes'][0]),rate,qubits,f"DemandGeneratorProtocol_{path['request']}"))
+            teleport_strategy = networkmanager.get_config('nodes',self._path['nodes'][0],'teleport_strategy')
+            self.add_subprotocol(DemandGeneratorProtocol(networkmanager.network.get_node(path['nodes'][0]),rate,qubits,teleport_strategy,f"DemandGeneratorProtocol_{path['request']}"))
 
     def _build_teleport_classic(self):
         '''
@@ -196,6 +200,10 @@ class TeleportationApplication(GeneralApplication):
         num_qubits = len(self._qubits) #Number of qubits to teleport
         tx_qubit = 0 #Position of qubit to transmit
 
+        #Get teleportation strategy if implementing Demand
+        if self._app == 'TeleportationWithDemand':
+            teleport_strategy = self._networkmanager.get_config('nodes',self._path['nodes'][0],'teleport_strategy')
+
         while True:
         
             if self._app in ['Teleportation','QBER']:
@@ -209,12 +217,15 @@ class TeleportationApplication(GeneralApplication):
                 #Set position of next qubit to transmit
                 tx_qubit = tx_qubit + 1 if tx_qubit < num_qubits-1 else 0
 
+                assign_qstate(qubit, state)
+
             elif self._app == 'TeleportationWithDemand':
                 #We have to request a qubit based on generation demand
                 waiting_state = True
                 while waiting_state:
-                    #retrieve state from queue
-                    state = first_node.retrieve_teleport()
+                    #retrieve state from queue.We get the state reprsentation in return, 
+                    # but also qubit is updated with the retrieved qubit
+                    [state, qubit[0]] = first_node.retrieve_teleport(teleport_strategy)
 
                     #If no qubit to transmit, wait 1000 nanoseconds
                     if state is None:
@@ -226,7 +237,6 @@ class TeleportationApplication(GeneralApplication):
 
             #Transform ket representation into qubit
             start_time = sim_time()
-            assign_qstate(qubit, state)
 
             #If position is not being used, we can store the qubit
             if 2 in self._networkmanager.network.get_node(self._path['nodes'][0]).qmemory.unused_positions:
@@ -251,7 +261,7 @@ class TeleportationApplication(GeneralApplication):
 
                 result_qubit, = last_node.qmemory.pop(0)
 
-                if self._app in ['Teleportation','TeleportationWithDemand']:
+                if self._app in ['Teleportation']:
                     fid = qapi.fidelity(result_qubit, state, squared = True)
                     qapi.discard(result_qubit)
                     result = {
@@ -260,15 +270,26 @@ class TeleportationApplication(GeneralApplication):
                         'Fidelity': fid,
                         'time': sim_time() - start_time
                     }
+
+                elif self._app in ['TeleportationWithDemand']:
+                    fid = qapi.fidelity(result_qubit, state, squared = True)
+                    qapi.discard(result_qubit)
+                    result = {
+                        'posA': mem_posA_1,
+                        'posB': mem_posB_1,
+                        'Fidelity': fid,
+                        'time': sim_time() - start_time,
+                        'queue_size': first_node.get_queue_size(),
+                        'discarded_qubits': first_node.get_discarded()
+                    }
     
                 elif self._app == 'QBER':
                     #In result_qubit the teleported one
-                    #ic(qubit[0], result_qubit)
                     assign_qstate(original_qubit, state)
 
-                    #MEasure original qubit and teleported one in Z basis and compare
-                    m_origin = qapi.measure(original_qubit[0])
-                    m_res = qapi.measure(result_qubit)
+                    #Measure original qubit and teleported one in Z basis and compare
+                    m_origin,prob_or = qapi.measure(original_qubit[0])
+                    m_res,prob_res = qapi.measure(result_qubit)
                     error = 1 if m_origin != m_res else 0
 
                     qapi.discard(result_qubit)
@@ -293,11 +314,12 @@ class DemandGeneratorProtocol(NodeProtocol):
     qubits: list of states to teleport. Once at the end, it will start from the begginning
     name: name of protocol
     '''
-    def __init__(self, node, rate, qubits, name=None):
+    def __init__(self, node, rate, qubits, teleport_strategy, name=None):
         name = name if name else f"DemandGenerator_Unidentified"
         super().__init__(node, name)
         self._time_between_states = 1e9 / rate
         self._qubits = qubits
+        self._teleport_strategy = teleport_strategy
     
     def run(self):
         num_qubits = len(self._qubits) #Number of qubits to teleport
@@ -316,7 +338,7 @@ class DemandGeneratorProtocol(NodeProtocol):
             tx_qubit = tx_qubit + 1 if tx_qubit < num_qubits-1 else 0
             
             #Add qubit to queue in origin
-            self.node.request_teleport(state)
+            self.node.request_teleport(state, self._teleport_strategy)
 
 
 class TeleportCorrectProtocol(NodeProtocol):
@@ -372,4 +394,75 @@ class TeleportCorrectProtocol(NodeProtocol):
                 self.send_signal(Signals.SUCCESS)
                 self._x_corr = 0
                 self._z_corr = 0
-                
+
+class CHSHApplication(GeneralApplication):
+    '''
+    This class implements and application that generates end to end entanglement continously
+    and measures the fidelity of the entangled pairs
+    Constructor parameters:
+        - path: dictionary with path parameters
+        - netwokmanager: instance of the network manager class being used in the simulation
+        - name: string, name of the instance
+    '''
+
+    def __init__(self, path, networkmanager, name=None):
+        name = name if name else f"CHSHApplication_Unidentified"
+        super().__init__(path, networkmanager, name=name)
+    
+    def run(self):
+        self.start_subprotocols()
+
+        #Though in this simulations positions in nodes are always 0, we query in case this is changed in the future
+        first_link = self._path['comms'][0]['links'][0]
+        last_link = self._path['comms'][-1]['links'][0]
+        mem_posA_1 = self._networkmanager.get_mem_position(self._path['nodes'][0],first_link.split('-')[0],first_link.split('-')[1])
+        mem_posB_1 = self._networkmanager.get_mem_position(self._path['nodes'][-1],last_link.split('-')[0],last_link.split('-')[1])
+
+        #Define Alices's operators
+        if self._networkmanager.get_config('epr_pair','epr_pair') == 'PHI_PLUS':
+            A0 = Z
+            A1 = X
+        else:
+            A0 = Z
+            A1 = X
+
+        #Define Bob's operators
+        if self._networkmanager.get_config('epr_pair','epr_pair') == 'PHI_PLUS':
+            B0 = (1/np.sqrt(2))*(X+Z)
+            B1 = (1/np.sqrt(2))*(Z-X)
+        else:
+            B0 = (1/np.sqrt(2))*(I-Z+X)
+            B1 = (1/np.sqrt(2))*(I-Z-X)
+
+        while True:
+            start_time = sim_time()
+            #Send signal for entanglement generation
+            self.send_signal(self._ent_request)
+
+            #Wait for  entanglement to be generated on both ends
+            yield self.await_signal(self.subprotocols[f"RouteProtocol_{self._path['request']}"],Signals.SUCCESS)
+
+            #Generate x and y, which will be use for Alice and Bob measurements
+            x = randint(0,1)
+            y = randint(0,1)
+
+            qa, = self._networkmanager.network.get_node(self._path['nodes'][0]).qmemory.pop(positions=[mem_posA_1])
+            qb, = self._networkmanager.network.get_node(self._path['nodes'][-1]).qmemory.pop(positions=[mem_posB_1])
+            
+            #Measure Alice's qubit. In Z base if x=0 or X if x = 1
+            observable = A0 if x == 0 else A1
+            measure_a,prob_a = qapi.measure(qa, observable=observable)
+
+            #Measure Bob's qubit.
+            observable = B0 if y == 0 else B1
+            measure_b,prob_b = qapi.measure(qb, observable=observable)
+
+            #Check if a xor b = x * y
+            wins = 1 if (measure_a + measure_b) % 2 == x * y else 0
+            result = {
+                'wins': wins,
+                'time': sim_time() - start_time
+            }
+
+            #send result to datacollector
+            self.send_signal(Signals.SUCCESS, result)

@@ -26,7 +26,15 @@ __all__ = [
 
 class RouteProtocol(LocalProtocol):
     '''
-
+    Class that implements the protocol responsible for generating an EPR between source
+    and destination in the path. Will wail for a request and coordinate the different network protocols
+    in order to make available an EPR en memories of origin and destination
+    Parameters:
+        - networkmanager: instance of the network manager that stores the network
+        - path: calculated path for servicing the request
+        - start_expression: event expression that will trigger the EPR generation
+        - purif_rounds: number of needed purification rounds
+        - name: name of the protocol
     '''
 
     def __init__(self, networkmanager, path, start_expression, purif_rounds= 0, name=None):
@@ -127,9 +135,9 @@ class RouteProtocol(LocalProtocol):
             subprotocol = SwapProtocol(node=self._networkmanager.network.get_node(node), mem_left=mem_pos_left, mem_right=mem_pos_right, name=f"SwapProtocol_{node}_{self._path['request']}_2", request = self._path['request'])
             self.add_subprotocol(subprotocol)
 
-        #add Classical channel for second instance of link
+        #add Correction protocol for second instance of link
         epr_state = epr_state =  self._networkmanager.get_config('epr_pair','epr_pair')
-        mempos= self._networkmanager.get_mem_position(self._path['nodes'][-1],last_link.split('-')[0],last_link.split('-')[1])
+        mempos = self._networkmanager.get_mem_position(self._path['nodes'][-1],last_link.split('-')[0],last_link.split('-')[1])
         restart_expr = self.await_signal(self,self._restart_signal)
         subprotocol = CorrectProtocol(self._networkmanager.network.get_node(self._path['nodes'][-1]), mempos, len(self._path['nodes']), f"CorrectProtocol_{self._path['request']}_2", self._path['request'],restart_expr, epr_state)
         self.add_subprotocol(subprotocol)
@@ -296,12 +304,12 @@ class SwapProtocol(NodeProtocol):
                    self.await_port_input(self._qmem_input_port_r))
             
             #Add to node queue
-            self.node._swap_queue.append(self.name)
+            self.node.add_request(self.name)
     
             #More than two requests can arrive at the same time to qprocessor
             not_serviced = True
             while not_serviced:
-                if self.name == self.node._swap_queue[0]: #First in queue, can be serviced   
+                if self.name == self.node.get_request('first'): #First in queue, can be serviced   
 
                     #Check for future removal. We manage qprocessor with FIFO queue
                     # Perform Bell measurement
@@ -310,7 +318,7 @@ class SwapProtocol(NodeProtocol):
 
                     yield self.node.qmemory.execute_program(self._program, qubit_mapping=[self._mem_right, self._mem_left])
                     #Serviced, remove from queue
-                    self.node._swap_queue.pop(0)
+                    self.node.remove_request('first')
                     not_serviced = False
                 else: #Must wait for other to complete
                     yield self.await_timer(duration=100) #Nothing to do, just wait

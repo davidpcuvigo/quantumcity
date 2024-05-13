@@ -1,4 +1,3 @@
-import yaml
 from icecream import ic
 import netsquid as ns
 import networkx as nx
@@ -17,6 +16,8 @@ from netsquid.qubits.operators import Operator
 from netsquid_nv.delft_nvs.delft_nv_2020_near_term import NVParameterSet2020NearTerm
 from netsquid.components.instructions import INSTR_MEASURE_BELL, INSTR_MEASURE, INSTR_X, INSTR_Z,  INSTR_CNOT, IGate, INSTR_Y, INSTR_ROT_X, INSTR_ROT_Y, INSTR_ROT_Z, INSTR_H, INSTR_SWAP, INSTR_INIT, INSTR_CXDIR, INSTR_EMIT
 import netsquid.qubits.operators as ops
+from netsquid.qubits import assign_qstate, create_qubits
+from netsquid.qubits import qubitapi as qapi
 from utils import dc_setup
 
 class Switch(Node):
@@ -24,23 +25,134 @@ class Switch(Node):
         self._swap_queue = []
         super().__init__(name,qmemory=qmemory)
 
+    def add_request(self,request):
+        '''
+        Receives the protocol that wants to perform the swapping operation
+        Input:
+            - request: name of th requestor protocol (string)
+        Output:
+            No output
+        '''
+        self._swap_queue.append(request)
+
+    def get_request(self,strategy):
+        '''
+        Retrieve an operation to execute from the queue.
+        Can be the first one or the last one
+        Input:
+            - strategy: if first in queue should be returned or last (first|last)
+        Output:
+            - protocol_name: name of the protocol for which the entanglement will be executed
+        '''
+        protocol_name = self._swap_queue[0] if strategy == 'first' else self._swap_queue[-1]
+        return(protocol_name)
+
+    def remove_request(self,strategy):
+        '''
+        Delete an operation from the queue.
+        Can be the first one or the last one
+        Input:
+            - strategy: if first in queue should be deleted or last (first|last)
+        Output:
+            No output
+        '''
+        self._swap_queue.pop(0) if strategy == 'first' else self._swap_queue.pop()  
+
 class EndNode(Node):
-    def __init__(self,name,qmemory):
+    def __init__(self, name, queue_size, qmemory):
         #TODO: Change queue to quantum memory queue?
-        self._transmit_queue = []
-        super().__init__(name,qmemory=qmemory)
+        self._state_transmit_queue = []
+        self._mem_transmit_queue = []
+        self._queue_size = queue_size
+        super().__init__(name, qmemory=qmemory)
+        self._discarded_states = 0
 
-    def request_teleport(self,state):
-        self._transmit_queue.append(state)
 
-    def retrieve_teleport(self):
-        if len(self._transmit_queue) > 0:
-            return self._transmit_queue.pop(0)
+    def request_teleport(self, state, strategy):
+        '''
+        Insert new teleportation request. Will be inserted at the end of the list
+        Strategy when retrieven the qubit will be processed in retrieve_teleport method
+        Input:
+            - state: list with state representation [alpha, beta]
+            - strategy: teleportation strategy ('Oldest': send in FIFO, 'Newest': Send in LIFO mode)
+        '''
+        #Assign qubit to state representation
+        qubit = create_qubits(1)
+        assign_qstate(qubit,state)
+
+        #If queue is full we should check strategy
+        if len(self._state_transmit_queue) == self._queue_size:
+            if strategy == 'Oldest': 
+                #If we are priorizing oldest qubits, we should discard new request
+                self._discarded_states += 1
+            else:
+                #Discard oldest request and insert new one
+                self._state_transmit_queue.pop(0)
+                self._state_transmit_queue.append(state)
+  
+                if self.qmemory.num_positions > 4: #We are using quantum memory for storage
+                    # Replace memory position with oldest qubit with new one
+                    mempos = self._mem_transmit_queue.pop(0)
+                    #TODO: Check if we must insert validation of qprocessor being used
+                    self.qmemory.put(qubit, mempos, replace = True)
+                    self._mem_transmit_queue.append(mempos)
+
+                self._discarded_states += 1
         else:
-            return(None)
+            self._state_transmit_queue.append(state)
+            if self.qmemory.num_positions > 4: #We are using quantum memory for storage
+                mempos_list = self.qmemory.unused_positions
+                #Only positions equal or above 4 are used as storage
+                mempos = min(i for i in mempos_list if i > 3)
+
+                self.qmemory.put(qubit, mempos, replace = True)
+                self._mem_transmit_queue.append(mempos)
+
+    def retrieve_teleport(self, strategy):
+        '''
+        Return state and qubit that should be teleported
+        Input:
+            - strategy: teleportation strategy ('Oldest': send in FIFO, 'Newest': Send in LIFO mode)
+        Output:
+            - state: list with state representation [alpha, beta]
+            - qubit: qubit
+        '''
+        qubit = []
+        if len(self._state_transmit_queue) > 0:
+            if strategy == 'Oldest': 
+                #FIFO
+                state = self._state_transmit_queue.pop(0)
+                if self.qmemory.num_positions > 4: 
+                    #Quantum memory being used
+                    mempos = self._mem_transmit_queue.pop(0)
+                    qubit = self.qmemory.pop(mempos, skip_noise=False)
+            else: 
+                #LIFO
+                state = self._state_transmit_queue.pop()
+                if self.qmemory.num_positions > 4: 
+                    #Quantum memory being used
+                    mempos = self._mem_transmit_queue.pop()
+                    qubit = self.qmemory.pop(mempos, skip_noise=False)
+
+            if self.qmemory.num_positions == 4: 
+                #Working with classical memories, we code state in qubit
+                assign_qstate(qubit, state)
+
+            return([state,qubit[0]])
+        else:
+            return([None, None])
         
     def get_queue_size(self):
-        return(len(self._transmit_queue))
+        '''
+        Getter for _transmit_queue
+        '''
+        return(len(self._state_transmit_queue))
+    
+    def get_discarded(self):
+        '''
+        Getter for _discarded_states
+        '''
+        return(self._discarded_states)
         
 
 class NetworkManager():
@@ -49,17 +161,15 @@ class NetworkManager():
     storing all the network definition
     '''
 
-    def __init__(self, file):
+    def __init__(self, config):
         self.network=""
         self._paths = []
         self._link_fidelities = {}
         self._memory_assignment = {}
         self._available_links = {}
         self._requests_status = []
+        self._config = config
 
-        with open(file,'r') as config_file:
-            self._config = yaml.safe_load(config_file)
-        self._validate_file()
         self._create_network()
         self._measure_link_fidelity()
         self._calculate_paths()
@@ -191,372 +301,6 @@ class NetworkManager():
         self._available_links[link_name]['avail'] += 1
         self._available_links[link_name]['occupied'].remove(int(index))
 
-    def _validate_file(self):
-        '''
-        Performs validations on the provided configuration file
-        Input: -
-        Output: -
-        '''
-
-        #Verify that global mandatory parameters exist
-        if 'name' not in self._config.keys() or 'link_fidel_rounds' not in self._config.keys() \
-            or 'path_fidel_rounds' not in self._config.keys() or 'nodes' not in self._config.keys() \
-                or 'links' not in self._config.keys() or 'requests' not in self._config.keys() \
-                    or 'epr_pair' not in self._config.keys() or 'simulation_duration' not in self._config.keys(): 
-            raise ValueError('Invalid configuration file, check global parameters')
-
-        #Check link sintax
-        links = self._config['links']
-            
-        #names must be unique
-        linknames = [list(link.keys())[0] for link in links]
-        set_names = set(linknames)
-        if len(set_names) != len(linknames): #there are repeated node names:
-            raise ValueError('Invalid configuration file, repeated link names')
-
-        #Valid types
-        available_props = {'end1':'string',
-                               'end2':'string',
-                               'distance':'float',
-                               'number_links':'integer',
-                               'source_fidelity_sq':'float01',
-                               'source_delay':'integer',
-                               'photon_speed_fibre':'float',
-                               'qchannel_noise_model':'string',
-                               'p_depol_init':'float01',
-                               'p_depol_length':'float01',
-                               'dephase_qchannel_rate':'float',
-                               'depolar_qchannel_rate':'float',
-                               'p_loss_init':'float01',
-                               'p_loss_length':'float01',
-                               't1_qchannel_time':'float',
-                               't2_qchannel_time':'float',
-                               'classical_delay_model':'string',
-                               'gaussian_delay_mean':'integer',
-                               'gaussian_delay_std':'integer'}
-        
-        #get list of nde names
-        nodenames = [list(node.keys())[0] for node in self._config['nodes']]
-
-        for link in links:
-            link_props = list(link.values())[0]
-            link_name = list(link.keys())[0]
-            #link names cannot contain hyphens or underscore
-            if link_name.find('-') != -1: raise ValueError (f'{link_name}: Link names cannot contain hyphens')       
-            if link_name.find('_') != -1: raise ValueError (f'{link_name}: Link names cannot contain underscore')       
-            
-            #Check that nodes are valid
-            if link_props['end1'] not in nodenames:
-                raise ValueError(f"link {link_name}: node {link_props['end1']} not defined")
-            if link_props['end2'] not in nodenames:
-                raise ValueError(f"link {link_name}: node {link_props['end2']} not defined")
-            
-            #Check that defined properties are valid    
-            for prop in link_props.keys():
-                #Check that property is valid
-                if prop not in available_props.keys():
-                    raise ValueError(f'Property {prop} in link {link_name} is not valid')
-                if available_props[prop] == 'integer':
-                    if not isinstance(link_props[prop],int):
-                        raise ValueError(f"link {link_name} {prop} must be of {available_props[prop]} type but is {type(prop)}")
-                    elif link_props[prop]<0:
-                        raise ValueError(f"link {link_name} {prop} cannot be negative")
-                elif available_props[prop] == 'string':
-                    if not isinstance(link_props[prop],str):
-                        raise ValueError(f"link {link_name} {prop} must be of {available_props[prop]} type but is {type(prop)}")
-                elif available_props[prop] == 'float':
-                    try:
-                        val = float(link_props[prop])
-                        if val < 0:
-                            raise ValueError(f"link {link_name} {prop} cannot be negative")
-                    except:
-                        raise ValueError(f"link {link_name} {prop} must be of {available_props[prop]} type but is {type(prop)}")
-                elif available_props[prop] == 'float01':
-                    try:
-                        val = float(link_props[prop])
-                        if val < 0 or val > 1:
-                            raise ValueError(f"link {link_name} {prop} must be between 0 and 1")
-                    except:
-                        raise ValueError(f"link {link_name} {prop} must be of {available_props[prop]} type but is {type(prop)}")
-                else:
-                    raise ValueError(f"link {link_name} incorrect type for {prop}, it is {type(prop)}")
-            
-            #Check for definition of mandatory properties
-            mandatory = ['end1','end2','distance','source_fidelity_sq','photon_speed_fibre']
-            for prop in mandatory:
-                if prop not in link_props.keys(): 
-                    raise ValueError(f"link {link_name}: missing property {prop}")
-
-            #number_links can only be specified between switches
-            if (self.get_config('nodes',link_props['end1'],'type') == 'endNode' or \
-                self.get_config('nodes',link_props['end2'],'type') == 'endNode') and \
-                'number_links' in link_props.keys() and link_props['number_links'] != 2:
-                raise ValueError(f"{link_name}: number_links can only be 2 between node and switch")
-
-            #Check allowed values of noise model
-            allowed_qchannel_noise_model = ['DephaseNoiseModel','DepolarNoiseModel','T1T2NoiseModel','FibreLossModel','FibreDepolarizeModel']
-            if 'qchannel_noise_model' in link_props.keys() \
-                and link_props['qchannel_noise_model'] not in allowed_qchannel_noise_model:
-                raise ValueError(f"link {link_name}: Unsupported quantum channel noise model")
-
-            #If quantum channel noise model is FibreDepolarizeModel p_depol_init and p_depol_length must be declared
-            if 'qchannel_noise_model' in link_props.keys() and  \
-                link_props['qchannel_noise_model'] == 'FibreDepolarizeModel'  \
-                and ('p_depol_init' not in link_props.keys() or 'p_depol_length' not in link_props.keys()):
-                raise ValueError(f"link {link_name}: When FibreDepolarizeModel is selected for quantum channel, p_depol_init and p_depol_length must be defined")
-            
-            #If quantum channel noise model is DephaseNoiseModel dephase_qchannel_rate must be declared
-            if 'qchannel_noise_model' in link_props.keys() and  \
-                link_props['qchannel_noise_model'] == 'DephaseNoiseModel'  \
-                'dephase_qchannel_rate' not in link_props.keys():
-                raise ValueError(f"link {link_name}: When DephaseNoiseModel is selected for quantum channel, dephase_qchannel_rate must be defined")
-            
-            #If quantum channel noise model is DepolarNoiseModel depolar_qchannel_rate must be declared
-            if 'qchannel_noise_model' in link_props.keys() and  \
-                link_props['qchannel_noise_model'] == 'DepolarNoiseModel'  \
-                'depolar_qchannel_rate' not in link_props.keys():
-                raise ValueError(f"link {link_name}: When DepolarNoiseModel is selected for quantum channel, dephase_qchannel_rate must be defined")
-
-            #If quantum channel noise model is FibreLosseModel p_loss_init and p_losslength must be declared
-            if 'qchannel_noise_model' in link_props.keys() and  \
-                link_props['qchannel_noise_model'] == 'FibreLossModel'  \
-                and ('p_loss_init' not in link_props.keys() or 'p_loss_length' not in link_props.keys()):
-                raise ValueError(f"link {link_name}: When FibreLossModel is selected for quantum channel, p_loss_init and p_loss_length must be defined")
-            
-            #If quantum channel noise model is T1T2NoiseModel t1 & t2 times must be declared
-            if 'qchannel_noise_model' in link_props.keys() and  \
-                link_props['qchannel_noise_model'] == 'T1T2NoiseModel'  \
-                and ('t1_qchannel_time' not in link_props.keys() or 't2_qchannel_time' not in link_props.keys()):
-                raise ValueError(f"link {link_name}: When T1T2NoiseModel is selected for quantum channel, t1_qchannel_time and t2_qhannel_time must be defined")
-    
-            #Check allowed values of classical channel models
-            allowed_classical_model = ['FibreDelayModel','GaussianDelayModel']
-            if 'classical_delay_model' in link_props.keys() \
-                and link_props['classical_delay_model'] not in allowed_classical_model:
-                raise ValueError(f"link {link_name}: Unsupported classical channel delay model")
-
-            #If quantum channel noise model is T1T2NoiseModel t1 & t2 times must be declared
-            if 'classical_delay_model' in link_props.keys() and  \
-                link_props['classical_delay_model'] == 'GaussianDelayModel'  \
-                and ('gaussian_delay_mean' not in link_props.keys() or 'gaussian_delay_std' not in link_props.keys()):
-                raise ValueError(f"link {link_name}: When GaussianDelayModel is selected for qclassical channel, gaussian_delay_mean and gaussian_delay_std must be defined")
-        
-
-        #Check node sintax
-        #No node names are repeated
-        set_names = set(nodenames)
-        if len(set_names) != len(nodenames): #there are repeated node names:
-            raise ValueError('Invalid configuration file, repeated node names')
-        
-        #Valid types
-        available_props = {'type':'string',
-                               'num_memories':'integer',
-                               'gate_duration':'integer',
-                               'gate_duration_X':'integer',
-                               'gate_duration_Z':'integer',
-                               'gate_duration_CX':'integer',
-                               'gate_duration_rotations':'integer',
-                               'measurements_duration':'integer',
-                               'gate_noise_model':'string',
-                               'dephase_gate_rate':'integer',
-                               'depolar_gate_rate':'integer',
-                               't1_gate_time':'integer',
-                               't2_gate_time':'integer',
-                               'mem_noise_model':'string',
-                               'dephase_mem_rate':'integer',
-                               'depolar_mem_rate':'integer',
-                               't1_mem_time':'float',
-                               't2_mem_time':'float'}
-        
-        for node in self._config['nodes']:
-            node_props = list(node.values())[0]
-            node_name = list(node.keys())[0]
-
-            #nodenames cannot contain underscore
-            if node_name.find('_') != -1: raise ValueError (f'{node_name}: Node names cannot contain underscore')
-            
-            #Check that defined properties are valid    
-            for prop in node_props.keys():
-                #Check that property is valid
-                if prop not in available_props.keys():
-                    raise ValueError(f'Property {prop} in node {node_name} is not valid')
-                if available_props[prop] == 'integer':
-                    if not isinstance(node_props[prop],int):
-                        raise ValueError(f"node {node_name} {prop} must be of {available_props[prop]} type but is {type(prop)}")
-                    elif node_props[prop]<0:
-                        raise ValueError(f"node {node_name} {prop} cannot be negative")
-                elif available_props[prop] == 'string':
-                    if not isinstance(node_props[prop],str):
-                        raise ValueError(f"node {node_name} {prop} must be of {available_props[prop]} type but is {type(prop)}")
-                elif available_props[prop] == 'float':
-                    try:
-                        val = float(node_props[prop])
-                        if val < 0:
-                            raise ValueError(f"node {node_name} {prop} cannot be negative")
-                    except:
-                        raise ValueError(f"node {node_name} {prop} must be of {available_props[prop]} type but is {type(prop)}")
-                else:
-                    raise ValueError(f"node {node_name} incorrect type for {prop}, it is {type(prop)}")
-            
-            #Check for definition of mandatory properties
-            mandatory = ['type']
-            for prop in mandatory:
-                if prop not in node_props.keys(): 
-                    raise ValueError(f"node {node_name}: missing property {prop}")
-
-            #Only two types are allowed: switch and endNode
-            if node_props['type'] not in ['switch','endNode']:
-                raise ValueError(f'node {node_name} type can only be switch or endNode')
-
-            #If node is a switch we must define the number of  available memories
-            if node_props['type'] == 'switch' and 'num_memories' not in node_props.keys():
-                raise ValueError(f"node {node_name}: num_memories must be declared")
-            
-            #Check allowed values of noise model
-            allowed_gate_noise_model = ['DephaseNoiseModel','DepolarNoiseModel','T1T2NoiseModel']
-            allowed_mem_noise_model = ['DephaseNoiseModel','DepolarNoiseModel','T1T2NoiseModel']
-            if 'gate_noise_model' in node_props.keys() \
-                and node_props['gate_noise_model'] not in allowed_gate_noise_model:
-                raise ValueError(f"node {node_name}: Unsupported gate noise model")
-            if 'mem_noise_model' in node_props.keys() \
-                and node_props['mem_noise_model'] not in allowed_mem_noise_model:
-                raise ValueError(f"node {node_name}: Unsupported memory noise model")
-
-            #If gate noise model is DephaseNoiseModel the rate must be declared
-            if 'gate_noise_model' in node_props.keys() and  \
-                node_props['gate_noise_model'] == 'DephaseNoiseModel'  \
-                and 'dephase_gate_rate' not in node_props.keys():
-                raise ValueError(f"node {node_name}: When DephaseNoiseModel is selected for gate, dephase_gate_rate must be defined")
-
-            #When gate noise model is DepolarNoiseModel the rate must be declared
-            if 'gate_noise_model' in node_props.keys() and  \
-                node_props['gate_noise_model'] == 'DepolarNoiseModel'  \
-                and 'depolar_gate_rate' not in node_props.keys():
-                raise ValueError(f"node {node_name}: When DepolarNoiseModel is selected for gate, depolar_gate_rate must be defined")    
-                
-            #If gate noise model is T1T2NoiseModel t1 & t2 times must be declared
-            if 'gate_noise_model' in node_props.keys() and  \
-                node_props['gate_noise_model'] == 'T1T2NoiseModel'  \
-                and ('t1_gate_time' not in node_props.keys() or 't2_gate_time' not in node_props.keys()):
-                raise ValueError(f"node {node_name}: When T1T2NoiseModel is selected for gate, t1_gate_time and t2_gate_time must be defined")
-
-            #If memory noise model is DephaseNoiseModel the rate must be declared
-            if 'mem_noise_model' in node_props.keys() and  \
-                node_props['mem_noise_model'] == 'DephaseNoiseModel'  \
-                and 'dephase_mem_rate' not in node_props.keys():
-                raise ValueError(f"node {node_name}: When DephaseNoiseModel is selected for memory, dephase_mem_rate must be defined")
-
-            #When memory noise model is DepolarNoiseModel the rate must be declared
-            if 'mem_noise_model' in node_props.keys() and  \
-                node_props['mem_noise_model'] == 'DepolarNoiseModel'  \
-                and 'depolar_mem_rate' not in node_props.keys():
-                raise ValueError(f"node {node_name}: When DepolarNoiseModel is selected for memory, depolar_mem_rate must be defined")    
-                
-            #If gate noise model is T1T2NoiseModel t1 & t2 times must be declared
-            if 'mem_noise_model' in node_props.keys() and  \
-                node_props['mem_noise_model'] == 'T1T2NoiseModel'  \
-                and ('t1_mem_time' not in node_props.keys() or 't2_mem_time' not in node_props.keys()):
-                raise ValueError(f"node {node_name}: When T1T2NoiseModel is selected for memory, t1_mem_time and t2_mem_time must be defined")
-
-            #Check that in switch nodes we have > 2*num_links
-            if node_props['type'] == 'endNode' and 'num_memories' in node_props.keys() and \
-                node_props['num_memories'] != 4:
-                raise ValueError(f"node {node_name}: if num_memories declared in endNode, must aways be 2")
-            elif node_props['type'] == 'switch':
-                #must check than number of memories is greater than connected links
-                total_links = 0
-                for link in self._config['links']:
-                    link_props = list(link.values())[0]
-                    if link_props['end1'] == node_name or link_props['end2'] == node_name:
-                        total_links += link_props['number_links'] \
-                            if 'number_links' in link_props.keys() else 2
-                if total_links > node_props['num_memories']:
-                    raise ValueError(f"node {node_name}: not enough memories. Need at least {total_links}")
-
-        #Check requests sintax
-        requests = self._config['requests']
-        requestnames = [list(request.keys())[0] for request in requests]
-        set_names = set(requestnames)
-        if len(set_names) != len(requestnames): #there are repeated request names:
-            raise ValueError('Invalid configuration file, repeated request names')
-        
-        #Check valid properties
-        available_props = {'origin': 'string',
-            'destination': 'string',
-            'minfidelity': 'float01',
-            'maxtime': 'integer',
-            'path_fidel_rounds': 'integer',
-            'application': 'string',
-            'teleport': 'list',
-            'qber_states': 'list',
-            'demand_rate': 'float'}
-        
-        #Check if a node is in more than one request
-        #No need to do so, if this happens, the second request will indicate that no resources are available
-
-        for request in requests:
-            request_props = list(request.values())[0]
-            request_name = list(request.keys())[0]
-
-            #request names cannot contain underscore
-            if request_name.find('_') != -1: raise ValueError (f'{request_name}: Request names cannot contain underscore')
-            
-
-            #Check that nodes are valid
-            if request_props['origin'] not in nodenames:
-                raise ValueError(f"request {request_name}: node {request_props['origin']} not defined")
-            if request_props['destination'] not in nodenames:
-                raise ValueError(f"request {request_name}: node {request_props['destination']} not defined")
-            
-            #Check that defined properties are valid    
-            for prop in request_props.keys():
-                #Check that property is valid
-                if prop not in available_props.keys():
-                    raise ValueError(f'Property {prop} in request {request_name} is not valid')
-                if available_props[prop] == 'integer':
-                    if not isinstance(request_props[prop],int):
-                        raise ValueError(f"request {request_name} {prop} must be of {available_props[prop]} type but is {type(prop)}")
-                elif available_props[prop] == 'string':
-                    if not isinstance(request_props[prop],str):
-                        raise ValueError(f"request {request_name} {prop} must be of {available_props[prop]} type but is {type(prop)}")
-                elif available_props[prop] == 'float':
-                    try:
-                        val = float(request_props[prop])
-                        if val < 0:
-                            raise ValueError(f"request {request_name} {prop} cannot be negative")
-                    except:
-                        raise ValueError(f"request {request_name} {prop} must be of {available_props[prop]} type but is {type(prop)}")
-                elif available_props[prop] == 'float01':
-                    try:
-                        val = float(request_props[prop])
-                        if val > 1 or val<0:
-                            raise ValueError(f"request {request_name} {prop} must be between 0 and 1")
-                    except:
-                        raise ValueError(f"request {request_name} {prop} must be of {available_props[prop]} type but is {type(prop)}")
-                elif available_props[prop] == 'list':
-                        if not isinstance(request_props[prop],list):
-                            raise ValueError(f"request {request_name} {prop} must be of {available_props[prop]} type but is {type(prop)}")
-                else:
-                    raise ValueError(f"request {request_name}: incorrect type for {prop}, it is {type(prop)}")
-            
-            #Check for definition of mandatory properties
-            mandatory = ['origin','destination','minfidelity','maxtime','application']
-            for prop in mandatory:
-                if prop not in request_props.keys(): 
-                    raise ValueError(f"request {request_name}: missing property {prop}")
-            
-            #Check for valid applications
-            if request_props['application'] not in ['Capacity','QBER','Teleport','TeleportationWithDemand']:
-                raise ValueError(f"request {request_name}: Unsupported application")
-            
-            #If TeleportApplication, teleport parameter must be specified
-            if request_props['application'] in ['Teleport','TeleportationWithDemand'] and 'teleport' not in request_props.keys():
-                raise ValueError(f"request {request_name}: If application is Teleport, states to teleport must be specified in teleport property")
-            
-            #If QBER, qber_states parameter must be specified
-            if request_props['application'] =='QBER' and 'qber_states' not in request_props.keys():
-                raise ValueError(f"request {request_name}: If application is QBER, states to teleport must be specified in qber_states property")
-
     def _create_network(self):
         '''
         Creates network elements as indicated in configuration file: nodes, links and requests
@@ -577,8 +321,14 @@ class NetworkManager():
                 switch = Switch(name, qmemory=self._create_qprocessor(f"qproc_{name}",props['num_memories'], nodename=name))
                 switches.append(switch)
             elif props['type'] == 'endNode':
-                props['num_memories'] = 4 #In an end node we always have 4 memories (2 por entanglement preparation)
-                endnode = EndNode(name, qmemory=self._create_qprocessor(f"qproc_{name}",props['num_memories'], nodename=name))
+                if 'teleport_queue_technology' in props.keys() and props['teleport_queue_technology'] == 'Quantum':
+                    #If teleportation queue in node is implemented with quantum memories
+                    num_memories = 4 + props['teleport_queue_size']
+                else: #Queue is implemented with classical memories
+                    num_memories = 4
+                queue_size = props['teleport_queue_size'] if 'teleport_queue_technology' in props.keys() else 0
+                
+                endnode = EndNode(name, queue_size, qmemory=self._create_qprocessor(f"qproc_{name}",num_memories, nodename=name))
                 end_nodes.append(endnode)
             else:
                 raise ValueError('Undefined network element found')
@@ -642,7 +392,7 @@ class NetworkManager():
                 port_name_a, port_name_b = self.network.add_connection(
                         qsource_origin, qsource_dest, channel_to=qchannel, 
                         label=f"qconn_{qsource_origin.name}_{qsource_dest.name}_{link_name}_{index_qsource}")
-                
+
                 #Setup quantum ports
                 qsource_origin.subcomponents[f"qsource_{qsource_origin.name}_{link_name}_{index_qsource}"].ports["qout1"].forward_output(
                     qsource_origin.ports[port_name_a])
@@ -731,15 +481,8 @@ class NetworkManager():
                 if self._available_links[link_name]['avail']>0:
                     self._graph.add_edge(link_props['end1'],link_props['end2'],weight=self._link_fidelities[link_name][0])
 
-            #Network graph generation, to include in report
-            if first:
-                '''
-                fig = plt.figure()
-                nx.draw_networkx(self._graph,ax=fig.add_subplot())
-                usematplotlib('Agg')
-                fig.savefig('./output/graf.png')
-                '''
-                
+            #Network graph generation, to include in report. Only generated in first iteration
+            if first:               
                 gr = nx.nx_agraph.to_agraph(self._graph)
                 gr.draw('./output/graf.png', prog='fdp')
                 first = 0
@@ -804,7 +547,7 @@ class NetworkManager():
 
 
                 conn_purif = DirectConnection(
-                    f"ccon_distil_{request_name}",
+                    f"cconn_distil_{request_name}",
                     ClassicalChannel(f"cconn_distil_{shortest_path[0]}_{shortest_path[-1]}_{request_name}", 
                                      length=total_distance,
                                      models={'delay_model': FibreDelayModel(c=average_photon_speed)}),
@@ -832,7 +575,7 @@ class NetworkManager():
                     ns.sim_run()
                     protocol.stop()
                     
-                    print(f"Request {request_name} purification rounds {purif_rounds} fidelity {dc.dataframe['Fidelity'].mean()}/{request_props['minfidelity']} in {dc.dataframe['time'].mean()}/{request_props['maxtime']} nanoseconds métricas: {len(dc.dataframe)}")
+                    print(f"Request {request_name} purification rounds {purif_rounds} fidelity {dc.dataframe['Fidelity'].mean()}/{request_props['minfidelity']} in {dc.dataframe['time'].mean()}/{request_props['maxtime']} nanoseconds, data points: {len(dc.dataframe)}")
                     if dc.dataframe["time"].mean() > request_props['maxtime']:
                         #request cannot be fulfilled. Mark as rejected and continue
                         self._requests_status.append({
@@ -1008,7 +751,7 @@ class NetworkManager():
                                  num_positions=num_memories, 
                                  phys_instructions = physical_instructions,
                                  fallback_to_nonphysical=False,
-                                 mem_moise_models=[mem_noise_model] * num_memories)
+                                 mem_noise_models=[mem_noise_model] * num_memories)
         return qproc
 
 
