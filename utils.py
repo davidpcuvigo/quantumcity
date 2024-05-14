@@ -1,5 +1,5 @@
 
-from pylatex import Document, Section, Subsection, Command, Figure, Tabular, Itemize
+from pylatex import Document, Section, Subsection, Command, Figure, Tabular, Itemize, Package, Table, Tabularx
 from pylatex.utils import italic, NoEscape, bold
 from icecream import ic
 import os
@@ -9,7 +9,7 @@ import pydynaa
 from matplotlib import pyplot as plt
 
 
-def generate_report(report_info, simulation_data, mode):
+def generate_report(report_info, simulation_data, simul_environ):
     '''
     Generates latex/pdf report
     Input:
@@ -17,57 +17,204 @@ def generate_report(report_info, simulation_data, mode):
      was selected, value will be 0.
      - simulation_data: Dictionary. Key is the request name and value is a dataframe with a row for 
      each value corresponding to the different simulations.
-     - mode: 'F' for Fixed and 'E' for Evolution. In the first case will only print values, but
-     if evolution mode is selected will include graphs.
+     - simulation_environ: dictionary with the simulation environment variables:
+        - mode: 'F' for Fixed and 'E' for Evolution. In the first case will only print values, but
+                 if evolution mode is selected will include graphs.
+        - element: string. Element of the parameter used in the evolution (if applicable)
+        - parameter: string. Parameter used in the evolution (if applicable)
+        - min_value: float. Minimum value in the simulations
+        - max_value: float. maximum values in the simulations
+        - steps: number of variable values for the parameter
+    Output:
+        - None
     '''
     report = Document('./output/report')
+    report.packages.append(Package('float'))
+    report.packages.append(Package('adjustbox'))
     report.preamble.append(Command('title', 'Simulation report'))
     report.preamble.append(Command('author','UVigo'))
     report.preamble.append(Command('date', NoEscape(r'\today')))
     report.append(NoEscape(r'\maketitle'))
+    
+    #Simulation description
+    with report.create(Section('Simulation')):
+        if simul_environ['mode'] == 'F':
+            report.append('This simulation was performed in Fixed mode\n')
+            report.append(f"Parameter definition file: {simul_environ['def_file']}\n")
+            report.append(f"Routing calculations file: {simul_environ['routing_file']}\n")
+            report.append(f"Simulation results file: {simul_environ['results_file']}\n")
+        else:
+            report.append('Simulation performed in Evolution mode\n')
+            report.append(f"Element: {simul_environ['element']}\n")
+            report.append(f"Parameter: {simul_environ['parameter']}\n")
+            report.append(f"Minimum value: {simul_environ['min_value']}\n")
+            report.append(f"Maximum value: {simul_environ['max_value']}\n")
+            report.append(f"Steps: {simul_environ['steps']}\n")
+            report.append(f"Parameter definition file: {simul_environ['def_file']}\n")
+            report.append(f"Routing calculations file: {simul_environ['routing_file']}\n")
+            report.append(f"Simulation results file: {simul_environ['results_file']}\n")
 
     #Routing Phase section
     with report.create(Section('Routing Protocol')):
         report.append('The next section details information gathered through the route calculation phase\n')
 
         with report.create(Subsection('Network')):
-            with report.create(Figure(position='ht!')) as fig_network:
+            with report.create(Figure(position='H')) as fig_network:
                 image_file = os.path.join(os.path.dirname(__file__), 'output/graf.png')
                 fig_network.add_image(image_file,width='180px')
                 fig_network.add_caption('Simulated network')
 
         with report.create(Subsection('Link fidelities')):
-            report.append('Fidelity and Cost of each of the links\n')
-            if mode == 'F':
-                with report.create(Tabular('l|l|l|l')) as table:
-                    table.add_hline()
-                    table.add_row(('link','cost','fidelity','number of rounds'))
-                    table.add_hline()
-                    for key, value in report_info[0]['link_fidelities'].items():
-                        table.add_row((key,value[0],value[1],value[2]))
+            report.append('Fidelity and Cost of each of the links.\n')
+            for param_val, fidel_data in report_info.items(): 
+                with report.create(Table(position='H')) as table:
+                    with table.create(Tabular('l|l|l|l')) as tabular:
+                        tabular.add_hline()
+                        tabular.add_row(('link','cost','fidelity','number of rounds'))
+                        tabular.add_hline()
+                        for key, value in fidel_data['link_fidelities'].items():
+                            tabular.add_row((key,value[0],value[1],value[2]))
+                    if simul_environ['mode'] == 'F':
+                        table.add_caption(f"Link fidelities.")
+                    else:
+                        table.add_caption(f"Link fidelities for a parameter value of {param_val}.")
+                
         with report.create(Subsection('Path simulation')):  
-            if mode == 'F':              
-                #report.append('Request fulfillment\n')
-                with report.create(Tabular('l|l|l|l|l')) as table:      
-                    table.add_hline()
-                    table.add_row(['request','result','fidelity','time','purification rounds'])
-                    table.add_hline()
-                    for reg in report_info[0]['requests_status']:
-                        table.add_row(bold(reg['request']),reg['result'],reg['fidelity'],reg['time'],reg['purif_rounds'])
-                    table.add_hline()
-                report.append('\n')
-                report.append('\n')
-                with report.create(Tabular('l|p{3.75in}')) as table:
-                    table.add_hline()
-                    table.add_row('request','shortest path')
-                    table.add_hline()
-                    for reg in report_info[0]['requests_status']:
-                        table.add_row(bold(reg['request']),reg['shortest_path'])
+            report.append('Routing path calculations.\n')
+            for param_val, request_data in report_info.items():
+                with report.create(Table(position='H')) as table:
+                    with table.create(Tabular('l|l|l|l|l')) as tabular:      
+                        tabular.add_hline()
+                        tabular.add_row(['request','result','fidelity','time','purification rounds'])
+                        tabular.add_hline()
+                        for reg in request_data['requests_status']:
+                            tabular.add_row(bold(reg['request']),reg['result'],reg['fidelity'],reg['time'],reg['purif_rounds'])
+                        tabular.add_hline()
+                    if simul_environ['mode'] == 'F':
+                        table.add_caption(f"Routing calculations.")
+                    else:
+                        table.add_caption(f"Routing calculations for a parameter value of {param_val}.")
+                    #report.append('\n')
+                    #report.append('\n')
+                with report.create(Table(position='H')) as table:
+                    with table.create(Tabular('l|p{3in}')) as tabular:
+                        tabular.add_hline()
+                        tabular.add_row('request','shortest path')
+                        tabular.add_hline()
+                        for reg in request_data['requests_status']:
+                            tabular.add_row(bold(reg['request']),reg['shortest_path'])
+                    if simul_environ['mode'] == 'F':
+                        table.add_caption(f"Shortest paths for the requests.")
+                    else:
+                        table.add_caption(f"Shortest paths for the requests for a parameter value of {param_val}.")
 
     with report.create(Section('Fase de simulación')):
-        report.append('Esta parte está pendiente')
+        report.append('Simulation results for the different applcations')
+        for request, data in simulation_data.items():
+            
+            with report.create(Subsection(f"Request: {request} Application: {data.iloc[0]['Application']}")):
+                if data.iloc[0]['Application'] == 'Capacity':
+                    if simul_environ['mode'] == 'E':
+                        with report.create(Figure(position='H')) as fig:
+                            image_file = os.path.join(os.path.dirname(__file__), f"./output/{request}-{data.iloc[0]['Application']}.png")
+                            fig.add_image(image_file,width='300px')
+                            fig.add_caption('Evolution for Capacity Application')
+                        os.remove(image_file)
+                    with report.create(Table(position='H')) as table:
+                        with table.create(Tabular('l|l|l')) as tabular:
+                            df = data.set_index('Value')[['Generated Entanglements','Generation Rate']]
+                            tabular.add_hline()
+                            tabular.add_row('Value','Generated Entanglements','Generation Rate')
+                            for index, row in df.iterrows():
+                                tabular.add_hline()
+                                tabular.add_row(index,row['Generated Entanglements'],row['Generation Rate'])
+                        if simul_environ['mode'] == 'F':
+                            table.add_caption(f"Capacity for different values of parameter {simul_environ['parameter']}")
+                        else:
+                            table.add_caption("Capacity measured for the simulation")
+                    with report.create(Table(position='H')) as table:
+                        with table.create(Tabular('l|l|l|l|l')) as tabular:
+                            df = data.set_index('Value')[['Mean Fidelity','STD Fidelity','Mean Time','STD Time']]
+                            tabular.add_hline()
+                            tabular.add_row('Value','Mean Fidelity','STD Fidelity','Mean Time','STD Time')
+                            for index, row in df.iterrows():
+                                tabular.add_hline()
+                                tabular.add_row(index,row['Mean Fidelity'],row['STD Fidelity'],
+                                                row['Mean Time'],row['STD Time'])
+                        if simul_environ['mode'] == 'F':
+                            table.add_caption(f"Fidelity and time for different values of parameter {simul_environ['parameter']}")
+                        else:
+                            table.add_caption("Fidelity and time measured for the simulation")
+                elif data.iloc[0]['Application'] == 'Teleportation':
+                    with report.create(Table(position='H')) as table:
+                        with table.create(Tabular('l|l|l|l|l|l')) as tabular:
+                            df = data.set_index('Value')[['Teleported States','Mean Fidelity','STD Fidelity','Mean Time','STD Time']]
+                            tabular.add_hline()
+                            tabular.add_row('Value','Teleported States','Mean Fidelity','STD Fidelity','Mean Time','STD Time')
+                            for index, row in df.iterrows():
+                                tabular.add_hline()
+                                tabular.add_row(index,row['Teleported States'],row['Mean Fidelity'],row['STD Fidelity'],
+                                                row['Mean Time'],row['STD Time'])
+                        if simul_environ['mode'] == 'F':
+                            table.add_caption(f"Teleportation results for different values of parameter {simul_environ['parameter']}")
+                        else:
+                            table.add_caption("Teleportation results for the simulation")
+                elif data.iloc[0]['Application'] == 'QBER':
+                    with report.create(Table(position='H')) as table:
+                        with table.create(Tabular('l|l|l|l|l')) as tabular:
+                            df = data.set_index('Value')[['QBER','Performed Measurements','Mean Time','STD Time']]
+                            tabular.add_hline()
+                            tabular.add_row('Value','QBER','Performed measurements','Mean Time','STD Time')
+                            for index, row in df.iterrows():
+                                tabular.add_hline()
+                                tabular.add_row(index,row['QBER'],row['Performed Measurements'],
+                                                row['Mean Time'],row['STD Time'])
+                        if simul_environ['mode'] == 'F':
+                            table.add_caption(f"QBER results for different values of parameter {simul_environ['parameter']}")
+                        else:
+                            table.add_caption("QBER results for the simulation")
+                elif data.iloc[0]['Application'] == 'TeleportationWithDemand':
+                    with report.create(Table(position='H')) as table:
+                        with table.create(Tabular('l|l|l|l')) as tabular:
+                            df = data.set_index('Value')[['Teleported States','Queue Size','Discarded Qubits']]
+                            tabular.add_hline()
+                            tabular.add_row('Value','Teleported states','Queue size','Discarded qubits')
+                            for index, row in df.iterrows():
+                                tabular.add_hline()
+                                tabular.add_row(index,row['Teleported States'],['Queue Size'],['Discarded Qubits'])
+                        if simul_environ['mode'] == 'F':
+                            table.add_caption(f"Buffer performance for different values of parameter {simul_environ['parameter']}")
+                        else:
+                            table.add_caption("Buffer performance measured for the simulation")
+                    with report.create(Table(position='H')) as table:
+                        with table.create(Tabular('l|l|l|l|l')) as tabular:
+                            df = data.set_index('Value')[['Mean Fidelity','STD Fidelity','Mean Time','STD Time']]
+                            tabular.add_hline()
+                            tabular.add_row('Value','Mean Fidelity','STD Fidelity','Mean Time','STD Time')
+                            for index, row in df.iterrows():
+                                tabular.add_hline()
+                                tabular.add_row(index,row['Mean Fidelity'],row['STD Fidelity'],
+                                                row['Mean Time'],row['STD Time'])
+                        if simul_environ['mode'] == 'F':
+                            table.add_caption(f"Fidelity and time for different values of parameter {simul_environ['parameter']}")
+                        else:
+                            table.add_caption("Fidelity and time measured for the simulation")
+                elif data.iloc[0]['Application'] == 'CHSH':
+                    with report.create(Table(position='H')) as table:
+                        with table.create(Tabular('l|l|l|l|l')) as tabular:
+                            df = data.set_index('Value')[['Wins','Measurements','Mean Time','STD Time']]
+                            tabular.add_hline()
+                            tabular.add_row('Value','%Wins','Measurements','Mean Time','STD Time')
+                            for index, row in df.iterrows():
+                                tabular.add_hline()
+                                tabular.add_row(index,row['Wins'],row['Measurements'],
+                                                row['Mean Time'],row['STD Time'])
+                        if simul_environ['mode'] == 'F':
+                            table.add_caption(f"CHSH results for different values of parameter {simul_environ['parameter']}")
+                        else:
+                            table.add_caption("CHSH results for the simulation")
 
-    report.generate_pdf('./output/report',clean_tex=False)
+    report.generate_pdf('./output/report',clean_tex=False,silent=True)
     report.generate_tex()
 
 def dc_setup(protocol):
@@ -592,17 +739,21 @@ def load_config(config, element, property, value):
 
 
 def create_plot(data, request, app):
-    """Show a plot of fidelity verus depolarization rate.
-
+    """
+    Displays plot
+    Input:
+        - data: DataFrame with data to be displayed
+        - request: string. Name of the request
+        - app: string. Name of the application
     """
     val_name = data.iloc[0]['Parameter']
     if app == 'Capacity':
         fig, axs = plt.subplots(1,3,figsize=(20,20),constrained_layout=True)
         fig.suptitle(request + ' - Capacity', fontsize=14)
 
-        axs[0].plot(data['Value'],data['Generation Rate'],label='Entanglement generation rate (eps)')
-        axs[1].plot(data['Value'],data['Mean Fidelity'],label='Mean fidelity')
-        axs[2].plot(data['Value'],data['Mean Time'],label='Mean time (ns)')
+        axs[0].plot(data['Value'],data['Generation Rate'],marker='o',label='Entanglement generation rate (eps)')
+        axs[1].plot(data['Value'],data['Mean Fidelity'],marker='o',label='Mean fidelity')
+        axs[2].plot(data['Value'],data['Mean Time'],marker='o',label='Mean time (ns)')
         for i in [0,1,2]:
             axs[i].legend()
             axs[i].set_xlabel(val_name)
@@ -610,9 +761,9 @@ def create_plot(data, request, app):
         fig, axs = plt.subplots(1,3,figsize=(20,20),constrained_layout=True)
         fig.suptitle(request + ' - Teleportation', fontsize=14)
 
-        axs[0].plot(data['Value'],data['Teleported States'],label='Number of teleported states')
-        axs[1].plot(data['Value'],data['Mean Fidelity'],label='Mean fidelity')
-        axs[2].plot(data['Value'],data['Mean Time'],label='Mean time (ns)')
+        axs[0].plot(data['Value'],data['Teleported States'],marker='o',label='Number of teleported states')
+        axs[1].plot(data['Value'],data['Mean Fidelity'],marker='o',label='Mean fidelity')
+        axs[2].plot(data['Value'],data['Mean Time'],marker='o',label='Mean time (ns)')
         for i in [0,1,2]:
             axs[i].legend()
             axs[i].set_xlabel(val_name)
@@ -620,9 +771,9 @@ def create_plot(data, request, app):
         fig, axs = plt.subplots(1,3,figsize=(20,20),constrained_layout=True)
         fig.suptitle(request + ' - QBER', fontsize=14)
 
-        axs[0].plot(data['Value'],data['Performed Measurements'],label='Number of measurements')
-        axs[1].plot(data['Value'],data['Mean Time'],label='Mean time (ns)')
-        axs[2].plot(data['Value'],data['QBER'],label='QBER')
+        axs[0].plot(data['Value'],data['Performed Measurements'],marker='o',label='Number of measurements')
+        axs[1].plot(data['Value'],data['Mean Time'],marker='o',label='Mean time (ns)')
+        axs[2].plot(data['Value'],data['QBER'],marker='o',label='QBER')
         for i in [0,1,2]:
             axs[i].legend()
             axs[i].set_xlabel(val_name)
@@ -630,13 +781,13 @@ def create_plot(data, request, app):
         fig, axs = plt.subplots(3,2,figsize=(20,20),constrained_layout=True)
         fig.suptitle(request + ' - TeleportationWithDemand', fontsize=14)
 
-        axs[0,0].plot(data['Value'],data['Queue Size'],label='Queue Size')
-        axs[0,1].plot(data['Value'],data['Discarded Qubits'],label='Discarded Qubits')
-        axs[1,0].plot(data['Value'],data['Mean Fidelity'],label='Mean fidelity')
-        axs[1,1].plot(data['Value'],data['Mean Time'],label='Mean time (ns)')
-        axs[2,0].plot(data['Value'],data['Teleported States'],label='Number of teleported states')
+        axs[0,0].plot(data['Value'],data['Queue Size'],marker='o',label='Queue Size')
+        axs[0,1].plot(data['Value'],data['Discarded Qubits'],marker='o',label='Discarded Qubits')
+        axs[1,0].plot(data['Value'],data['Mean Fidelity'],marker='o',label='Mean fidelity')
+        axs[1,1].plot(data['Value'],data['Mean Time'],marker='o',label='Mean time (ns)')
+        axs[2,0].plot(data['Value'],data['Teleported States'],marker='o',label='Number of teleported states')
         #We insert a fake subplot, to avoid warning. Later is removed
-        axs[2,1].plot(data['Value'],data['Teleported States'],label='Will be deleted')
+        axs[2,1].plot(data['Value'],data['Teleported States'],marker='o',label='Will be deleted')
 
         for i in [0,1,2]:
             for j in [0,1]:
@@ -647,10 +798,14 @@ def create_plot(data, request, app):
     elif app == 'CHSH':
         fig, axs = plt.subplots(1,2,figsize=(20,20),constrained_layout=True)
         fig.suptitle(request + ' - CHSH', fontsize=14)
-        axs[0].plot(data['Value'],data['Wins'],label='% of Wins')
+        axs[0].plot(data['Value'],data['Wins'],marker='o',label='% of Wins')
         axs[0].legend()
         axs[0].set_xlabel(val_name)
 
         axs[1].remove()
 
+    #save image for later inclusion in pdf reort
+    plt.savefig(f'./output/{request}-{app}.png')
+    
+    #show in console
     plt.show()

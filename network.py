@@ -13,7 +13,7 @@ from netsquid.nodes.connections import DirectConnection
 from routing_protocols import LinkFidelityProtocol, PathFidelityProtocol
 from netsquid.qubits import ketstates as ks
 from netsquid.qubits.operators import Operator
-from netsquid_nv.delft_nvs.delft_nv_2020_near_term import NVParameterSet2020NearTerm
+#from netsquid_nv.delft_nvs.delft_nv_2020_near_term import NVParameterSet2020NearTerm
 from netsquid.components.instructions import INSTR_MEASURE_BELL, INSTR_MEASURE, INSTR_X, INSTR_Z,  INSTR_CNOT, IGate, INSTR_Y, INSTR_ROT_X, INSTR_ROT_Y, INSTR_ROT_Z, INSTR_H, INSTR_SWAP, INSTR_INIT, INSTR_CXDIR, INSTR_EMIT
 import netsquid.qubits.operators as ops
 from netsquid.qubits import assign_qstate, create_qubits
@@ -752,7 +752,7 @@ class NetworkManager():
                                 duration=gate_duration_rotations,
                                 quantum_noise_model=gate_noise_model)
         ]
-        nvproc = NVQuantumProcessor(name, num_positions=num_memories)
+        #nvproc = NVQuantumProcessor(name, num_positions=num_memories)
         #build quantum processor
         qproc = QuantumProcessor(name, 
                                  num_positions=num_memories, 

@@ -7,6 +7,7 @@ import netsquid as ns
 from netsquid.util import simlog
 from utils import generate_report, validate_conf, check_parameter, load_config, create_plot
 import yaml
+import datetime
 from applications import CapacityApplication, TeleportationApplication, CHSHApplication
 
 try:
@@ -27,7 +28,7 @@ formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 file_handler.setFormatter(formatter)
 
 # Add the file handler to the logger
-logger.addHandler(file_handler)f
+logger.addHandler(file_handler)
 '''
 
 file = './network_config.yaml'
@@ -42,14 +43,17 @@ mode = input('Do you want to perform fixed parameter simulation or evolution? (F
 if mode == 'F':
     steps = 1
     element = 'FixedSimul'
-    property = 'FixedSimul'
+    prop = 'FixedSimul'
     value = 0
-    #config_list = [config]
+    min_val='-'
+    max_val='-'
+    steps: '-'
+    #Validate configuration file
     validate_conf(config)
 elif mode == 'E':
     element = input('Enter object (nodes/links/requests). Parameter will be set in ALL instances: ')
-    property = input('Enter property: ')
-    if not check_parameter(element, property):
+    prop = input('Enter property: ')
+    if not check_parameter(element, prop):
         raise ValueError("Evolution for that parameter not supported")
     
     min_val = float(input('Enter minimum value: '))
@@ -74,7 +78,7 @@ for sim in range(steps):
     if steps > 1:
         value = min_val + sim*step_size
         #Update configuration object with each value to simulate with
-        config = load_config(config, element, property, value)
+        config = load_config(config, element, prop, value)
         #Check configuration file sintax
         validate_conf(config)
 
@@ -121,7 +125,7 @@ for sim in range(steps):
         if detail[0] == 'Capacity':
             sim_result = {'Application':detail[0],
                           'Request': key,
-                            'Parameter': element + '$' + property, 
+                            'Parameter': element + '$' + prop, 
                             'Value': value,
                             'Generated Entanglements': len(detail[1].dataframe),
                             'Mean Fidelity': 0 if len(detail[1].dataframe) == 0 else detail[1].dataframe['Fidelity'].mean(),
@@ -133,7 +137,7 @@ for sim in range(steps):
         elif detail[0] == 'Teleportation':
             sim_result = {'Application':detail[0],
                           'Request': key,
-                            'Parameter': element + '$' + property, 
+                            'Parameter': element + '$' + prop, 
                             'Value': value,
                             'Teleported States': len(detail[1].dataframe),
                             'Mean Fidelity': 0 if len(detail[1].dataframe) == 0 else detail[1].dataframe['Fidelity'].mean(),
@@ -146,7 +150,7 @@ for sim in range(steps):
             total = 0 if len(detail[1].dataframe) == 0 else detail[1].dataframe['error'].count()
             sim_result = {'Application':detail[0],
                           'Request': key,
-                            'Parameter': element + '$' + property, 
+                            'Parameter': element + '$' + prop, 
                             'Value': value,
                             'Performed Measurements': len(detail[1].dataframe),
                             'Mean Time': 0 if len(detail[1].dataframe) == 0 else detail[1].dataframe['time'].mean(),
@@ -159,7 +163,7 @@ for sim in range(steps):
             #queue_size = node.get_queue_size()
             sim_result = {'Application':detail[0],
                           'Request': key,
-                            'Parameter': element + '$' + property, 
+                            'Parameter': element + '$' + prop, 
                             'Value': value,
                             'Teleported States': len(detail[1].dataframe),
                             'Mean Fidelity': 0 if len(detail[1].dataframe) == 0 else detail[1].dataframe['Fidelity'].mean(),
@@ -174,7 +178,7 @@ for sim in range(steps):
             total = 0 if len(detail[1].dataframe) == 0 else detail[1].dataframe['wins'].count()
             sim_result = {'Application':detail[0],
                           'Request': key,
-                            'Parameter': element + '$' + property, 
+                            'Parameter': element + '$' + prop, 
                             'Value': value,
                             'Measurements': len(detail[1].dataframe),
                             'Wins': 0 if total == 0 else (wins)/total,
@@ -193,11 +197,19 @@ for key in results.keys():
     df_sim_result = pd.DataFrame(results[key])
     simulation_data[key] = df_sim_result
 
-#Print results
+#Print results, we use current time.
+# results will store simulation results, routing the routing calculation parameters
+# and def the configured parameters
+results_file = './output/results_' + datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S') + '.csv'
+routing_file = './output/routing_' + datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S') + '.csv'
+def_file = './output/definitionfile_' + datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S') + '.txt'
 try:
-    os.remove('./output/results.csv')
+    os.remove(results_file)
+    os.remove(routing_file)
+    os.remove(def_file)
 except:
     pass
+
 for key,value in simulation_data.items():
     print(f"----Request {key}: Application: {value.iloc[0]['Application']} --------------------------------------")
     if value.iloc[0]['Application'] == 'Capacity':
@@ -236,7 +248,47 @@ for key,value in simulation_data.items():
     if mode == 'E': create_plot(value,key,value.iloc[0]['Application'])
 
     #Save data to disk
-    value.to_csv('./output/results.csv', mode='a', index=False, header=False)
+    value.to_csv(results_file, mode='a', index=False, header=False)
+
+#Store definition file
+with open(def_file,'w') as deffile:
+    if mode == 'F':
+        deffile.write('Execution in Fixed mode\n--------------------------\n')
+    else:
+        deffile.write(f'Execution in Evolution mode\nElement:{element}\nParameter:{prop}\nMinimum value:{min_val}\nMaximum value:{max_val}\nSteps:{steps}\n---------------\n')
+    yaml.dump(config, deffile, default_flow_style=False)
+
+#Store routing calculations
+with open(routing_file, 'a') as route_file:
+    route_file.write('----------Link fidelities------------\n')
+    route_file.write('param_value;link;cost;fidelity;num_metrics\n')
+    for key, value in report_info.items():
+        for link, fids in value['link_fidelities'].items():
+            route_file.write(f"{key};{link};{fids[0]};{fids[1]};{fids[2]}\n")
+    route_file.write('----------Requests status-----------\n')
+    route_file.write('param_value;request;fidelity;purif_rounds;time;result;reason;shortest_path\n')
+    for key, value in report_info.items():
+        for data in value['requests_status']:
+            route_file.write(f"{key};{data['request']};{data['fidelity']};{data['purif_rounds']};{data['time']};{data['result']};{data['reason']};{data['shortest_path']}\n")    
+
+with open(results_file,'a') as resultsfile:
+    resultsfile.write('\n---------Column values-------\n')
+    resultsfile.write('Capacity;Request;Element$Parameter;Value;Generated Entanglements;Mean fidelity;STD fidelity;Mean time;STD time;Entanglement Generation rate;\n')
+    resultsfile.write('Teleportation;Request;Element$Parameter;Value;Teleported states;Mean fidelity;STD fidelity;Mean time;STD time;\n')
+    resultsfile.write('QBER;Request;Element$Parameter;Value;Performed measurements;Mean time;STD time;\n')
+    resultsfile.write('TeleportationWithDemand;Request;Element$Parameter;Value;Teleported states;Mean fidelity;STD fidelity;Mean time;STD time;Queue size at en of simulation;Discarded qubits;\n')
+    resultsfile.write('Teleportation;Request;Element$Parameter;Value;Measurements;Mean time;STD time;Wins;\n')
 
 if print_report: 
-    generate_report(report_info, simulation_data, mode)
+    simul_environ = {
+        'mode': mode,
+        'element': element,
+        'parameter': prop,
+        'min_value': min_val,
+        'max_value': max_val,
+        'steps': steps,
+        'def_file': def_file,
+        'routing_file': routing_file,
+        'results_file': results_file
+    }
+    generate_report(report_info, simulation_data, simul_environ)
