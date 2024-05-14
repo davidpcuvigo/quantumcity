@@ -119,7 +119,6 @@ def generate_report(report_info, simulation_data, simul_environ):
                             image_file = os.path.join(os.path.dirname(__file__), f"./output/{request}-{data.iloc[0]['Application']}.png")
                             fig.add_image(image_file,width='300px')
                             fig.add_caption('Evolution for Capacity Application')
-                        os.remove(image_file)
                     with report.create(Table(position='H')) as table:
                         with table.create(Tabular('l|l|l')) as tabular:
                             df = data.set_index('Value')[['Generated Entanglements','Generation Rate']]
@@ -146,6 +145,11 @@ def generate_report(report_info, simulation_data, simul_environ):
                         else:
                             table.add_caption("Fidelity and time measured for the simulation")
                 elif data.iloc[0]['Application'] == 'Teleportation':
+                    if simul_environ['mode'] == 'E':
+                        with report.create(Figure(position='H')) as fig:
+                            image_file = os.path.join(os.path.dirname(__file__), f"./output/{request}-{data.iloc[0]['Application']}.png")
+                            fig.add_image(image_file,width='300px')
+                            fig.add_caption('Evolution for Teleportation Application')
                     with report.create(Table(position='H')) as table:
                         with table.create(Tabular('l|l|l|l|l|l')) as tabular:
                             df = data.set_index('Value')[['Teleported States','Mean Fidelity','STD Fidelity','Mean Time','STD Time']]
@@ -160,6 +164,11 @@ def generate_report(report_info, simulation_data, simul_environ):
                         else:
                             table.add_caption("Teleportation results for the simulation")
                 elif data.iloc[0]['Application'] == 'QBER':
+                    if simul_environ['mode'] == 'E':
+                        with report.create(Figure(position='H')) as fig:
+                            image_file = os.path.join(os.path.dirname(__file__), f"./output/{request}-{data.iloc[0]['Application']}.png")
+                            fig.add_image(image_file,width='300px')
+                            fig.add_caption('Evolution for QBER Application')
                     with report.create(Table(position='H')) as table:
                         with table.create(Tabular('l|l|l|l|l')) as tabular:
                             df = data.set_index('Value')[['QBER','Performed Measurements','Mean Time','STD Time']]
@@ -174,6 +183,11 @@ def generate_report(report_info, simulation_data, simul_environ):
                         else:
                             table.add_caption("QBER results for the simulation")
                 elif data.iloc[0]['Application'] == 'TeleportationWithDemand':
+                    if simul_environ['mode'] == 'E':
+                        with report.create(Figure(position='H')) as fig:
+                            image_file = os.path.join(os.path.dirname(__file__), f"./output/{request}-{data.iloc[0]['Application']}.png")
+                            fig.add_image(image_file,width='300px')
+                            fig.add_caption('Evolution for TeleportationWithDemand Application')
                     with report.create(Table(position='H')) as table:
                         with table.create(Tabular('l|l|l|l')) as tabular:
                             df = data.set_index('Value')[['Teleported States','Queue Size','Discarded Qubits']]
@@ -181,7 +195,7 @@ def generate_report(report_info, simulation_data, simul_environ):
                             tabular.add_row('Value','Teleported states','Queue size','Discarded qubits')
                             for index, row in df.iterrows():
                                 tabular.add_hline()
-                                tabular.add_row(index,row['Teleported States'],['Queue Size'],['Discarded Qubits'])
+                                tabular.add_row(index,row['Teleported States'],row['Queue Size'],row['Discarded Qubits'])
                         if simul_environ['mode'] == 'F':
                             table.add_caption(f"Buffer performance for different values of parameter {simul_environ['parameter']}")
                         else:
@@ -200,6 +214,11 @@ def generate_report(report_info, simulation_data, simul_environ):
                         else:
                             table.add_caption("Fidelity and time measured for the simulation")
                 elif data.iloc[0]['Application'] == 'CHSH':
+                    if simul_environ['mode'] == 'E':
+                        with report.create(Figure(position='H')) as fig:
+                            image_file = os.path.join(os.path.dirname(__file__), f"./output/{request}-{data.iloc[0]['Application']}.png")
+                            fig.add_image(image_file,width='300px')
+                            fig.add_caption('Evolution for CHSH Application')
                     with report.create(Table(position='H')) as table:
                         with table.create(Tabular('l|l|l|l|l')) as tabular:
                             df = data.set_index('Value')[['Wins','Measurements','Mean Time','STD Time']]
@@ -216,6 +235,15 @@ def generate_report(report_info, simulation_data, simul_environ):
 
     report.generate_pdf('./output/report',clean_tex=False,silent=True)
     report.generate_tex()
+    
+    #Delete generated images
+    if simul_environ['mode'] == 'E':
+        for request, data in simulation_data.items():
+            image_file = os.path.join(os.path.dirname(__file__), f"./output/{request}-{data.iloc[0]['Application']}.png")
+            try:
+                os.remove(image_file)
+            except:
+                pass
 
 def dc_setup(protocol):
         '''
@@ -746,7 +774,8 @@ def create_plot(data, request, app):
         - request: string. Name of the request
         - app: string. Name of the application
     """
-    val_name = data.iloc[0]['Parameter']
+    param_name = data.iloc[0]['Parameter'].split('$')
+    val_name = f"{param_name[0]}-{param_name[1]}"
     if app == 'Capacity':
         fig, axs = plt.subplots(1,3,figsize=(20,20),constrained_layout=True)
         fig.suptitle(request + ' - Capacity', fontsize=14)
@@ -755,8 +784,9 @@ def create_plot(data, request, app):
         axs[1].plot(data['Value'],data['Mean Fidelity'],marker='o',label='Mean fidelity')
         axs[2].plot(data['Value'],data['Mean Time'],marker='o',label='Mean time (ns)')
         for i in [0,1,2]:
-            axs[i].legend()
+            axs[i].legend(loc='upper right')
             axs[i].set_xlabel(val_name)
+        plt.gcf().set_size_inches(12, 6)
     elif app == 'Teleportation':
         fig, axs = plt.subplots(1,3,figsize=(20,20),constrained_layout=True)
         fig.suptitle(request + ' - Teleportation', fontsize=14)
@@ -765,8 +795,9 @@ def create_plot(data, request, app):
         axs[1].plot(data['Value'],data['Mean Fidelity'],marker='o',label='Mean fidelity')
         axs[2].plot(data['Value'],data['Mean Time'],marker='o',label='Mean time (ns)')
         for i in [0,1,2]:
-            axs[i].legend()
+            axs[i].legend(loc='upper right')
             axs[i].set_xlabel(val_name)
+        plt.gcf().set_size_inches(12, 6)
     elif app == 'QBER':
         fig, axs = plt.subplots(1,3,figsize=(20,20),constrained_layout=True)
         fig.suptitle(request + ' - QBER', fontsize=14)
@@ -775,8 +806,9 @@ def create_plot(data, request, app):
         axs[1].plot(data['Value'],data['Mean Time'],marker='o',label='Mean time (ns)')
         axs[2].plot(data['Value'],data['QBER'],marker='o',label='QBER')
         for i in [0,1,2]:
-            axs[i].legend()
+            axs[i].legend(loc='upper right')
             axs[i].set_xlabel(val_name)
+        plt.gcf().set_size_inches(12, 6)
     elif app == 'TeleportationWithDemand':
         fig, axs = plt.subplots(3,2,figsize=(20,20),constrained_layout=True)
         fig.suptitle(request + ' - TeleportationWithDemand', fontsize=14)
@@ -791,7 +823,7 @@ def create_plot(data, request, app):
 
         for i in [0,1,2]:
             for j in [0,1]:
-                axs[i,j].legend()
+                axs[i,j].legend(loc='upper right')
                 axs[i,j].set_xlabel(val_name)
 
         axs[2,1].remove()
@@ -799,13 +831,14 @@ def create_plot(data, request, app):
         fig, axs = plt.subplots(1,2,figsize=(20,20),constrained_layout=True)
         fig.suptitle(request + ' - CHSH', fontsize=14)
         axs[0].plot(data['Value'],data['Wins'],marker='o',label='% of Wins')
-        axs[0].legend()
+        axs[0].legend(loc='upper right')
         axs[0].set_xlabel(val_name)
 
         axs[1].remove()
+        plt.gcf().set_size_inches(12, 6)
 
     #save image for later inclusion in pdf reort
-    plt.savefig(f'./output/{request}-{app}.png')
+    plt.savefig(f'./output/{request}-{app}.png',dpi=200)
     
     #show in console
     plt.show()
