@@ -108,7 +108,7 @@ def generate_report(report_info, simulation_data, simul_environ):
                     else:
                         table.add_caption(f"Shortest paths for the requests for a parameter value of {param_val}.")
 
-    with report.create(Section('Fase de simulación')):
+    with report.create(Section('Applications Simulation Phase')):
         report.append('Simulation results for the different applcations')
         for request, data in simulation_data.items():
             
