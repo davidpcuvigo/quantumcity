@@ -831,7 +831,6 @@ class FibreDepolGaussModel(QuantumErrorModel):
             tdec=1.6
             if tau >= tdec:
                 prob=1
-                ic('Depolarizo')
             elif tau < tdec:
                 prob=0
             ns.qubits.depolarize(qubit, prob=prob)

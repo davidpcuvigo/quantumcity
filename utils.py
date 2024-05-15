@@ -686,7 +686,7 @@ def validate_conf(config):
                     
 def check_parameter(element, parameter):
     '''
-    This method verifies that a specified parameter to measure belongs to an elemento
+    This method verifies that a specified parameter to measure belongs to an element
     Input:
         - element:string that indicates type: nodes, links or requests
         - parameter: property that characterizes the element
@@ -721,14 +721,14 @@ def check_parameter(element, parameter):
     return(result)
 
 
-def load_config(config, element, property, value):
+def load_config(config, element, parameter, value):
     '''
     Updates property of ALL instances of the specified object with the provided value
     If the property only allows integers, the value will be casted to int
     Input:
         - config: configuration dictionary
         - object: (string) type of oject to update (nodes, links, requests)
-        - property: (string) property to update
+        - parameter: (string) property to update
     Output:
         - config: updated configuration dictionary
     '''
@@ -744,25 +744,83 @@ def load_config(config, element, property, value):
             raise ValueError(f"Node {nodename}: No type specified")
 
     #cast to integer for those that must be int
-    if property in ['source_delay','gaussian_delay_mean','gaussian_delay_std','gate_duration','teleport_queue_size',
+    if parameter in ['source_delay','gaussian_delay_mean','gaussian_delay_std','gate_duration','teleport_queue_size',
                     'gate_duration_X','gate_duration_Z','gate_duration_CX','gate_duration_rotations',
                     'measurements_duration','dephase_gate_rate','depolar_gate_rate','t1_gate_time',
                     't2_gate_time','dephase_mem_rate','depolar_mem_rate','maxtime','path_fidel_rounds']:
         value = int(value)
     
+    #Map values to models. If value is specified, model must be set
+    auto_map = {'dephase_gate_rate': ['gate_noise_model','DephaseNoiseModel'],
+                'depolar_gate_rate': ['gate_noise_model','DepolarNoiseModel'],
+                't1_gate_time': ['gate_noise_model','T1T2NoiseModel'],
+                't2_gate_time': ['gate_noise_model','T1T2NoiseModel'],
+                'dephase_mem_rate': ['mem_noise_model','DephaseNoiseModel'],
+                'depolar_mem_rate': ['mem_noise_model','DepolarNoiseModel'],
+                't1_mem_time': ['mem_noise_model','T1T2NoiseModel'],
+                't2_mem_time': ['mem_noise_model','T1T2NoiseModel'],
+                'p_depol_init': ['qchannel_noise_model','FibreDepolarizeModel'],
+                'p_depol_length': ['qchannel_noise_model','FibreDepolarizeModel'],
+                'dephase_qchannel_rate': ['qchannel_noise_model','DephaseNoiseModel'],
+                'depolar_qchannel_rate': ['qchannel_noise_model','DepolarNoiseModel'],
+                't1_qchannel_time': ['qchannel_noise_model','T1T2NoiseModel'],
+                't2_qchannel_time': ['qchannel_noise_model','T1T2NoiseModel'],
+                'p_loss_init': ['qchannel_loss_model','FibreLossModel'],
+                'p_loss_length': ['qchannel_loss_model','FibreLossModel'],
+                'gaussian_delay_mean': ['classical_delay_model','GaussianDelayModel'],
+                'gaussian_delay_std': ['classical_delay_model','GaussianDelayModel'],
+                }
+    
     #Update property value
+    model_modified = False
     for instance in config[element]:
         instance_name = list(instance.keys())[0]
-        if property not in ['switch_distance','endNode_distance']:
-            instance[instance_name][property] = value
-        elif property == 'switch_distance' and nodetypes[instance[instance_name]['end1']] == 'switch' \
+        if parameter not in ['switch_distance','endNode_distance']:
+            instance[instance_name][parameter] = value
+        elif parameter == 'switch_distance' and nodetypes[instance[instance_name]['end1']] == 'switch' \
             and nodetypes[instance[instance_name]['end2']] == 'switch':
                 #switch_distance only applies for links between switches
                 instance[instance_name]['distance'] = value
-        elif property == 'endNode_distance' and (nodetypes[instance[instance_name]['end1']] == 'endNode' \
+        elif parameter == 'endNode_distance' and (nodetypes[instance[instance_name]['end1']] == 'endNode' \
             or nodetypes[instance[instance_name]['end2']] == 'endNode'):
             instance[instance_name]['distance'] = value
-
+        #Map model associated to parameter    
+        if parameter in auto_map:
+            instance[instance_name][auto_map[parameter][0]] = auto_map[parameter][1]
+            model_modified = True
+            if parameter == 't1_gate_time' and 't2_gate_time' not in instance[instance_name].keys():
+                instance[instance_name]['t2_gate_time'] = 0
+                print(f"element {instance_name}: As no value is set for 't2_gate_time' a value of 0 is assumed")
+            if parameter == 't2_gate_time' and 't1_gate_time' not in instance[instance_name].keys():
+                instance[instance_name]['t1_gate_time'] = 0
+                print(f"element {instance_name}: As no value is set for 't1_gate_time' a value of 0 is assumed")
+            if parameter == 't1_mem_time' and 't2_mem_time' not in instance[instance_name].keys():
+                instance[instance_name]['t2_mem_time'] = 0
+                print(f"element {instance_name}: As no value is set for 't2_mem_time' a value of 0 is assumed")
+            if parameter == 't2_mem_time' and 't1_mem_time' not in instance[instance_name].keys():
+                instance[instance_name]['t1_mem_time'] = 0
+                print(f"element {instance_name}: As no value is set for 't1_mem_time' a value of 0 is assumed")
+            if parameter == 'p_depol_init' and 'p_depol_length' not in instance[instance_name].keys():
+                instance[instance_name]['p_depol_length'] = 0
+                print(f"element {instance_name}: As no value is set for 'p_depol_length' a value of 0 is assumed")
+            if parameter == 'p_depol_length' and 'p_depol_init' not in instance[instance_name].keys():
+                instance[instance_name]['p_depol_init'] = 0
+                print(f"element {instance_name}: As no value is set for 'p_depol_init' a value of 0 is assumed")    
+            if parameter == 't1_qchannel_time' and 't2_qchannel_time' not in instance[instance_name].keys():
+                instance[instance_name]['t2_qchannel_time'] = 0
+                print(f"element {instance_name}: As no value is set for 't2_qchannel_time' a value of 0 is assumed")
+            if parameter == 't2_qchannel_time' and 't1_qchannel_time' not in instance[instance_name].keys():
+                instance[instance_name]['t1_qchannel_time'] = 0
+                print(f"element {instance_name}: As no value is set for 't1_qchannel_time' a value of 0 is assumed")
+            if parameter == 'p_loss_init' and 'p_loss_length' not in instance[instance_name].keys():
+                instance[instance_name]['p_loss_length'] = 0
+                print(f"element {instance_name}: As no value is set for 'p_loss_length' a value of 0 is assumed")
+            if parameter == 'p_loss_length' and 'p_loss_init' not in instance[instance_name].keys():
+                instance[instance_name]['p_loss_init'] = 0
+                print(f"element {instance_name}: As no value is set for 'p_loss_init' a value of 0 is assumed")    
+                
+    if model_modified: print(f"parameter {auto_map[parameter][0]} set to {auto_map[parameter][1]}")
+    
     return(config)
 
 

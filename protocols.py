@@ -182,12 +182,13 @@ class RouteProtocol(LocalProtocol):
                     #if timer is triggered, qubit has been lost in a link. Else entanglement
                     # swapping has succeeded
                     evexpr = yield evexpr_timer | evexpr_protocol
+                    
                     if evexpr.second_term.value: #swapping ok
                         timer_event.unschedule()
                         round_done = True
                     else:
                         #qubit is lost, must restart
-                        ic(f"{self.name} Lost qubit")
+                        #ic(f"{self.name} Lost qubit")
                         #restart correction protocol
                         self.send_signal(self._restart_signal)
                         #repeat round
@@ -251,7 +252,7 @@ class RouteProtocol(LocalProtocol):
                                     break 
                             else: 
                                 #qubit is lost, must restart round
-                                ic(f"{self.name} Lost qubit")
+                                #ic(f"{self.name} Lost qubit")
                                 #restart correction protocol
                                 self.send_signal(self._restart_signal)
 
@@ -302,7 +303,7 @@ class SwapProtocol(NodeProtocol):
         while True:
             yield (self.await_port_input(self._qmem_input_port_l) &
                    self.await_port_input(self._qmem_input_port_r))
-            
+
             #Add to node queue
             self.node.add_request(self.name)
     
@@ -327,7 +328,7 @@ class SwapProtocol(NodeProtocol):
             m, = self._program.output["m"]
             # Send result to right node on end
             self.node.ports[f"ccon_R_{self.node.name}_{self._request}_{self._index}"].tx_output(Message(m))
-
+            
 class SwapCorrectProgram(QuantumProgram):
     """Quantum processor program that applies all swap corrections."""
     default_num_qubits = 1
@@ -376,13 +377,15 @@ class CorrectProtocol(NodeProtocol):
         #Add restart signal. Needed when purification is used and one quit is lost
         self._restart_signal = 'RESTART_CORRECT_PROTOCOL'
         self.add_signal(self._restart_signal)
+        
 
         self._restart_expression = restart_expression
 
     def run(self):
         while True:
             #Wait for a classical signal to arrive or a request from main protocol to restart
-            expr = yield self.await_port_input(self.node.ports[f"ccon_L_{self.node.name}_{self._request}_{self._index}"]) |\
+            expr = yield (self.await_port_input(self.node.ports[f"ccon_L_{self.node.name}_{self._request}_{self._index}"]) & \
+                self.await_port_input(self.node.qmemory.ports[f"qin{self._mempos}"]))|\
                 self._restart_expression
             
             if expr.first_term.value: #Classical correction signal

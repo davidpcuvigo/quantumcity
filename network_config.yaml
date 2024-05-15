@@ -241,7 +241,7 @@ links:
   - interwitch1: #name of link
       end1: switch1
       end2: switch2
-      distance: 20
+      distance: 5
       source_fidelity_sq: 1
       source_delay: 100
       photon_speed_fibre: 200e3
@@ -252,7 +252,7 @@ requests:
       origin: node1
       destination: node2
       minfidelity: 0.70
-      maxtime: 160000 # nanoseconds
+      maxtime: 1600000000000 # nanoseconds
       #path_fidel_rounds: 100
       application: Capacity
   - request2: #name of request

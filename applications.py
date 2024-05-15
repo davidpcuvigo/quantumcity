@@ -367,8 +367,9 @@ class TeleportCorrectProtocol(NodeProtocol):
 
     def run(self):
         while True:
-            #Wait for a classical signal to arrive or a request from main protocol to restart
-            yield self.await_port_input(self.node.ports[f"ccon_L_{self.node.name}_{self._request}_teleport"]) 
+            #Wait for a classical signal to arrive and a qubit at the destination memory
+            yield self.await_port_input(self.node.ports[f"ccon_L_{self.node.name}_{self._request}_teleport"]) &\
+                self.await_port_input(self.node.qmemory.ports[f"qin{self._mempos}"])
             
             message = self.node.ports[f"ccon_L_{self.node.name}_{self._request}_teleport"].rx_input()
 
