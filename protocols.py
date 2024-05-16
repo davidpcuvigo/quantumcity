@@ -382,21 +382,31 @@ class CorrectProtocol(NodeProtocol):
         self._restart_expression = restart_expression
 
     def run(self):
+        from network import EndNode
+        qubit_ready = False
+        
         while True:
-            #Wait for a classical signal to arrive or a request from main protocol to restart
-            expr = yield (self.await_port_input(self.node.ports[f"ccon_L_{self.node.name}_{self._request}_{self._index}"]) & \
+            message = None
+            #Wait for:
+            #      - a classical signal to arrive (correction) or
+            #      - a qubit to be stored in memory or
+            #      - or a request from main protocol to restart
+            expr = yield (self.await_port_input(self.node.ports[f"ccon_L_{self.node.name}_{self._request}_{self._index}"]) | \
                 self.await_port_input(self.node.qmemory.ports[f"qin{self._mempos}"]))|\
                 self._restart_expression
-            
-            if expr.first_term.value: #Classical correction signal
-                message = self.node.ports[f"ccon_L_{self.node.name}_{self._request}_{self._index}"].rx_input()
 
-                if message is None: #or len(message.items) != 1:
-                    continue
-                else: #Port can receive more than one classical message at the same time
+            if expr.first_term.value:
+                for received_event in expr.triggered_events:
+                    if isinstance(received_event.source.component,QuantumProcessor) == True:
+                        #The message that has arrived corresponds to a qubit in memory from source
+                        qubit_ready = True
+                    elif isinstance(received_event.source.component,EndNode) == True:
+                        #Message is a classical corresponding to corrections
+                        message = self.node.ports[f"ccon_L_{self.node.name}_{self._request}_{self._index}"].rx_input()
+            
+                if message is not None: 
+                    #Port can receive more than one classical message at the same time
                     for m in message.items:
-                        #m = message.items[0]
-                        
                         if self._epr_state == 'PHI_PLUS':
                             if m == ks.BellIndex.B01 or m == ks.BellIndex.B11:
                                 self._x_corr += 1
@@ -409,21 +419,26 @@ class CorrectProtocol(NodeProtocol):
                                 self._z_corr += 1
 
                         self._counter += 1
-                        
-                if self._counter == self.num_nodes - 2:
+                
+                #When all switches corrections have arrived and also we have a qubit in memory            
+                if self._counter == self.num_nodes - 2 and qubit_ready:
                     if self._x_corr or self._z_corr:
                         self._program.set_corrections(self._x_corr, self._z_corr)
                         if self.node.qmemory.busy:
                             yield self.await_program(self.node.qmemory)
                         yield self.node.qmemory.execute_program(self._program, qubit_mapping=[self._mempos])
-                    self.send_signal(Signals.SUCCESS)
+                    qubit_ready = False
                     self._x_corr = 0
                     self._z_corr = 0
                     self._counter = 0
-            else: #qubit is lost in one of the two links when purifying, restart correct protocol
+                    self.send_signal(Signals.SUCCESS)
+
+            else: 
+                #qubit is lost in one of the two links when purifying, restart correct protocol
                 self._x_corr = 0
                 self._z_corr = 0
                 self._counter = 0
+                qubit_ready = False
 
 class DistilProtocol(NodeProtocol):
     """Protocol that does local DEJMPS distillation on a node.
