@@ -737,7 +737,7 @@ class NetworkManager():
                                 quantum_noise_model=gate_noise_model
                                 ),
             PhysicalInstruction(INSTR_MEASURE_BELL, 
-                                duration=measurements_duration,
+                                duration=(measurements_duration+gate_duration_CX+gate_duration),
                                 quantum_noise_model=gate_noise_model),
             PhysicalInstruction(INSTR_MEASURE, 
                                 duration=measurements_duration,

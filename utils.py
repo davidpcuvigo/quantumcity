@@ -789,17 +789,17 @@ def load_config(config, element, parameter, value):
             instance[instance_name][auto_map[parameter][0]] = auto_map[parameter][1]
             model_modified = True
             if parameter == 't1_gate_time' and 't2_gate_time' not in instance[instance_name].keys():
-                instance[instance_name]['t2_gate_time'] = 0
-                print(f"element {instance_name}: As no value is set for 't2_gate_time' a value of 0 is assumed")
+                instance[instance_name]['t2_gate_time'] = instance[instance_name]['t1_gate_time']
+                print(f"element {instance_name}: As no value is set for 't2_gate_time' same value is assumed")
             if parameter == 't2_gate_time' and 't1_gate_time' not in instance[instance_name].keys():
-                instance[instance_name]['t1_gate_time'] = 0
-                print(f"element {instance_name}: As no value is set for 't1_gate_time' a value of 0 is assumed")
+                instance[instance_name]['t1_gate_time'] = instance[instance_name]['t2_gate_time']
+                print(f"element {instance_name}: As no value is set for 't1_gate_time' same value is assumed")
             if parameter == 't1_mem_time' and 't2_mem_time' not in instance[instance_name].keys():
-                instance[instance_name]['t2_mem_time'] = 0
-                print(f"element {instance_name}: As no value is set for 't2_mem_time' a value of 0 is assumed")
+                instance[instance_name]['t2_mem_time'] = instance[instance_name]['t1_mem_time']
+                print(f"element {instance_name}: As no value is set for 't2_mem_time' same value is assumed")
             if parameter == 't2_mem_time' and 't1_mem_time' not in instance[instance_name].keys():
-                instance[instance_name]['t1_mem_time'] = 0
-                print(f"element {instance_name}: As no value is set for 't1_mem_time' a value of 0 is assumed")
+                instance[instance_name]['t1_mem_time'] = instance[instance_name]['t2_mem_time']
+                print(f"element {instance_name}: As no value is set for 't1_mem_time' same value is assumed")
             if parameter == 'p_depol_init' and 'p_depol_length' not in instance[instance_name].keys():
                 instance[instance_name]['p_depol_length'] = 0
                 print(f"element {instance_name}: As no value is set for 'p_depol_length' a value of 0 is assumed")
@@ -807,11 +807,11 @@ def load_config(config, element, parameter, value):
                 instance[instance_name]['p_depol_init'] = 0
                 print(f"element {instance_name}: As no value is set for 'p_depol_init' a value of 0 is assumed")    
             if parameter == 't1_qchannel_time' and 't2_qchannel_time' not in instance[instance_name].keys():
-                instance[instance_name]['t2_qchannel_time'] = 0
-                print(f"element {instance_name}: As no value is set for 't2_qchannel_time' a value of 0 is assumed")
+                instance[instance_name]['t2_qchannel_time'] = instance[instance_name]['t1_qchannel_time']
+                print(f"element {instance_name}: As no value is set for 't2_qchannel_time' same value is assumed")
             if parameter == 't2_qchannel_time' and 't1_qchannel_time' not in instance[instance_name].keys():
-                instance[instance_name]['t1_qchannel_time'] = 0
-                print(f"element {instance_name}: As no value is set for 't1_qchannel_time' a value of 0 is assumed")
+                instance[instance_name]['t1_qchannel_time'] = instance[instance_name]['t2_qchannel_time']
+                print(f"element {instance_name}: As no value is set for 't1_qchannel_time' same value is assumed")
             if parameter == 'p_loss_init' and 'p_loss_length' not in instance[instance_name].keys():
                 instance[instance_name]['p_loss_length'] = 0
                 print(f"element {instance_name}: As no value is set for 'p_loss_length' a value of 0 is assumed")

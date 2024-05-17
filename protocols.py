@@ -82,16 +82,39 @@ class RouteProtocol(LocalProtocol):
             #If protocol is being instanced with purification from the beggining we need to add second link protocols
             self._init_second_link_protocols('distil')
 
-        # calculate total distance and delay, in order to set timer
+        # calculate total distance and delay, in order to set timer to detect lost quit
         self._total_delay = 0
         for comm in path['comms']:
             link_name = comm['links'][0].split('-')[0]
+            #Add time corresponding to transmission
             distance = float(networkmanager.get_config('links',link_name,'distance'))
             photon_speed = float(networkmanager.get_config('links',link_name,'photon_speed_fibre'))
             self._total_delay += 1e9 * distance / photon_speed
+            #Add time corresponding to qsource emission
+            emission_delay = float(networkmanager.get_config('links',link_name,'source_delay')) \
+                if networkmanager.get_config('links',link_name,'source_delay') != 'NOT_FOUND' else 0
+            self._total_delay += emission_delay
+            
+        #TODO: delete this artificial time overhead
         #We need to add some nanoseconds to timer. If distances are short we 
         # can receive a lost qubit signal when it is not correct
-        self._total_delay += 50000    
+        #self._total_delay += 20000 + 20000 + 500000 + 3700
+        
+        #We should add time corresponging to BEll measurements in switches and x/Z in end node
+        for node in path['nodes'][1:]:
+            if networkmanager.get_config('nodes',node,'type') == 'switch':
+                gate_duration = networkmanager.get_config('nodes',node,'gate_duration') \
+                    if networkmanager.get_config('nodes',node,'gate_duration') != 'NOT_FOUND' else 0
+                gate_duration_CX = networkmanager.get_config('nodes',node,'gate_duration_CX') \
+                    if networkmanager.get_config('nodes',node,'gate_duration_CX') != 'NOT_FOUND' else gate_duration
+                measurements_duration = networkmanager.get_config('nodes',node,'measurements_duration') \
+                    if networkmanager.get_config('nodes',node,'measurements_duration') != 'NOT_FOUND' else gate_duration
+                self._total_delay += gate_duration + gate_duration_CX + measurements_duration
+            else:
+                num_switches = len(path['nodes']) - 2
+                gate_duration = networkmanager.get_config('nodes',node,'gate_duration') \
+                    if networkmanager.get_config('nodes',node,'gate_duration') != 'NOT_FOUND' else 0
+                self._total_delay += num_switches * gate_duration          
 
     def signal_sources(self,index=[1]):
         '''
@@ -112,6 +135,16 @@ class RouteProtocol(LocalProtocol):
         self._purif_rounds = purif_rounds
         if self._purif_rounds == 1: # Set memories for the second link
             self._init_second_link_protocols('distil')
+            #Update delay time with purification operations in order to detect lost qubit
+            node_name = self._path['nodes'][-1]
+            gate_duration_rotations = self._networkmanager.get_config('nodes',node_name,'gate_duration_rotations') \
+                if self._networkmanager.get_config('nodes',node_name,'gate_duration_rotations') != 'NOT_FOUND' else 0
+            gate_duration_CX = self._networkmanager.get_config('nodes',node_name,'gate_duration_CX') \
+                    if self._networkmanager.get_config('nodes',node_name,'gate_duration_CX') != 'NOT_FOUND' else gate_duration        
+            measurements_duration = self._networkmanager.get_config('nodes',node_name,'measurements_duration') \
+                    if self._networkmanager.get_config('nodes',node_name,'measurements_duration') != 'NOT_FOUND' else gate_duration        
+            self._total_delay += 2 * gate_duration_rotations + gate_duration_CX + measurements_duration
+            
 
     def _init_second_link_protocols(self, purif_proto):
         '''
@@ -169,6 +202,7 @@ class RouteProtocol(LocalProtocol):
         while True:
             #Wait for an entanglement request
             yield self.start_expression
+
             round_done = False
             start_time = sim_time()
             while not round_done: #need to repeat in case qubit is lost
@@ -188,7 +222,7 @@ class RouteProtocol(LocalProtocol):
                         round_done = True
                     else:
                         #qubit is lost, must restart
-                        #ic(f"{self.name} Lost qubit")
+                        #ic(f"{self.name} Lost qubit in Route protocol")
                         #restart correction protocol
                         self.send_signal(self._restart_signal)
                         #repeat round

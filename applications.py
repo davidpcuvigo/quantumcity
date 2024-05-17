@@ -366,12 +366,19 @@ class TeleportCorrectProtocol(NodeProtocol):
    
 
     def run(self):
+        qubit_ready = False
+        corrections = 0
+        
         while True:
+            message = None
             #Wait for a classical signal to arrive and a qubit at the destination memory
-            yield self.await_port_input(self.node.ports[f"ccon_L_{self.node.name}_{self._request}_teleport"]) &\
+            expr = yield self.await_port_input(self.node.ports[f"ccon_L_{self.node.name}_{self._request}_teleport"]) | \
                 self.await_port_input(self.node.qmemory.ports[f"qin{self._mempos}"])
-            
-            message = self.node.ports[f"ccon_L_{self.node.name}_{self._request}_teleport"].rx_input()
+                
+            if expr.first_time.value:
+                message = self.node.ports[f"ccon_L_{self.node.name}_{self._request}_teleport"].rx_input()
+            else:
+                qubit_ready = True
 
             if message is not None:
                 m = message.items[0]
@@ -385,16 +392,23 @@ class TeleportCorrectProtocol(NodeProtocol):
                         self._x_corr += 1
                     if m == ks.BellIndex.B10 or m == ks.BellIndex.B11:
                         self._z_corr += 1
+                corrections += 1
                         
+            if corrections and qubit_ready:
                 if self._x_corr or self._z_corr:
                     self._program.set_corrections(self._x_corr, self._z_corr)
                     if self.node.qmemory.busy:
                         yield self.await_program(self.node.qmemory)
                     yield self.node.qmemory.execute_program(self._program, qubit_mapping=[self._mempos])
                 
-                self.send_signal(Signals.SUCCESS)
                 self._x_corr = 0
                 self._z_corr = 0
+                corrections = 0
+                qubit_ready = False
+                self.send_signal(Signals.SUCCESS)
+                
+                
+                
 
 class CHSHApplication(GeneralApplication):
     '''

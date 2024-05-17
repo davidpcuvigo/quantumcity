@@ -9,6 +9,9 @@ from pydynaa import EventExpression, EventType
 from protocols import RouteProtocol
 
 class LinkFidelityProtocol(LocalProtocol):
+    '''
+    TODO: Document constructor properties
+    '''
             
     def __init__(self, networkmanager, origin, dest, link, qsource_index, num_runs=100, name=None):
         self._origin = origin
@@ -29,8 +32,18 @@ class LinkFidelityProtocol(LocalProtocol):
         self.fidelities = []
         
         #Calculate time to wait until we decide the qubit is lost.
+        # qsource_elay + transmission time
+        self._delay = 0
+        #transmission delay
+        self._delay += 1e9 * float(networkmanager.get_config('links',link,'distance'))/float(networkmanager.get_config('links',link,'photon_speed_fibre'))
+        #qsource delay
+        emission_delay = float(networkmanager.get_config('links',link,'source_delay')) \
+                if networkmanager.get_config('links',link,'source_delay') != 'NOT_FOUND' else 0
+        self._delay += emission_delay
+        
+        #TODO: Delete these lines if time calculation is correct
         #To make sure we measure, we set 4 times the expected value
-        self._delay = 4 * 1e9 * float(networkmanager.get_config('links',link,'distance'))/float(networkmanager.get_config('links',link,'photon_speed_fibre'))
+        #self._delay = 4 * 1e9 * float(networkmanager.get_config('links',link,'distance'))/float(networkmanager.get_config('links',link,'photon_speed_fibre'))
 
     def run(self):
         #Signal Qsource to start. Must trigger correct source
@@ -101,6 +114,7 @@ class PathFidelityProtocol(LocalProtocol):
 
         for i in range(self._num_runs):
             start_time = sim_time()
+
             #Send signal for entanglement generation
             self.send_signal(self._ent_request)
 
