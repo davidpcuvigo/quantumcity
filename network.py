@@ -364,9 +364,10 @@ class NetworkManager():
                     qsource_origin = nodeB
                     qsource_dest = nodeA
                 #Setup QSource
+                source_delay = 0 if 'source_delay' not in props.keys() else float(props['source_delay'])
                 source = QSource(
                         f"qsource_{qsource_origin.name}_{link_name}_{index_qsource}", state_sampler=state_sampler, num_ports=2, status=SourceStatus.EXTERNAL,
-                        models={"emission_delay_model": FixedDelayModel(delay=float(props['source_delay']))})
+                        models={"emission_delay_model": FixedDelayModel(delay=source_delay)})
                 qsource_origin.add_subcomponent(source)
                 # Setup Quantum Channels
                 #get channel noise model from config

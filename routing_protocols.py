@@ -40,6 +40,8 @@ class LinkFidelityProtocol(LocalProtocol):
         emission_delay = float(networkmanager.get_config('links',link,'source_delay')) \
                 if networkmanager.get_config('links',link,'source_delay') != 'NOT_FOUND' else 0
         self._delay += emission_delay
+        # We need to ad a little delay so that no false timeouts appear
+        self._delay += 100
         
         #TODO: Delete these lines if time calculation is correct
         #To make sure we measure, we set 4 times the expected value

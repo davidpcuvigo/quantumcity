@@ -33,11 +33,12 @@ class RouteProtocol(LocalProtocol):
         - networkmanager: instance of the network manager that stores the network
         - path: calculated path for servicing the request
         - start_expression: event expression that will trigger the EPR generation
+        - phase: 'routing' or 'application'
         - purif_rounds: number of needed purification rounds
         - name: name of the protocol
     '''
 
-    def __init__(self, networkmanager, path, start_expression, purif_rounds= 0, name=None):
+    def __init__(self, networkmanager, path, start_expression, phase = 'routing', purif_rounds= 0, name=None):
         self._path = path
         self._networkmanager = networkmanager
         self.start_expression = start_expression
@@ -95,10 +96,10 @@ class RouteProtocol(LocalProtocol):
                 if networkmanager.get_config('links',link_name,'source_delay') != 'NOT_FOUND' else 0
             self._total_delay += emission_delay
             
-        #TODO: delete this artificial time overhead
-        #We need to add some nanoseconds to timer. If distances are short we 
+        #We need to add some nanoseconds to timer, to discard false timeout positives
+        # when tomeout and correct transmission matches. If distances are short we 
         # can receive a lost qubit signal when it is not correct
-        #self._total_delay += 20000 + 20000 + 500000 + 3700
+        self._total_delay += 100
         
         #We should add time corresponging to BEll measurements in switches and x/Z in end node
         for node in path['nodes'][1:]:
@@ -114,8 +115,13 @@ class RouteProtocol(LocalProtocol):
                 num_switches = len(path['nodes']) - 2
                 gate_duration = networkmanager.get_config('nodes',node,'gate_duration') \
                     if networkmanager.get_config('nodes',node,'gate_duration') != 'NOT_FOUND' else 0
-                self._total_delay += num_switches * gate_duration          
-
+                #Worse case: X and Z corrections to apply
+                self._total_delay += 2 * gate_duration 
+            
+        #When several requests are processed, we should also add time related to Bell measurements for those requests
+        if phase == 'application':
+            self._total_delay += (len(networkmanager.get_paths()) -1) * (gate_duration + gate_duration_CX + measurements_duration)
+    
     def signal_sources(self,index=[1]):
         '''
         Signals all sources in the path in order to generate EPR
@@ -140,9 +146,9 @@ class RouteProtocol(LocalProtocol):
             gate_duration_rotations = self._networkmanager.get_config('nodes',node_name,'gate_duration_rotations') \
                 if self._networkmanager.get_config('nodes',node_name,'gate_duration_rotations') != 'NOT_FOUND' else 0
             gate_duration_CX = self._networkmanager.get_config('nodes',node_name,'gate_duration_CX') \
-                    if self._networkmanager.get_config('nodes',node_name,'gate_duration_CX') != 'NOT_FOUND' else gate_duration        
+                    if self._networkmanager.get_config('nodes',node_name,'gate_duration_CX') != 'NOT_FOUND' else 0        
             measurements_duration = self._networkmanager.get_config('nodes',node_name,'measurements_duration') \
-                    if self._networkmanager.get_config('nodes',node_name,'measurements_duration') != 'NOT_FOUND' else gate_duration        
+                    if self._networkmanager.get_config('nodes',node_name,'measurements_duration') != 'NOT_FOUND' else 0        
             self._total_delay += 2 * gate_duration_rotations + gate_duration_CX + measurements_duration
             
 
@@ -209,6 +215,7 @@ class RouteProtocol(LocalProtocol):
                 if self._purif_rounds == 0:
                     #trigger all sources in the path
                     self.signal_sources(index=[1])
+
                     timer_event = self._schedule_after(self._total_delay, evtypetimer)
 
                     evexpr_protocol = (self.await_port_input(self._portleft_1)) & \
@@ -222,7 +229,7 @@ class RouteProtocol(LocalProtocol):
                         round_done = True
                     else:
                         #qubit is lost, must restart
-                        #ic(f"{self.name} Lost qubit in Route protocol")
+                        ic(f"{self.name} Lost qubit in Route protocol")
                         #restart correction protocol
                         self.send_signal(self._restart_signal)
                         #repeat round
@@ -286,7 +293,7 @@ class RouteProtocol(LocalProtocol):
                                     break 
                             else: 
                                 #qubit is lost, must restart round
-                                #ic(f"{self.name} Lost qubit")
+                                ic(f"{self.name} Lost qubit")
                                 #restart correction protocol
                                 self.send_signal(self._restart_signal)
 

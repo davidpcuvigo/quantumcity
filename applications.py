@@ -50,7 +50,7 @@ class GeneralApplication(LocalProtocol):
         self._networkmanager = networkmanager
 
         ent_start_expression = self.await_signal(self, self._ent_request)
-        self.add_subprotocol(RouteProtocol(networkmanager,path,ent_start_expression,path['purif_rounds']))
+        self.add_subprotocol(RouteProtocol(networkmanager,path,ent_start_expression,phase='application',purif_rounds=path['purif_rounds']))
 
         #Initialize data collector that will gather metrics
         self.dc = dc_setup(self)
@@ -90,8 +90,11 @@ class CapacityApplication(GeneralApplication):
             yield self.await_signal(self.subprotocols[f"RouteProtocol_{self._path['request']}"],Signals.SUCCESS)
 
             #Measure fidelity and send metrics to datacollector
+            #if self._networkmanager.network.get_node(self._path['nodes'][0]).qmemory.busy:
+            #    yield self.await_program(self._networkmanager.network.get_node(self._path['nodes'][0]).qmemory)
             qa, = self._networkmanager.network.get_node(self._path['nodes'][0]).qmemory.pop(positions=[mem_posA_1])
             qb, = self._networkmanager.network.get_node(self._path['nodes'][-1]).qmemory.pop(positions=[mem_posB_1])
+            
             fid = qapi.fidelity([qa, qb], epr_state, squared=True)
             result = {
                 'posA': mem_posA_1,
