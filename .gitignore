@@ -169,3 +169,6 @@ temporal.py
 nogit/*
 output/*
 config_ymls/*
+
+#Configuración yaml
+network_config.yaml

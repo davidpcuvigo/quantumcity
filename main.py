@@ -9,6 +9,7 @@ from utils import generate_report, validate_conf, check_parameter, load_config, 
 import yaml
 import datetime
 from applications import CapacityApplication, TeleportationApplication, CHSHApplication
+import copy
 
 try:
     from pylatex import Document
@@ -47,7 +48,6 @@ if mode == 'F':
     value = 0
     min_val='-'
     max_val='-'
-    steps: '-'
     #Validate configuration file
     validate_conf(config)
 elif mode == 'E':
@@ -77,13 +77,17 @@ for sim in range(steps):
     #If we are simulating with evolution we load the configuration parameters
     if steps > 1:
         value = min_val + sim*step_size
+        
+        #We work with a copy of the configuration
+        iter_config = copy.deepcopy(config)
+        
         #Update configuration object with each value to simulate with
-        config = load_config(config, element, prop, value)
+        iter_config = load_config(iter_config, element, prop, value)
         #Check configuration file sintax
-        validate_conf(config)
+        validate_conf(iter_config)
 
     #Instantiate NetWorkManager based on configuration. Will launch routing protocol
-    net = NetworkManager(config)
+    net = NetworkManager(iter_config)
 
     dc={}
     for path in net.get_paths():

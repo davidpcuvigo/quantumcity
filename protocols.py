@@ -229,7 +229,7 @@ class RouteProtocol(LocalProtocol):
                         round_done = True
                     else:
                         #qubit is lost, must restart
-                        ic(f"{self.name} Lost qubit in Route protocol")
+                        #ic(f"{self.name} Lost qubit in Route protocol")
                         #restart correction protocol
                         self.send_signal(self._restart_signal)
                         #repeat round
@@ -293,7 +293,7 @@ class RouteProtocol(LocalProtocol):
                                     break 
                             else: 
                                 #qubit is lost, must restart round
-                                ic(f"{self.name} Lost qubit")
+                                #ic(f"{self.name} Lost qubit")
                                 #restart correction protocol
                                 self.send_signal(self._restart_signal)
 
