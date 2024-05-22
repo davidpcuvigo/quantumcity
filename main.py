@@ -49,7 +49,8 @@ if mode == 'F':
     min_val='-'
     max_val='-'
     #Validate configuration file
-    validate_conf(config)
+    iter_config = copy.deepcopy(config)
+    validate_conf(iter_config)
 elif mode == 'E':
     element = input('Enter object (nodes/links/requests). Parameter will be set in ALL instances: ')
     prop = input('Enter property: ')
@@ -76,6 +77,7 @@ for sim in range(steps):
 
     #If we are simulating with evolution we load the configuration parameters
     if steps > 1:
+        print(f"Evaluation number {sim+1}")
         value = min_val + sim*step_size
         
         #We work with a copy of the configuration
