@@ -1,6 +1,7 @@
 from network import NetworkManager
 from icecream import ic
 import pandas as pd
+import numpy as np
 import logging
 import os
 import netsquid as ns
@@ -64,21 +65,31 @@ elif mode == 'E':
 
     steps = int(input('Enter number of steps (minimum 2): '))
     if steps <= 1: raise ValueError('Minumum of 2 steps needed')
-
-    step_size = (max_val - min_val) / (steps - 1)
+    
+    scale = input('Do you want data points in (L)og scale or equally (S)paced? (L/S)')
+    if scale == 'L':
+        pass
+        vals = np.geomspace(min_val, max_val, steps, endpoint = True)
+    elif scale == 'S':
+        step_size = (max_val - min_val) / (steps - 1)
+        vals = [(min_val + i*step_size) for i in range(steps)]
+    else:
+        raise ValueError('Unsupported scaling. Valid: L or S')    
 else:
     raise ValueError('Unsupported operation. Valid: E or F')
 
 results = {} #This list will store data of the different sumulations
 report_info = {} #Dictionary with complete data for latex/pdf report
-for sim in range(steps):
+num_iter = 0
+for value in vals:
+    num_iter += 1
     #reset simulation to start over
     ns.sim_reset()
 
     #If we are simulating with evolution we load the configuration parameters
     if steps > 1:
-        print(f"Evaluation number {sim+1}/{steps}")
-        value = min_val + sim*step_size
+        print(f"Evalution iteration {num_iter}/{steps} Parameter value {value}")
+        #value = min_val + sim*step_size
         
         #We work with a copy of the configuration
         iter_config = copy.deepcopy(config)
