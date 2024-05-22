@@ -77,7 +77,7 @@ for sim in range(steps):
 
     #If we are simulating with evolution we load the configuration parameters
     if steps > 1:
-        print(f"Evaluation number {sim+1}")
+        print(f"Evaluation number {sim+1}/{steps}")
         value = min_val + sim*step_size
         
         #We work with a copy of the configuration
