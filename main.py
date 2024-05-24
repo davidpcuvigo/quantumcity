@@ -47,7 +47,7 @@ if mode == 'F':
     value = 0
     min_val='-'
     max_val='-'
-    steps: '-'
+
     #Validate configuration file
     validate_conf(config)
 elif mode == 'E':
@@ -70,7 +70,9 @@ else:
 
 results = {} #This list will store data of the different sumulations
 report_info = {} #Dictionary with complete data for latex/pdf report
+counter=1
 for sim in range(steps):
+    
     #reset simulation to start over
     ns.sim_reset()
 
@@ -118,8 +120,8 @@ for sim in range(steps):
     #Store simulation information for final report
     report_info[value] = net.get_info_report()
 
-    print('----------------')
-
+    print(f'----------------{counter}')
+    counter +=1
     #Acumulate results in general dataframe in case we want evolution
     for key,detail in dc.items():
         if detail[0] == 'Capacity':

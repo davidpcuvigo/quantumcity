@@ -908,6 +908,15 @@ class NVQuantumProcessor(QuantumProcessor):
         "measure_duration": 3.7E3,
         "magical_swap_gate_duration": 1.000010E6
     }
+    OPERATION_DURATIONS_SIV = {
+        "carbon_init_duration": 310E3, #All parameters should be updated
+        "carbon_z_rot_duration": 2.863E3,
+        "electron_init_duration": 2E3,
+        "electron_single_qubit_duration": 200,
+        "ec_two_qubit_gate_duration": 500E3,
+        "measure_duration": 3.7E3,
+        "magical_swap_gate_duration": 1.000010E6
+    }
 
     OTHER_PARAMETERS = {
         "use_magical_swap": False
