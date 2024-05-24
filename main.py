@@ -1,6 +1,7 @@
 from network import NetworkManager
 from icecream import ic
 import pandas as pd
+import numpy as np
 import logging
 import os
 import netsquid as ns
@@ -9,6 +10,7 @@ from utils import generate_report, validate_conf, check_parameter, load_config, 
 import yaml
 import datetime
 from applications import CapacityApplication, TeleportationApplication, CHSHApplication
+import copy
 
 try:
     from pylatex import Document
@@ -45,11 +47,12 @@ if mode == 'F':
     element = 'FixedSimul'
     prop = 'FixedSimul'
     value = 0
+    vals = [0]
     min_val='-'
     max_val='-'
-
     #Validate configuration file
-    validate_conf(config)
+    iter_config = copy.deepcopy(config)
+    validate_conf(iter_config)
 elif mode == 'E':
     element = input('Enter object (nodes/links/requests). Parameter will be set in ALL instances: ')
     prop = input('Enter property: ')
@@ -63,29 +66,42 @@ elif mode == 'E':
 
     steps = int(input('Enter number of steps (minimum 2): '))
     if steps <= 1: raise ValueError('Minumum of 2 steps needed')
-
-    step_size = (max_val - min_val) / (steps - 1)
+    
+    scale = input('Do you want data points in (L)og scale or equally (S)paced? (L/S)')
+    if scale == 'L':
+        pass
+        vals = np.geomspace(min_val, max_val, steps, endpoint = True)
+    elif scale == 'S':
+        step_size = (max_val - min_val) / (steps - 1)
+        vals = [(min_val + i*step_size) for i in range(steps)]
+    else:
+        raise ValueError('Unsupported scaling. Valid: L or S')    
 else:
     raise ValueError('Unsupported operation. Valid: E or F')
 
 results = {} #This list will store data of the different sumulations
 report_info = {} #Dictionary with complete data for latex/pdf report
-counter=1
-for sim in range(steps):
-    
+num_iter = 0
+for value in vals:
+    num_iter += 1
     #reset simulation to start over
     ns.sim_reset()
 
     #If we are simulating with evolution we load the configuration parameters
     if steps > 1:
-        value = min_val + sim*step_size
+        print(f"Evalution iteration {num_iter}/{steps} Parameter value {value}")
+        #value = min_val + sim*step_size
+        
+        #We work with a copy of the configuration
+        iter_config = copy.deepcopy(config)
+        
         #Update configuration object with each value to simulate with
-        config = load_config(config, element, prop, value)
+        iter_config = load_config(iter_config, element, prop, value)
         #Check configuration file sintax
-        validate_conf(config)
+        validate_conf(iter_config)
 
     #Instantiate NetWorkManager based on configuration. Will launch routing protocol
-    net = NetworkManager(config)
+    net = NetworkManager(iter_config)
 
     dc={}
     for path in net.get_paths():
@@ -120,8 +136,7 @@ for sim in range(steps):
     #Store simulation information for final report
     report_info[value] = net.get_info_report()
 
-    print(f'----------------{counter}')
-    counter +=1
+    print('----------------')
     #Acumulate results in general dataframe in case we want evolution
     for key,detail in dc.items():
         if detail[0] == 'Capacity':
@@ -278,7 +293,7 @@ with open(results_file,'a') as resultsfile:
     resultsfile.write('Capacity;Request;Element$Parameter;Value;Generated Entanglements;Mean fidelity;STD fidelity;Mean time;STD time;Entanglement Generation rate;\n')
     resultsfile.write('Teleportation;Request;Element$Parameter;Value;Teleported states;Mean fidelity;STD fidelity;Mean time;STD time;\n')
     resultsfile.write('QBER;Request;Element$Parameter;Value;Performed measurements;Mean time;STD time;\n')
-    resultsfile.write('TeleportationWithDemand;Request;Element$Parameter;Value;Teleported states;Mean fidelity;STD fidelity;Mean time;STD time;Queue size at en of simulation;Discarded qubits;\n')
+    resultsfile.write('TeleportationWithDemand;Request;Element$Parameter;Value;Teleported states;Mean fidelity;STD fidelity;Mean time;STD time;Queue size at end of simulation;Discarded qubits;\n')
     resultsfile.write('Teleportation;Request;Element$Parameter;Value;Measurements;Mean time;STD time;Wins;\n')
 
 if print_report: 
