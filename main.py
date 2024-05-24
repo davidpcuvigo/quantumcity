@@ -47,6 +47,7 @@ if mode == 'F':
     element = 'FixedSimul'
     prop = 'FixedSimul'
     value = 0
+    vals = [0]
     min_val='-'
     max_val='-'
     #Validate configuration file
@@ -293,7 +294,7 @@ with open(results_file,'a') as resultsfile:
     resultsfile.write('Capacity;Request;Element$Parameter;Value;Generated Entanglements;Mean fidelity;STD fidelity;Mean time;STD time;Entanglement Generation rate;\n')
     resultsfile.write('Teleportation;Request;Element$Parameter;Value;Teleported states;Mean fidelity;STD fidelity;Mean time;STD time;\n')
     resultsfile.write('QBER;Request;Element$Parameter;Value;Performed measurements;Mean time;STD time;\n')
-    resultsfile.write('TeleportationWithDemand;Request;Element$Parameter;Value;Teleported states;Mean fidelity;STD fidelity;Mean time;STD time;Queue size at en of simulation;Discarded qubits;\n')
+    resultsfile.write('TeleportationWithDemand;Request;Element$Parameter;Value;Teleported states;Mean fidelity;STD fidelity;Mean time;STD time;Queue size at end of simulation;Discarded qubits;\n')
     resultsfile.write('Teleportation;Request;Element$Parameter;Value;Measurements;Mean time;STD time;Wins;\n')
 
 if print_report: 

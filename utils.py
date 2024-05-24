@@ -707,7 +707,7 @@ def check_parameter(element, parameter):
                                                't2_gate_time','dephase_mem_rate','depolar_mem_rate',
                                                't1_mem_time','t2_mem_time','teleport_queue_size']:
         return False
-    elif element == 'links' and parameter not in ['endNode_distance','switch_distance',
+    elif element == 'links' and parameter not in ['endNode_distance','switch_distance','lastNode_distance',
                                                  'source_fidelity_sq','source_delay','photon_speed_fibre',
                                                  'p_depol_init','p_depol_length','dephase_qchannel_rate',
                                                  'depolar_qchannel_rate','p_loss_init','p_loss_length',
@@ -775,7 +775,7 @@ def load_config(config, element, parameter, value):
     model_modified = False
     for instance in config[element]:
         instance_name = list(instance.keys())[0]
-        if parameter not in ['switch_distance','endNode_distance']:
+        if parameter not in ['switch_distance','endNode_distance','lastNode_distance']:
             instance[instance_name][parameter] = value
         elif parameter == 'switch_distance' and nodetypes[instance[instance_name]['end1']] == 'switch' \
             and nodetypes[instance[instance_name]['end2']] == 'switch':
@@ -783,6 +783,9 @@ def load_config(config, element, parameter, value):
                 instance[instance_name]['distance'] = value
         elif parameter == 'endNode_distance' and (nodetypes[instance[instance_name]['end1']] == 'endNode' \
             or nodetypes[instance[instance_name]['end2']] == 'endNode'):
+            instance[instance_name]['distance'] = value
+        #Temporary to perform distance simulation
+        elif parameter == 'lastNode_distance' and instance[instance_name]['end1'] == 'node2':
             instance[instance_name]['distance'] = value
         #Map model associated to parameter    
         if parameter in auto_map:
