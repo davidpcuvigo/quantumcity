@@ -217,6 +217,7 @@ class RouteProtocol(LocalProtocol):
                     self.signal_sources(index=[1])
 
                     timer_event = self._schedule_after(self._total_delay, evtypetimer)
+                    #ic(f"{self.name} {self._total_delay}")
 
                     evexpr_protocol = (self.await_port_input(self._portleft_1)) & \
                         (self.await_signal(self.subprotocols[f"CorrectProtocol_{self._path['request']}_1"], Signals.SUCCESS))
@@ -250,6 +251,7 @@ class RouteProtocol(LocalProtocol):
                                     self.await_signal(self.subprotocols[f"CorrectProtocol_{self._path['request']}_2"], Signals.SUCCESS))
 
                                 timer_event = self._schedule_after(self._total_delay, evtypetimer)
+                                #ic(f"{self.name} {self._total_delay}")
 
                             else: #we keep the qubit in the first link and trigger EPRs in the second
                                 #trigger all sources in the path
@@ -260,6 +262,7 @@ class RouteProtocol(LocalProtocol):
                                     self.await_signal(self.subprotocols[f"CorrectProtocol_{self._path['request']}_2"], Signals.SUCCESS))
 
                                 timer_event = self._schedule_after(self._total_delay, evtypetimer)
+                                #ic(f"{self.name} {self._total_delay}")
 
                             #Wait for qubits in both links and corrections in both or timer is over
                             evexpr_proto = yield evexpr_timer | evexpr_protocol
@@ -339,9 +342,18 @@ class SwapProtocol(NodeProtocol):
         self._program = QuantumProgram(num_qubits=2)
         q1, q2 = self._program.get_qubit_indices(num_qubits=2)
         self._program.apply(INSTR_MEASURE_BELL, [q1, q2], output_key="m", inplace=False)
+        
 
     def run(self):
+        #Get instruction duration for timer. Minimum is 100
+        max_duration = 100
+        for inst in self._node.qmemory.get_physical_instructions():
+            if inst.duration > max_duration:
+                max_duration = inst.duration
+        timer_duration = max_duration*0.1 if max_duration > 1000 else 100
+        
         while True:
+            
             yield (self.await_port_input(self._qmem_input_port_l) &
                    self.await_port_input(self._qmem_input_port_r))
 
@@ -363,7 +375,7 @@ class SwapProtocol(NodeProtocol):
                     self.node.remove_request('first')
                     not_serviced = False
                 else: #Must wait for other to complete
-                    yield self.await_timer(duration=100) #Nothing to do, just wait
+                    yield self.await_timer(duration=timer_duration) #Nothing to do, just wait
 
 
             m, = self._program.output["m"]

@@ -84,12 +84,13 @@ report_info = {} #Dictionary with complete data for latex/pdf report
 num_iter = 0
 for value in vals:
     num_iter += 1
+
     #reset simulation to start over
     ns.sim_reset()
 
     #If we are simulating with evolution we load the configuration parameters
     if steps > 1:
-        print(f"Evalution iteration {num_iter}/{steps} Parameter value {value}")
+        print(f"Evolution iteration {num_iter}/{steps} Parameter value {value}")
         #value = min_val + sim*step_size
         
         #We work with a copy of the configuration
