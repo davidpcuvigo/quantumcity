@@ -172,7 +172,7 @@ temporal.py
 #Directorio temporal mío
 nogit/*
 output/*
-config_ymls/*
+#config_ymls/*
 
 #Configuración yaml
 network_config.yaml
