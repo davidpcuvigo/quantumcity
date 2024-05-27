@@ -166,6 +166,8 @@ cython_debug/
 temporal.py
 
 *.yaml
+#Estoy añadiendo estas cosas para guardar yo ()
+*.txt
 
 #Directorio temporal mío
 nogit/*
