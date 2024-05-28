@@ -84,8 +84,9 @@ report_info = {} #Dictionary with complete data for latex/pdf report
 num_iter = 0
 for value in vals:
     num_iter += 1
-
+    
     #reset simulation to start over
+    ns.sim_stop()
     ns.sim_reset()
 
     #If we are simulating with evolution we load the configuration parameters
