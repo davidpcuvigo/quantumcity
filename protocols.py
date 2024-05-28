@@ -347,7 +347,7 @@ class SwapProtocol(NodeProtocol):
     def run(self):
         #Get instruction duration for timer. Minimum is 100
         max_duration = 100
-        for inst in self._node.qmemory.get_physical_instructions():
+        for inst in self.node.qmemory.get_physical_instructions():
             if inst.duration > max_duration:
                 max_duration = inst.duration
         timer_duration = max_duration*0.1 if max_duration > 1000 else 100
