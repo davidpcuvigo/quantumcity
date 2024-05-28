@@ -165,7 +165,7 @@ cython_debug/
 #Ficheros temporales míos
 temporal.py
 
-*.yaml
+
 #Estoy añadiendo estas cosas para guardar yo ()
 *.txt
 
