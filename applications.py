@@ -226,7 +226,7 @@ class TeleportationApplication(GeneralApplication):
                 #We have to request a qubit based on generation demand
                 waiting_state = True
                 while waiting_state:
-                    #retrieve state from queue.We get the state reprsentation in return, 
+                    #retrieve state from queue. We get the state reprsentation in return, 
                     # but also qubit is updated with the retrieved qubit
                     [state, qubit[0]] = first_node.retrieve_teleport(teleport_strategy)
 
@@ -245,7 +245,7 @@ class TeleportationApplication(GeneralApplication):
             if 2 in self._networkmanager.network.get_node(self._path['nodes'][0]).qmemory.unused_positions:
                 #store qubit un memory position
                 first_node.qmemory.put(qubit, 2, replace = False)
-
+ 
                 #Request entanglement to RouteProtocol
                 self.send_signal(self._ent_request)
 
@@ -378,7 +378,7 @@ class TeleportCorrectProtocol(NodeProtocol):
             expr = yield self.await_port_input(self.node.ports[f"ccon_L_{self.node.name}_{self._request}_teleport"]) | \
                 self.await_port_input(self.node.qmemory.ports[f"qin{self._mempos}"])
                 
-            if expr.first_time.value:
+            if expr.first_term.value:
                 message = self.node.ports[f"ccon_L_{self.node.name}_{self._request}_teleport"].rx_input()
             else:
                 qubit_ready = True

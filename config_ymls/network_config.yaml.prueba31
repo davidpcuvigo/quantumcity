@@ -62,76 +62,37 @@ links:
   - nodeswitch1: #name of link
       end1: node1
       end2: switch1
-      distance: 5
+      distance: 1
       source_fidelity_sq: 1
-      source_delay: 38000
       photon_speed_fibre: 200e3
       classical_delay_model: FibreDelayModel
       qchannel_noise_model: FibreDepolGaussModel
-      qchannel_loss_model: FibreLossModel
-      p_loss_init: 0.11
-      p_loss_length: 0.2
   - nodeswitch2: #name of link
       end1: node2
-      end2: switch1
-      distance: 5
+      end2: switch3
+      distance: 1
       source_fidelity_sq: 1
-      source_delay: 38000
       photon_speed_fibre: 200e3
       classical_delay_model: FibreDelayModel
       qchannel_noise_model: FibreDepolGaussModel
-      qchannel_loss_model: FibreLossModel
-      p_loss_init: 0.11
-      p_loss_length: 0.2
-  - nodeswitch3: #name of link
-      end1: node3
-      end2: switch1
-      distance: 5
-      source_fidelity_sq: 1
-      source_delay: 38000
-      photon_speed_fibre: 200e3
-      classical_delay_model: FibreDelayModel
-      qchannel_noise_model: FibreDepolGaussModel
-      qchannel_loss_model: FibreLossModel
-      p_loss_init: 0.05
-      p_loss_length: 0.3
-  - nodeswitch4: #name of link
-      end1: node4
-      end2: switch1
-      distance: 5
-      source_fidelity_sq: 1
-      source_delay: 38000
-      photon_speed_fibre: 200e3
-      classical_delay_model: FibreDelayModel
-      qchannel_noise_model: FibreDepolGaussModel
-      qchannel_loss_model: FibreLossModel
-      p_loss_init: 0.11
-      p_loss_length: 0.2
   - interswitch1: #name of link
       end1: switch1
       end2: switch2
-      distance: 7
+      distance: 14
       number_links: 4
       source_fidelity_sq: 1
-      source_delay: 38000
       photon_speed_fibre: 200e3
       classical_delay_model: FibreDelayModel
       qchannel_noise_model: FibreDepolGaussModel
-      qchannel_loss_model: FibreLossModel
-      p_loss_init: 0.11
-      p_loss_length: 0.2
   - interswitch2: #name of link
       end1: switch2
       end2: switch3
-      distance: 7
+      distance: 14
       number_links: 4
       source_fidelity_sq: 1
       photon_speed_fibre: 200e3
       classical_delay_model: FibreDelayModel
       qchannel_noise_model: FibreDepolGaussModel
-      qchannel_loss_model: FibreLossModel
-      p_loss_init: 0.11
-      p_loss_length: 0.2
   - interswitch3: #name of link
       end1: switch3
       end2: switch4
@@ -141,71 +102,15 @@ links:
       photon_speed_fibre: 200e3
       classical_delay_model: FibreDelayModel
       qchannel_noise_model: FibreDepolGaussModel
-      qchannel_loss_model: FibreLossModel
-      p_loss_init: 0.8
-      p_loss_length: 0.2
   - interswitch4: #name of link
       end1: switch4
       end2: switch5
       distance: 7
       number_links: 4
       source_fidelity_sq: 1
-      source_delay: 38000
       photon_speed_fibre: 200e3
       classical_delay_model: FibreDelayModel
       qchannel_noise_model: FibreDepolGaussModel
-      qchannel_loss_model: FibreLossModel
-      p_loss_init: 0.05
-      p_loss_length: 0.3
-  - nodeswitch7: #name of link
-      end1: node7
-      end2: switch1
-      distance: 5
-      source_fidelity_sq: 1
-      source_delay: 38000
-      photon_speed_fibre: 200e3
-      classical_delay_model: FibreDelayModel
-      qchannel_noise_model: FibreDepolGaussModel
-      qchannel_loss_model: FibreLossModel
-      p_loss_init: 0.05
-      p_loss_length: 0.3
-  - nodeswitch8: #name of link
-      end1: node8
-      end2: switch1
-      distance: 5
-      source_fidelity_sq: 1
-      source_delay: 38000
-      photon_speed_fibre: 200e3
-      classical_delay_model: FibreDelayModel
-      qchannel_noise_model: FibreDepolGaussModel
-      qchannel_loss_model: FibreLossModel
-      p_loss_init: 0.05
-      p_loss_length: 0.3
-  - nodeswitch9: #name of link
-      end1: node9
-      end2: switch1
-      distance: 5
-      source_fidelity_sq: 1
-      source_delay: 38000
-      photon_speed_fibre: 200e3
-      classical_delay_model: FibreDelayModel
-      qchannel_noise_model: FibreDepolGaussModel
-      qchannel_loss_model: FibreLossModel
-      p_loss_init: 0.05
-      p_loss_length: 0.3
-  - nodeswitch10: #name of link
-      end1: node10
-      end2: switch1
-      distance: 5
-      source_fidelity_sq: 1
-      source_delay: 38000
-      photon_speed_fibre: 200e3
-      classical_delay_model: FibreDelayModel
-      qchannel_noise_model: FibreDepolGaussModel
-      qchannel_loss_model: FibreLossModel
-      p_loss_init: 0.05
-      p_loss_length: 0.3
-
 
 requests:
   - request1: #name of request
@@ -216,4 +121,4 @@ requests:
       #path_fidel_rounds: 100
       application: TeleportationWithDemand
       teleport: [[1,0],[0,1],[1,1]]
-      demand_rate: 5000
+      demand_rate: 1000
