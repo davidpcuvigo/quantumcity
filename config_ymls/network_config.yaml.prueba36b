@@ -10,7 +10,7 @@ nodes:
   - switch1: #name of switch
       type: switch
       num_memories: 34
-      gate_duration: 1000
+      gate_duration: 5000
       mem_noise_model: T1T2NoiseModel
       t1_mem_time: 1e7
       t2_mem_time: 1e7
@@ -46,42 +46,12 @@ nodes:
       type: endNode
       gate_duration: 1000
       teleport_queue_technology: Quantum
-      teleport_queue_size: 100
+      teleport_queue_size: 0
       teleport_strategy: Oldest
       mem_noise_model: T1T2NoiseModel
       t1_mem_time: 1e7
       t2_mem_time: 1e7
   - node2:
-      type: endNode
-      gate_duration: 1000
-      mem_noise_model: T1T2NoiseModel
-      t1_mem_time: 1e7
-      t2_mem_time: 1e7
-  - node3: #name of endNode
-      type: endNode
-      gate_duration: 1000
-      teleport_queue_technology: Quantum
-      teleport_queue_size: 100
-      teleport_strategy: Oldest
-      mem_noise_model: T1T2NoiseModel
-      t1_mem_time: 1e7
-      t2_mem_time: 1e7
-  - node4:
-      type: endNode
-      gate_duration: 1000
-      mem_noise_model: T1T2NoiseModel
-      t1_mem_time: 1e7
-      t2_mem_time: 1e7
-  - node5: #name of endNode
-      type: endNode
-      gate_duration: 1000
-      teleport_queue_technology: Quantum
-      teleport_queue_size: 100
-      teleport_strategy: Oldest
-      mem_noise_model: T1T2NoiseModel
-      t1_mem_time: 1e7
-      t2_mem_time: 1e7
-  - node6:
       type: endNode
       gate_duration: 1000
       mem_noise_model: T1T2NoiseModel
@@ -105,46 +75,11 @@ links:
       photon_speed_fibre: 200e3
       classical_delay_model: FibreDelayModel
       qchannel_noise_model: FibreDepolGaussModel
-  - nodeswitch3: #name of link
-      end1: node3
-      end2: switch2
-      distance: 5
-      source_fidelity_sq: 1
-      photon_speed_fibre: 200e3
-      classical_delay_model: FibreDelayModel
-      qchannel_noise_model: FibreDepolGaussModel
-      qchannel_loss_model: FibreLossModel
-      p_loss_init: 0.11
-      p_loss_length: 0.2
-  - nodeswitch4: #name of link
-      end1: node4
-      end2: switch3
-      distance: 5
-      source_fidelity_sq: 1
-      photon_speed_fibre: 200e3
-      classical_delay_model: FibreDelayModel
-      qchannel_noise_model: FibreDepolGaussModel
-  - nodeswitch5: #name of link
-      end1: node5
-      end2: switch1
-      distance: 1
-      source_fidelity_sq: 1
-      photon_speed_fibre: 200e3
-      classical_delay_model: FibreDelayModel
-      qchannel_noise_model: FibreDepolGaussModel
-  - nodeswitch6: #name of link
-      end1: node6
-      end2: switch3
-      distance: 1
-      source_fidelity_sq: 1
-      photon_speed_fibre: 200e3
-      classical_delay_model: FibreDelayModel
-      qchannel_noise_model: FibreDepolGaussModel
   - interswitch1: #name of link
       end1: switch1
       end2: switch2
       distance: 25
-      number_links: 8
+      number_links: 4
       source_fidelity_sq: 1
       photon_speed_fibre: 200e3
       classical_delay_model: FibreDelayModel
@@ -153,14 +88,30 @@ links:
       end1: switch2
       end2: switch3
       distance: 25
-      number_links: 8
+      number_links: 4
       source_fidelity_sq: 1
       photon_speed_fibre: 200e3
       classical_delay_model: FibreDelayModel
       qchannel_noise_model: FibreDepolGaussModel
-      qchannel_loss_model: FibreLossModel
-      p_loss_init: 0.11
-      p_loss_length: 0.2
+  - interswitch3: #name of link
+      end1: switch3
+      end2: switch4
+      distance: 14
+      number_links: 4
+      source_fidelity_sq: 1
+      photon_speed_fibre: 200e3
+      classical_delay_model: FibreDelayModel
+      qchannel_noise_model: FibreDepolGaussModel
+  - interswitch4: #name of link
+      end1: switch4
+      end2: switch5
+      distance: 1
+      number_links: 4
+      source_fidelity_sq: 1
+      photon_speed_fibre: 200e3
+      classical_delay_model: FibreDelayModel
+      qchannel_noise_model: FibreDepolGaussModel
+
 requests:
   - request1: #name of request
       origin: node1
@@ -170,22 +121,4 @@ requests:
       #path_fidel_rounds: 100
       application: TeleportationWithDemand
       teleport: [[1,0],[0,1],[1,1]]
-      demand_rate: 0
-  - request2: #name of request
-      origin: node3
-      destination: node4
-      minfidelity: 0.5
-      maxtime: 16000000000 # nanoseconds
-      #path_fidel_rounds: 100
-      application: TeleportationWithDemand
-      teleport: [[1,0],[0,1],[1,1]]
-      demand_rate: 0
-  - request3: #name of request
-      origin: node5
-      destination: node6
-      minfidelity: 0.5
-      maxtime: 16000000000 # nanoseconds
-      #path_fidel_rounds: 100
-      application: TeleportationWithDemand
-      teleport: [[1,0],[0,1],[1,1]]
-      demand_rate: 0
+      demand_rate: 500

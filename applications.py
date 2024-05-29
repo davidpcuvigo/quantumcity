@@ -238,7 +238,7 @@ class TeleportationApplication(GeneralApplication):
                         #We have a qubit ready for teleportation
                         waiting_state = False
 
-            #Transform ket representation into qubit
+            #Start time measurement
             start_time = sim_time()
 
             #If position is not being used, we can store the qubit
@@ -248,7 +248,7 @@ class TeleportationApplication(GeneralApplication):
  
                 #Request entanglement to RouteProtocol
                 self.send_signal(self._ent_request)
-
+                
                 #Wait for  entanglement to be generated on both ends
                 yield self.await_signal(self.subprotocols[f"RouteProtocol_{self._path['request']}"],Signals.SUCCESS)
 
