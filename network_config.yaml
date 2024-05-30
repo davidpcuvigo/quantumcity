@@ -163,7 +163,6 @@ links:
       end2: switch1
       distance: 0.25
       source_fidelity_sq: 1
-      source_delay: 38000
       photon_speed_fibre: 200e3
       classical_delay_model: FibreDelayModel
       qchannel_noise_model: FibreDepolGaussModel
@@ -172,34 +171,17 @@ links:
       p_loss_length: 0.3
   - nodeswitch2: #name of link
       end1: node2
-      end2: switch1
-      distance: 5
+      end2: switch3
+      distance: 1
       source_fidelity_sq: 1
-      source_delay: 38000
       photon_speed_fibre: 200e3
       classical_delay_model: FibreDelayModel
       qchannel_noise_model: FibreDepolGaussModel
-      qchannel_loss_model: FibreLossModel
-      p_loss_init: 0.11
-      p_loss_length: 0.2
   - nodeswitch3: #name of link
       end1: node3
-      end2: switch1
+      end2: switch2
       distance: 5
       source_fidelity_sq: 1
-      source_delay: 38000
-      photon_speed_fibre: 200e3
-      classical_delay_model: FibreDelayModel
-      qchannel_noise_model: FibreDepolGaussModel
-      qchannel_loss_model: FibreLossModel
-      p_loss_init: 0.05
-      p_loss_length: 0.3
-  - nodeswitch4: #name of link
-      end1: node4
-      end2: switch1
-      distance: 5
-      source_fidelity_sq: 1
-      source_delay: 38000
       photon_speed_fibre: 200e3
       classical_delay_model: FibreDelayModel
       qchannel_noise_model: FibreDepolGaussModel
@@ -233,33 +215,25 @@ links:
   - nodeswitch7: #name of link
       end1: node7
       end2: switch1
-      distance: 5
+      distance: 1
       source_fidelity_sq: 1
-      source_delay: 38000
       photon_speed_fibre: 200e3
       classical_delay_model: FibreDelayModel
       qchannel_noise_model: FibreDepolGaussModel
-      qchannel_loss_model: FibreLossModel
-      p_loss_init: 0.05
-      p_loss_length: 0.3
-  - nodeswitch8: #name of link
-      end1: node8
-      end2: switch1
-      distance: 5
+  - nodeswitch6: #name of link
+      end1: node6
+      end2: switch3
+      distance: 1
       source_fidelity_sq: 1
-      source_delay: 38000
       photon_speed_fibre: 200e3
       classical_delay_model: FibreDelayModel
       qchannel_noise_model: FibreDepolGaussModel
-      qchannel_loss_model: FibreLossModel
-      p_loss_init: 0.05
-      p_loss_length: 0.3
-  - nodeswitch9: #name of link
-      end1: node9
-      end2: switch1
-      distance: 5
+  - interswitch1: #name of link
+      end1: switch1
+      end2: switch2
+      distance: 25
+      number_links: 8
       source_fidelity_sq: 1
-      source_delay: 38000
       photon_speed_fibre: 200e3
       classical_delay_model: FibreDelayModel
       qchannel_noise_model: FibreDepolGaussModel
@@ -297,7 +271,6 @@ links:
       number_links: 5
       distance: 5
       source_fidelity_sq: 1
-      source_delay: 38000
       photon_speed_fibre: 200e3
       classical_delay_model: FibreDelayModel
       qchannel_noise_model: FibreDepolGaussModel

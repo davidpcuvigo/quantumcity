@@ -1,0 +1,124 @@
+#Simulation configuration file
+
+name: Red de pruebas
+link_fidel_rounds: 100 #Number of fidelity measures to estimate link fidelity
+path_fidel_rounds: 100 #Default number of measures to perform when estimating E2E path fidelity
+epr_pair: 'PHI_PLUS' #Allowed values are PHI_PLUS or PSI_PLUS
+simulation_duration: 100000000 #Duration of application simulation phase
+
+nodes:
+  - switch1: #name of switch
+      type: switch
+      num_memories: 34
+      gate_duration: 5000
+      mem_noise_model: T1T2NoiseModel
+      t1_mem_time: 1e7
+      t2_mem_time: 1e7
+  - switch2: #name of switch
+      type: switch
+      num_memories: 34
+      gate_duration: 1000
+      mem_noise_model: T1T2NoiseModel
+      t1_mem_time: 1e7
+      t2_mem_time: 1e7
+  - switch3: #name of switch
+      type: switch
+      num_memories: 34
+      gate_duration: 1000
+      mem_noise_model: T1T2NoiseModel
+      t1_mem_time: 1e7
+      t2_mem_time: 1e7
+  - switch4: #name of switch
+      type: switch
+      num_memories: 34
+      gate_duration: 1000
+      mem_noise_model: T1T2NoiseModel
+      t1_mem_time: 1e7
+      t2_mem_time: 1e7
+  - switch5: #name of switch
+      type: switch
+      num_memories: 34
+      gate_duration: 1000
+      mem_noise_model: T1T2NoiseModel
+      t1_mem_time: 1e7
+      t2_mem_time: 1e7
+  - node1: #name of endNode
+      type: endNode
+      gate_duration: 1000
+      teleport_queue_technology: Quantum
+      teleport_queue_size: 0
+      teleport_strategy: Newest
+      mem_noise_model: T1T2NoiseModel
+      t1_mem_time: 1e7
+      t2_mem_time: 1e7
+  - node2:
+      type: endNode
+      gate_duration: 1000
+      mem_noise_model: T1T2NoiseModel
+      t1_mem_time: 1e7
+      t2_mem_time: 1e7
+
+links:
+  - nodeswitch1: #name of link
+      end1: node1
+      end2: switch1
+      distance: 1
+      source_fidelity_sq: 1
+      photon_speed_fibre: 200e3
+      classical_delay_model: FibreDelayModel
+      qchannel_noise_model: FibreDepolGaussModel
+  - nodeswitch2: #name of link
+      end1: node2
+      end2: switch3
+      distance: 1
+      source_fidelity_sq: 1
+      photon_speed_fibre: 200e3
+      classical_delay_model: FibreDelayModel
+      qchannel_noise_model: FibreDepolGaussModel
+  - interswitch1: #name of link
+      end1: switch1
+      end2: switch2
+      distance: 25
+      number_links: 4
+      source_fidelity_sq: 1
+      photon_speed_fibre: 200e3
+      classical_delay_model: FibreDelayModel
+      qchannel_noise_model: FibreDepolGaussModel
+  - interswitch2: #name of link
+      end1: switch2
+      end2: switch3
+      distance: 25
+      number_links: 4
+      source_fidelity_sq: 1
+      photon_speed_fibre: 200e3
+      classical_delay_model: FibreDelayModel
+      qchannel_noise_model: FibreDepolGaussModel
+  - interswitch3: #name of link
+      end1: switch3
+      end2: switch4
+      distance: 14
+      number_links: 4
+      source_fidelity_sq: 1
+      photon_speed_fibre: 200e3
+      classical_delay_model: FibreDelayModel
+      qchannel_noise_model: FibreDepolGaussModel
+  - interswitch4: #name of link
+      end1: switch4
+      end2: switch5
+      distance: 1
+      number_links: 4
+      source_fidelity_sq: 1
+      photon_speed_fibre: 200e3
+      classical_delay_model: FibreDelayModel
+      qchannel_noise_model: FibreDepolGaussModel
+
+requests:
+  - request1: #name of request
+      origin: node1
+      destination: node2
+      minfidelity: 0.5
+      maxtime: 16000000000 # nanoseconds
+      #path_fidel_rounds: 100
+      application: TeleportationWithDemand
+      teleport: [[1,0],[0,1],[1,1]]
+      demand_rate: 3000
