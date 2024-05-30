@@ -1,3 +1,4 @@
+Aplicación,request,parámetro,valor,Generated entanglements,Mean fidel,Std fidel,Mean time,Std time,EPS
 Capacity,request1,links$switch_distance,0.0,570,1.0,0.0,1750257.754385965,1822545.1943323314,570.0
 Capacity,request1,links$switch_distance,0.7959183673469388,517,1.0,0.0,1923679.8535506495,2077789.2416250894,517.0
 Capacity,request1,links$switch_distance,1.5918367346938775,426,1.0,0.0,2342969.52213277,2654707.50665431,426.0

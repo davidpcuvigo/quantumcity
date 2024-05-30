@@ -4,73 +4,172 @@ name: Red de pruebas
 link_fidel_rounds: 100 #Number of fidelity measures to estimate link fidelity
 path_fidel_rounds: 100 #Default number of measures to perform when estimating E2E path fidelity
 epr_pair: 'PHI_PLUS' #Allowed values are PHI_PLUS or PSI_PLUS
-simulation_duration: 100000000 #Duration of application simulation phase
+simulation_duration: 1000000000 #Duration of application simulation phase
 
 nodes:
   - switch1: #name of switch
       type: switch
       num_memories: 34
-      gate_duration: 30000
+      gate_duration: 200
+      gate_duration_X: 200
+      gate_duration_Z: 200
+      gate_duration_CX: 2857
+      gate_duration_rotations: 2863
+      measurements_duration: 3700
       mem_noise_model: T1T2NoiseModel
-      t1_mem_time: 1e7
-      t2_mem_time: 1e7
+      t1_mem_time: 1e9
+      t2_mem_time: 13e6
+
   - switch2: #name of switch
       type: switch
       num_memories: 34
-      gate_duration: 30000
+      gate_duration: 200
+      gate_duration_X: 200
+      gate_duration_Z: 200
+      gate_duration_CX: 2857
+      gate_duration_rotations: 2863
+      measurements_duration: 3700
       mem_noise_model: T1T2NoiseModel
-      t1_mem_time: 1e7
-      t2_mem_time: 1e7
+      t1_mem_time: 1e9
+      t2_mem_time: 13e6
+
   - switch3: #name of switch
       type: switch
       num_memories: 34
-      gate_duration: 0
+      gate_duration: 200
+      gate_duration_X: 200
+      gate_duration_Z: 200
+      gate_duration_CX: 2857
+      gate_duration_rotations: 2863
+      measurements_duration: 3700
       mem_noise_model: T1T2NoiseModel
-      t1_mem_time: 1e7
-      t2_mem_time: 1e7
-  - switch4: #name of switch
-      type: switch
-      num_memories: 34
-      gate_duration: 0
-      mem_noise_model: T1T2NoiseModel
-      t1_mem_time: 1e7
-      t2_mem_time: 1e7
-  - switch5: #name of switch
-      type: switch
-      num_memories: 34
-      gate_duration: 0
-      mem_noise_model: T1T2NoiseModel
-      t1_mem_time: 1e7
-      t2_mem_time: 1e7
+      t1_mem_time: 1e9
+      t2_mem_time: 13e6
+
   - node1: #name of endNode
       type: endNode
-      gate_duration: 30000
-      teleport_queue_technology: Quantum
-      teleport_queue_size: 2000
-      teleport_strategy: Oldest
+      gate_duration: 200
+      gate_duration_X: 200
+      gate_duration_Z: 200
+      gate_duration_CX: 2857
+      gate_duration_rotations: 2863
+      measurements_duration: 3700
       mem_noise_model: T1T2NoiseModel
-      t1_mem_time: 1e7
-      t2_mem_time: 1e7
+      t1_mem_time: 1e9
+      t2_mem_time: 13e6
   - node2:
       type: endNode
-      gate_duration: 30000
+      gate_duration: 5
+      gate_duration_X: 5
+      gate_duration_Z: 5
+      gate_duration_CX: 500000
+      gate_duration_rotations: 20000 
+      measurements_duration: 3700
       mem_noise_model: T1T2NoiseModel
-      t1_mem_time: 1e7
-      t2_mem_time: 1e7
+      t1_mem_time: 36e12
+      t2_mem_time: 1e9
+  - node3: #name of endNode
+      type: endNode
+      gate_duration: 200
+      gate_duration_X: 200
+      gate_duration_Z: 200
+      gate_duration_CX: 2857
+      gate_duration_rotations: 2863
+      measurements_duration: 3700
+      mem_noise_model: T1T2NoiseModel
+      t1_mem_time: 1e9
+      t2_mem_time: 13e6
+  - node4: #name of endNode
+      type: endNode
+      gate_duration: 200
+      gate_duration_X: 200
+      gate_duration_Z: 200
+      gate_duration_CX: 2857
+      gate_duration_rotations: 2863
+      measurements_duration: 3700
+      mem_noise_model: T1T2NoiseModel
+      t1_mem_time: 1e9
+      t2_mem_time: 13e6
+  - node5: #name of endNode
+      type: endNode
+      gate_duration: 200
+      gate_duration_X: 200
+      gate_duration_Z: 200
+      gate_duration_CX: 2857
+      gate_duration_rotations: 2863
+      measurements_duration: 3700
+      mem_noise_model: T1T2NoiseModel
+      t1_mem_time: 1e9
+      t2_mem_time: 13e6
+  - node6: #name of endNode
+      type: endNode
+      gate_duration: 200
+      gate_duration_X: 200
+      gate_duration_Z: 200
+      gate_duration_CX: 2857
+      gate_duration_rotations: 2863
+      measurements_duration: 3700
+      mem_noise_model: T1T2NoiseModel
+      t1_mem_time: 1e9
+      t2_mem_time: 13e6
+  - node7: #name of endNode
+      type: endNode
+      gate_duration: 200
+      gate_duration_X: 200
+      gate_duration_Z: 200
+      gate_duration_CX: 2857
+      gate_duration_rotations: 2863
+      measurements_duration: 3700
+      mem_noise_model: T1T2NoiseModel
+      t1_mem_time: 1e9
+      t2_mem_time: 13e6
+  - node8: #name of endNode
+      type: endNode
+      gate_duration: 200
+      gate_duration_X: 200
+      gate_duration_Z: 200
+      gate_duration_CX: 2857
+      gate_duration_rotations: 2863
+      measurements_duration: 3700
+      mem_noise_model: T1T2NoiseModel
+      t1_mem_time: 1e9
+      t2_mem_time: 13e6
+  - node9: #name of endNode
+      type: endNode
+      gate_duration: 200
+      gate_duration_X: 200
+      gate_duration_Z: 200
+      gate_duration_CX: 2857
+      gate_duration_rotations: 2863
+      measurements_duration: 3700
+      mem_noise_model: T1T2NoiseModel
+      t1_mem_time: 1e9
+      t2_mem_time: 13e6
+  - node10: #name of endNode
+      type: endNode
+      gate_duration: 200
+      gate_duration_X: 200
+      gate_duration_Z: 200
+      gate_duration_CX: 2857
+      gate_duration_rotations: 2863
+      measurements_duration: 3700
+      mem_noise_model: T1T2NoiseModel
+      t1_mem_time: 1e9
+      t2_mem_time: 13e6
 
 links:
   - nodeswitch1: #name of link
       end1: node1
       end2: switch1
-      distance: 5
+      distance: 0.25
       source_fidelity_sq: 1
       source_delay: 38000
       photon_speed_fibre: 200e3
       classical_delay_model: FibreDelayModel
       qchannel_noise_model: FibreDepolGaussModel
       qchannel_loss_model: FibreLossModel
-      p_loss_init: 0.11
-      p_loss_length: 0.2
+      p_loss_init: 0.05
+      p_loss_length: 0.3
   - nodeswitch2: #name of link
       end1: node2
       end2: switch1
@@ -105,50 +204,24 @@ links:
       classical_delay_model: FibreDelayModel
       qchannel_noise_model: FibreDepolGaussModel
       qchannel_loss_model: FibreLossModel
-      p_loss_init: 0.11
-      p_loss_length: 0.2
-  - interswitch1: #name of link
-      end1: switch1
-      end2: switch2
-      distance: 7
-      number_links: 4
+      p_loss_init: 0.05
+      p_loss_length: 0.3
+  - nodeswitch5: #name of link
+      end1: node5
+      end2: switch1
+      distance: 5
       source_fidelity_sq: 1
       source_delay: 38000
       photon_speed_fibre: 200e3
       classical_delay_model: FibreDelayModel
       qchannel_noise_model: FibreDepolGaussModel
       qchannel_loss_model: FibreLossModel
-      p_loss_init: 0.11
-      p_loss_length: 0.2
-  - interswitch2: #name of link
-      end1: switch2
-      end2: switch3
-      distance: 7
-      number_links: 4
-      source_fidelity_sq: 1
-      photon_speed_fibre: 200e3
-      classical_delay_model: FibreDelayModel
-      qchannel_noise_model: FibreDepolGaussModel
-      qchannel_loss_model: FibreLossModel
-      p_loss_init: 0.11
-      p_loss_length: 0.2
-  - interswitch3: #name of link
-      end1: switch3
-      end2: switch4
-      distance: 7
-      number_links: 4
-      source_fidelity_sq: 1
-      photon_speed_fibre: 200e3
-      classical_delay_model: FibreDelayModel
-      qchannel_noise_model: FibreDepolGaussModel
-      qchannel_loss_model: FibreLossModel
-      p_loss_init: 0.8
-      p_loss_length: 0.2
-  - interswitch4: #name of link
-      end1: switch4
-      end2: switch5
-      distance: 7
-      number_links: 4
+      p_loss_init: 0.05
+      p_loss_length: 0.3
+  - nodeswitch6: #name of link
+      end1: node6
+      end2: switch1
+      distance: 5
       source_fidelity_sq: 1
       source_delay: 38000
       photon_speed_fibre: 200e3
@@ -195,7 +268,33 @@ links:
       p_loss_length: 0.3
   - nodeswitch10: #name of link
       end1: node10
-      end2: switch1
+      end2: switch3
+      distance: 0.25
+      source_fidelity_sq: 1
+      source_delay: 38000
+      photon_speed_fibre: 200e3
+      classical_delay_model: FibreDelayModel
+      qchannel_noise_model: FibreDepolGaussModel
+      qchannel_loss_model: FibreLossModel
+      p_loss_init: 0.05
+      p_loss_length: 0.3
+  - interswitch1: #name of link
+      end1: switch1
+      end2: switch2
+      number_links: 5
+      distance: 5
+      source_fidelity_sq: 1
+      source_delay: 38000
+      photon_speed_fibre: 200e3
+      classical_delay_model: FibreDelayModel
+      qchannel_noise_model: FibreDepolGaussModel
+      qchannel_loss_model: FibreLossModel
+      p_loss_init: 0.05
+      p_loss_length: 0.3
+  - interswitch3: #name of link
+      end1: switch1
+      end2: switch3
+      number_links: 5
       distance: 5
       source_fidelity_sq: 1
       source_delay: 38000
@@ -206,14 +305,14 @@ links:
       p_loss_init: 0.05
       p_loss_length: 0.3
 
-
 requests:
   - request1: #name of request
       origin: node1
-      destination: node2
-      minfidelity: 0.5
+      destination: node10
+      minfidelity: 0.0
       maxtime: 16000000000 # nanoseconds
-      #path_fidel_rounds: 100
-      application: TeleportationWithDemand
-      teleport: [[1,0],[0,1],[1,1]]
-      demand_rate: 5000
+      path_fidel_rounds: 100
+      application: Capacity
+
+
+

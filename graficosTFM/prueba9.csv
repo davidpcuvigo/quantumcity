@@ -1,3 +1,4 @@
+Aplicación,request,parámetro,valor,Generated entanglements,Win p,Std fidel,Mean time,Std time,EPS
 CHSH,request1,links$endNode_distance,1.0,1280,0.84921875,780404.00390625,421744.1306982523
 CHSH,request1,links$endNode_distance,1.7959183673469388,1174,0.8534923339011925,851547.7830893676,521992.9556217296
 CHSH,request1,links$endNode_distance,2.5918367346938775,1082,0.8438077634011091,923924.4428307265,601128.1220073818

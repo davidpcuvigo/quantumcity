@@ -1,3 +1,4 @@
+Aplicación,request,parámetro,valor,Generated entanglements,Win p,Std fidel,Mean time,Std time,EPS
 CHSH,request1,links$source_fidelity_sq,0.0,832,0.47836538461538464,1200127.7524038462,899421.6397106753
 CHSH,request1,links$source_fidelity_sq,0.010101010101010102,841,0.4982164090368609,1188869.2330558859,858771.275502396
 CHSH,request1,links$source_fidelity_sq,0.020202020202020204,856,0.5023364485981309,1167670.473130841,802574.1130145136
