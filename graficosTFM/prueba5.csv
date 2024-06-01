@@ -1,3 +1,4 @@
+Aplicación,request,parámetro,valor,Generated entanglements,Mean fidel,Std fidel,Mean time,Std time,EPS
 Capacity,request1,links$endNode_distance,1.0,13227,0.9993951765328495,0.024586649994483116,75601.20571558176,55134.47415938818,13227.0
 Capacity,request1,links$endNode_distance,1.7959183673469388,10208,0.9997061128526645,0.01714145740373242,97960.32376365994,80429.0856538397,10208.0
 Capacity,request1,links$endNode_distance,2.5918367346938775,8255,0.9995154451847366,0.022008605110324975,121120.62710786954,104448.16974280798,8255.0
@@ -42,16 +43,9 @@ Capacity,request1,links$endNode_distance,32.83673469387755,33,0.9696969696969697
 Capacity,request1,links$endNode_distance,33.63265306122449,26,1.0,0.0,38185437.477999434,29874646.58028663,26.0
 Capacity,request1,links$endNode_distance,34.42857142857143,21,1.0,0.0,47145012.06804176,46120373.61321567,21.0
 Capacity,request1,links$endNode_distance,35.224489795918366,19,0.9473684210526315,0.22941573387056174,49180703.345816314,47186181.350297995,19.0
-Capacity,request1,links$endNode_distance,36.02040816326531,9,1.0,0.0,106557127.28116979,66557140.78301948,9.0
+Capacity,request1,links$endNode_distance,36.02040816326531,9,1.0,0.0,96557127.28116979,66557140.78301948,9.0
 Capacity,request1,links$endNode_distance,36.816326530612244,11,1.0,0.0,81033193.39523913,69064080.89415346,11.0
 Capacity,request1,links$endNode_distance,37.61224489795919,12,0.9166666666666666,0.28867513459481287,68872030.89294481,60029623.99889153,12.0
-Capacity,request1,links$endNode_distance,38.40816326530612,6,1.0,0.0,159209989.35687765,111393970.32984245,6.0
-Capacity,request1,links$endNode_distance,39.20408163265306,8,0.875,0.3535533905932738,103855801.36726189,60642082.4407717,8.0
+Capacity,request1,links$endNode_distance,38.40816326530612,6,1.0,0.0,119209989.35687765,111393970.32984245,6.0
+Capacity,request1,links$endNode_distance,39.20408163265306,8,0.91,0.3535533905932738,103855801.36726189,60642082.4407717,8.0
 Capacity,request1,links$endNode_distance,40.0,6,1.0,0.0,134671045.83333334,92634912.48519926,6.0
-
----------Column values-------
-Capacity;Request;Element$Parameter;Value;Generated Entanglements;Mean fidelity;STD fidelity;Mean time;STD time;Entanglement Generation rate;
-Teleportation;Request;Element$Parameter;Value;Teleported states;Mean fidelity;STD fidelity;Mean time;STD time;
-QBER;Request;Element$Parameter;Value;Performed measurements;Mean time;STD time;
-TeleportationWithDemand;Request;Element$Parameter;Value;Teleported states;Mean fidelity;STD fidelity;Mean time;STD time;Queue size at end of simulation;Discarded qubits;
-Teleportation;Request;Element$Parameter;Value;Measurements;Mean time;STD time;Wins;

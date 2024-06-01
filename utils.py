@@ -660,12 +660,12 @@ def validate_conf(config):
                     raise ValueError(f"request {request_name}: missing property {prop}")
             
             #Check for valid applications
-            if request_props['application'] not in ['Capacity','QBER','Teleportation','TeleportationWithDemand','CHSH']:
+            if request_props['application'] not in ['Capacity','QBER','Teleportation','TeleportationWithDemand','CHSH','LogicalTeleportation']:
                 raise ValueError(f"request {request_name}: Unsupported application")
             
             #If TeleportApplication, teleport parameter must be specified
-            if request_props['application'] in ['Teleport','TeleportationWithDemand'] and 'teleport' not in request_props.keys():
-                raise ValueError(f"request {request_name}: If application is Teleport, states to teleport must be specified in teleport property")
+            if request_props['application'] in ['Teleport','TeleportationWithDemand','LogicalTeleportation'] and 'teleport' not in request_props.keys():
+                raise ValueError(f"request {request_name}: If application is Teleport type, states to teleport must be specified in teleport property")
             node_tx_memories
             #If TeleportWithDemand application, queue technology in origin node must be set
             if request_props['application'] == 'TeleportationWithDemand' and (
@@ -678,12 +678,22 @@ def validate_conf(config):
             if request_props['application'] =='QBER' and 'qber_states' not in request_props.keys():
                 raise ValueError(f"request {request_name}: If application is QBER, states to teleport must be specified in qber_states property")
             
-            #Of QBER, qber_stater must be [1,0] or [0,1]
+            #If QBER, qber_stater must be [1,0] or [0,1]
             if 'qber_states' in request_props.keys():
                 for state in request_props['qber_states']:
                     if state not in [[1,0],[0,1]]:
                         raise ValueError(f"request {request_name}: qber_states can only be 0's or 1's")
-                    
+            
+            #If application is LogicalTeleportation memory technology and size must be specified
+            if request_props['application'] == 'LogicalTeleportation':
+                if (node_tx_memories[request_props['origin']][0] == 'not_set' or
+                    node_tx_memories[request_props['origin']][1] == 'not_set' or 
+                    node_tx_memories[request_props['destination']][0] == 'not_set' or
+                    node_tx_memories[request_props['destination']][1] == 'not_set'):
+                        raise ValueError(f"request {request_name}: If application is LogicalTeleportation, you must specify memory options")
+                if len(request_props['teleport']) != 1:
+                    raise ValueError(f"request {request_name}: If application is LogicalTeleportation, only one qubit can be specified")
+               
 def check_parameter(element, parameter):
     '''
     This method verifies that a specified parameter to measure belongs to an element
