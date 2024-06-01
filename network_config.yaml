@@ -49,5 +49,5 @@ requests:
       maxtime: 16000000000 # nanoseconds
       path_fidel_rounds: 100
       teleport: [[1,1]] #Lista de (alpha, beta). alpha|0> + beta|1> Estados a teleportar
-      application: LogicalTeleportation
+      application: Teleportation
        

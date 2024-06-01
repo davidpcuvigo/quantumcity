@@ -232,6 +232,25 @@ def generate_report(report_info, simulation_data, simul_environ):
                             table.add_caption(f"CHSH results for different values of parameter {simul_environ['parameter']}")
                         else:
                             table.add_caption("CHSH results for the simulation")
+                elif data.iloc[0]['Application'] == 'LogicalTeleportation':
+                    if simul_environ['mode'] == 'E':
+                        with report.create(Figure(position='H')) as fig:
+                            image_file = os.path.join(os.path.dirname(__file__), f"./output/{request}-{data.iloc[0]['Application']}.png")
+                            fig.add_image(image_file,width='300px')
+                            fig.add_caption('Evolution for LogicalTeleportation Application')
+                    with report.create(Table(position='H')) as table:
+                        with table.create(Tabular('l|l|l|l|l|l')) as tabular:
+                            df = data.set_index('Value')[['Teleported States','Mean Fidelity','STD Fidelity','Mean Time','STD Time']]
+                            tabular.add_hline()
+                            tabular.add_row('Value','Teleported States','Mean Fidelity','STD Fidelity','Mean Time','STD Time')
+                            for index, row in df.iterrows():
+                                tabular.add_hline()
+                                tabular.add_row(index,row['Teleported States'],row['Mean Fidelity'],row['STD Fidelity'],
+                                                row['Mean Time'],row['STD Time'])
+                        if simul_environ['mode'] == 'F':
+                            table.add_caption(f"Logical Teleportation results for different values of parameter {simul_environ['parameter']}")
+                        else:
+                            table.add_caption("Logical Teleportation results for the simulation")
 
     report.generate_pdf('./output/report',clean_tex=False,silent=True)
     report.generate_tex()
@@ -906,6 +925,17 @@ def create_plot(data, request, app):
         axs[0].set_xlabel(val_name)
 
         axs[1].remove()
+        plt.gcf().set_size_inches(12, 6)
+    elif app == 'LogicalTeleportation':
+        fig, axs = plt.subplots(1,3,figsize=(20,20),constrained_layout=True)
+        fig.suptitle(request + ' - Teleportation', fontsize=14)
+
+        axs[0].plot(data['Value'],data['Teleported States'],marker='o',label='Number of teleported states')
+        axs[1].plot(data['Value'],data['Mean Fidelity'],marker='o',label='Mean fidelity')
+        axs[2].plot(data['Value'],data['Mean Time'],marker='o',label='Mean time (ns)')
+        for i in [0,1,2]:
+            axs[i].legend(loc='upper right')
+            axs[i].set_xlabel(val_name)
         plt.gcf().set_size_inches(12, 6)
 
     #save image for later inclusion in pdf reort

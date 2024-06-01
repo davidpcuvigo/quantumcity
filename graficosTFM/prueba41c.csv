@@ -1,4 +1,4 @@
-Teleportation;Request;Element$Parameter;Value;Teleported states;Mean fidelity;STD fidelity;Mean time;STD time;
+Teleportation,Request,Element$Parameter,Value,Teleported states,Mean fidelity,STD fidelity,Mean time,STD time
 Teleportation,request1,links$endNode_distance,1.0,66622,1.0,0.0,15010.0,0.0
 Teleportation,request1,links$endNode_distance,3.020408163265306,22067,1.0,0.0,45316.12244894026,3.3118305978732066e-08
 Teleportation,request1,links$endNode_distance,5.040816326530612,13223,1.0,0.0,75622.24489791872,7.659374396476751e-08
