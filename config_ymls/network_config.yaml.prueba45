@@ -46,8 +46,8 @@ links:
       qchannel_noise_model: FibreDepolGaussModel
   - nodeswitch2:
       end1: node2
-      end2: switch5
-      distance: 1
+      end2: switch3
+      distance: 59
       source_fidelity_sq: 1
       source_delay: 10000
       photon_speed_fibre: 200e3
@@ -57,7 +57,7 @@ links:
       end1: switch1
       end2: switch2
       number_links: 10
-      distance: 19.5
+      distance: 29
       source_fidelity_sq: 1
       source_delay: 10000
       photon_speed_fibre: 200e3
@@ -67,7 +67,7 @@ links:
       end1: switch2
       end2: switch3
       number_links: 10
-      distance: 19.5
+      distance: 29
       source_fidelity_sq: 1
       source_delay: 10000
       photon_speed_fibre: 200e3
@@ -77,7 +77,7 @@ links:
       end1: switch3
       end2: switch4
       number_links: 10
-      distance: 19.5
+      distance: 0
       source_fidelity_sq: 1
       source_delay: 10000
       photon_speed_fibre: 200e3
@@ -87,7 +87,7 @@ links:
       end1: switch4
       end2: switch5
       number_links: 10
-      distance: 19.5
+      distance: 0
       source_fidelity_sq: 1
       source_delay: 10000
       photon_speed_fibre: 200e3
