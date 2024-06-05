@@ -1,3 +1,4 @@
+Aplicación,request,parámetro,valor,Generated entanglements,Mean fidel,Std fidel,Mean time,Std time,EPS
 Capacity,request1,links$endNode_distance,1.0,12138,0.9993409128357226,0.025665288553929456,82367.9845032382,69220.47854332694,12138.0
 Capacity,request1,links$endNode_distance,1.7959183673469388,9119,0.9991227108235552,0.02960769614180861,109658.54006325472,99566.6656742785,9119.0
 Capacity,request1,links$endNode_distance,2.5918367346938775,7182,0.9987468671679198,0.03537989228694457,139236.7576810665,133461.94518632922,7182.0
@@ -248,10 +249,3 @@ Capacity,request5,links$endNode_distance,37.61224489795919,11,1.0,0.0,82040726.1
 Capacity,request5,links$endNode_distance,38.40816326530612,10,1.0,0.0,90066360.4792366,94522816.37136964,10.0
 Capacity,request5,links$endNode_distance,39.20408163265306,9,1.0,0.0,101097836.76463063,107922769.41333656,9.0
 Capacity,request5,links$endNode_distance,40.0,4,1.0,0.0,185480658.02499008,224716753.44612437,4.0
-
----------Column values-------
-Capacity;Request;Element$Parameter;Value;Generated Entanglements;Mean fidelity;STD fidelity;Mean time;STD time;Entanglement Generation rate;
-Teleportation;Request;Element$Parameter;Value;Teleported states;Mean fidelity;STD fidelity;Mean time;STD time;
-QBER;Request;Element$Parameter;Value;Performed measurements;Mean time;STD time;
-TeleportationWithDemand;Request;Element$Parameter;Value;Teleported states;Mean fidelity;STD fidelity;Mean time;STD time;Queue size at end of simulation;Discarded qubits;
-Teleportation;Request;Element$Parameter;Value;Measurements;Mean time;STD time;Wins;

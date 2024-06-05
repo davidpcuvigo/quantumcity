@@ -232,6 +232,25 @@ def generate_report(report_info, simulation_data, simul_environ):
                             table.add_caption(f"CHSH results for different values of parameter {simul_environ['parameter']}")
                         else:
                             table.add_caption("CHSH results for the simulation")
+                elif data.iloc[0]['Application'] == 'LogicalTeleportation':
+                    if simul_environ['mode'] == 'E':
+                        with report.create(Figure(position='H')) as fig:
+                            image_file = os.path.join(os.path.dirname(__file__), f"./output/{request}-{data.iloc[0]['Application']}.png")
+                            fig.add_image(image_file,width='300px')
+                            fig.add_caption('Evolution for LogicalTeleportation Application')
+                    with report.create(Table(position='H')) as table:
+                        with table.create(Tabular('l|l|l|l|l|l')) as tabular:
+                            df = data.set_index('Value')[['Teleported States','Mean Fidelity','STD Fidelity','Mean Time','STD Time']]
+                            tabular.add_hline()
+                            tabular.add_row('Value','Teleported States','Mean Fidelity','STD Fidelity','Mean Time','STD Time')
+                            for index, row in df.iterrows():
+                                tabular.add_hline()
+                                tabular.add_row(index,row['Teleported States'],row['Mean Fidelity'],row['STD Fidelity'],
+                                                row['Mean Time'],row['STD Time'])
+                        if simul_environ['mode'] == 'F':
+                            table.add_caption(f"Logical Teleportation results for different values of parameter {simul_environ['parameter']}")
+                        else:
+                            table.add_caption("Logical Teleportation results for the simulation")
 
     report.generate_pdf('./output/report',clean_tex=False,silent=True)
     report.generate_tex()
@@ -660,12 +679,12 @@ def validate_conf(config):
                     raise ValueError(f"request {request_name}: missing property {prop}")
             
             #Check for valid applications
-            if request_props['application'] not in ['Capacity','QBER','Teleportation','TeleportationWithDemand','CHSH']:
+            if request_props['application'] not in ['Capacity','QBER','Teleportation','TeleportationWithDemand','CHSH','LogicalTeleportation']:
                 raise ValueError(f"request {request_name}: Unsupported application")
             
             #If TeleportApplication, teleport parameter must be specified
-            if request_props['application'] in ['Teleport','TeleportationWithDemand'] and 'teleport' not in request_props.keys():
-                raise ValueError(f"request {request_name}: If application is Teleport, states to teleport must be specified in teleport property")
+            if request_props['application'] in ['Teleport','TeleportationWithDemand','LogicalTeleportation'] and 'teleport' not in request_props.keys():
+                raise ValueError(f"request {request_name}: If application is Teleport type, states to teleport must be specified in teleport property")
             node_tx_memories
             #If TeleportWithDemand application, queue technology in origin node must be set
             if request_props['application'] == 'TeleportationWithDemand' and (
@@ -678,12 +697,22 @@ def validate_conf(config):
             if request_props['application'] =='QBER' and 'qber_states' not in request_props.keys():
                 raise ValueError(f"request {request_name}: If application is QBER, states to teleport must be specified in qber_states property")
             
-            #Of QBER, qber_stater must be [1,0] or [0,1]
+            #If QBER, qber_stater must be [1,0] or [0,1]
             if 'qber_states' in request_props.keys():
                 for state in request_props['qber_states']:
                     if state not in [[1,0],[0,1]]:
                         raise ValueError(f"request {request_name}: qber_states can only be 0's or 1's")
-                    
+            
+            #If application is LogicalTeleportation memory technology and size must be specified
+            if request_props['application'] == 'LogicalTeleportation':
+                if (node_tx_memories[request_props['origin']][0] == 'not_set' or
+                    node_tx_memories[request_props['origin']][1] == 'not_set' or 
+                    node_tx_memories[request_props['destination']][0] == 'not_set' or
+                    node_tx_memories[request_props['destination']][1] == 'not_set'):
+                        raise ValueError(f"request {request_name}: If application is LogicalTeleportation, you must specify memory options")
+                if len(request_props['teleport']) != 1:
+                    raise ValueError(f"request {request_name}: If application is LogicalTeleportation, only one qubit can be specified")
+               
 def check_parameter(element, parameter):
     '''
     This method verifies that a specified parameter to measure belongs to an element
@@ -896,6 +925,17 @@ def create_plot(data, request, app):
         axs[0].set_xlabel(val_name)
 
         axs[1].remove()
+        plt.gcf().set_size_inches(12, 6)
+    elif app == 'LogicalTeleportation':
+        fig, axs = plt.subplots(1,3,figsize=(20,20),constrained_layout=True)
+        fig.suptitle(request + ' - Teleportation', fontsize=14)
+
+        axs[0].plot(data['Value'],data['Teleported States'],marker='o',label='Number of teleported states')
+        axs[1].plot(data['Value'],data['Mean Fidelity'],marker='o',label='Mean fidelity')
+        axs[2].plot(data['Value'],data['Mean Time'],marker='o',label='Mean time (ns)')
+        for i in [0,1,2]:
+            axs[i].legend(loc='upper right')
+            axs[i].set_xlabel(val_name)
         plt.gcf().set_size_inches(12, 6)
 
     #save image for later inclusion in pdf reort

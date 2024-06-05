@@ -125,6 +125,10 @@ for value in vals:
             app = TeleportationApplication(path, net, qubits, epr_pair, 'QBER', name = f"QBERApplication_{path['request']}")
         elif application == 'CHSH':
             app = CHSHApplication(path, net, name = f"CHSHApplication_{path['request']}")
+        elif application == 'LogicalTeleportation':
+            qubits = net.get_config('requests',path['request'],'teleport')
+            epr_pair = net.get_config('epr_pair','epr_pair')
+            app = TeleportationApplication(path, net, qubits, epr_pair, 'LogicalTeleportation', name = f"LogicalTeleportationApplication_{path['request']}")
         else:
             raise ValueError('Unsupported application')
 
@@ -205,6 +209,17 @@ for value in vals:
                             'Mean Time': 0 if len(detail[1].dataframe) == 0 else detail[1].dataframe['time'].mean(),
                             'STD Time': 0 if len(detail[1].dataframe) == 0 else detail[1].dataframe['time'].std(),
                             }
+        elif detail[0] == 'LogicalTeleportation':
+            sim_result = {'Application':detail[0],
+                          'Request': key,
+                            'Parameter': element + '$' + prop, 
+                            'Value': value,
+                            'Teleported States': len(detail[1].dataframe),
+                            'Mean Fidelity': 0 if len(detail[1].dataframe) == 0 else detail[1].dataframe['Fidelity'].mean(),
+                            'STD Fidelity': 0 if len(detail[1].dataframe) == 0 else detail[1].dataframe['Fidelity'].std(),
+                            'Mean Time': 0 if len(detail[1].dataframe) == 0 else detail[1].dataframe['time'].mean(),
+                            'STD Time': 0 if len(detail[1].dataframe) == 0 else detail[1].dataframe['time'].std()
+                            }
         else:
             raise ValueError('Unsupported application')
 
@@ -263,6 +278,12 @@ for key,value in simulation_data.items():
         print(f"         Mean time: {value['Mean Time'].tolist()} nanoseconds")
         print(f"         STD time: {value['STD Time'].tolist()} nanoseconds")
         print(f"Wins: {value['Wins'].tolist()}")
+    elif value.iloc[0]['Application'] == 'LogicalTeleportation':
+        print(f"         Logical Teleported states: {value['Teleported States'].tolist()}")
+        print(f"         Mean fidelity: {value['Mean Fidelity'].tolist()}")
+        print(f"         STD fidelity: {value['STD Fidelity'].tolist()}")
+        print(f"         Mean time: {value['Mean Time'].tolist()} nanoseconds")
+        print(f"         STD time: {value['STD Time'].tolist()} nanoseconds")
     print()
     #If evolution, plot graphs
     if mode == 'E': create_plot(value,key,value.iloc[0]['Application'])

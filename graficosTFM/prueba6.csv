@@ -1,3 +1,4 @@
+Aplicación,request,parámetro,valor,Generated entanglements,Mean fidel,Std fidel,Mean time,Std time,EPS
 Capacity,request1,links$endNode_distance,1.0,12555,0.9992035045798486,0.028212132323023092,79642.05295102469,62408.32505314487,12555.0
 Capacity,request1,links$endNode_distance,1.7959183673469388,9696,0.9992780528052805,0.026860759466876334,103133.99758704937,88864.97792575129,9696.0
 Capacity,request1,links$endNode_distance,2.5918367346938775,7787,0.9982021317580583,0.04236586369900723,128412.7567562942,114867.02392047046,7787.0
@@ -45,7 +46,7 @@ Capacity,request1,links$endNode_distance,35.224489795918366,18,0.944444444444444
 Capacity,request1,links$endNode_distance,36.02040816326531,17,0.9411764705882353,0.242535625036333,58692295.80288248,56076101.94751039,17.0
 Capacity,request1,links$endNode_distance,36.816326530612244,15,1.0,0.0,56549954.59654745,49943702.12681801,15.0
 Capacity,request1,links$endNode_distance,37.61224489795919,11,1.0,0.0,56165898.299123935,46768629.55942753,11.0
-Capacity,request1,links$endNode_distance,38.40816326530612,11,1.0,0.0,75337363.53420085,56908603.87338621,11.0
+Capacity,request1,links$endNode_distance,38.40816326530612,11,1.0,0.0,85337363.53420085,56908603.87338621,11.0
 Capacity,request1,links$endNode_distance,39.20408163265306,8,1.0,0.0,119818426.15287209,89031200.34462747,8.0
 Capacity,request1,links$endNode_distance,40.0,6,1.0,0.0,137188096.0,259345470.62472937,6.0
 Capacity,request2,links$endNode_distance,1.0,12694,0.9996848904994485,0.01774922601654466,78774.4310698071,62436.71743052226,12694.0
@@ -95,7 +96,7 @@ Capacity,request2,links$endNode_distance,35.224489795918366,15,1.0,0.0,64640807.
 Capacity,request2,links$endNode_distance,36.02040816326531,14,1.0,0.0,68641259.31267193,56037206.32426412,14.0
 Capacity,request2,links$endNode_distance,36.816326530612244,13,1.0,0.0,74369829.30006672,60585086.93904952,13.0
 Capacity,request2,links$endNode_distance,37.61224489795919,15,1.0,0.0,62529245.70324936,62469142.04499225,15.0
-Capacity,request2,links$endNode_distance,38.40816326530612,18,1.0,0.0,50862373.18166627,46086175.12103156,18.0
+Capacity,request2,links$endNode_distance,38.40816326530612,18,1.0,0.0,80862373.18166627,46086175.12103156,18.0
 Capacity,request2,links$endNode_distance,39.20408163265306,10,1.0,0.0,92284322.4230957,78087621.11195807,10.0
 Capacity,request2,links$endNode_distance,40.0,4,1.0,0.0,249251220.75,381698694.1448561,4.0
 Capacity,request3,links$endNode_distance,1.0,12513,0.9995204986813714,0.02189314280895019,79915.68827620137,63050.59207054481,12513.0
@@ -144,14 +145,7 @@ Capacity,request3,links$endNode_distance,34.42857142857143,18,1.0,0.0,52606048.6
 Capacity,request3,links$endNode_distance,35.224489795918366,12,0.9166666666666666,0.28867513459481287,70906007.36128871,35354762.80232917,12.0
 Capacity,request3,links$endNode_distance,36.02040816326531,15,0.9333333333333333,0.25819888974716115,57316439.23969015,47589550.87286177,15.0
 Capacity,request3,links$endNode_distance,36.816326530612244,10,1.0,0.0,92379050.01601715,121610512.76944053,10.0
-Capacity,request3,links$endNode_distance,37.61224489795919,4,1.0,0.0,229588080.2290287,187565419.17424464,4.0
+Capacity,request3,links$endNode_distance,37.61224489795919,4,1.0,0.0,129588080.2290287,187565419.17424464,4.0
 Capacity,request3,links$endNode_distance,38.40816326530612,12,1.0,0.0,77935348.79239146,73327182.76176968,12.0
 Capacity,request3,links$endNode_distance,39.20408163265306,12,1.0,0.0,77759623.39781825,60037116.44680281,12.0
 Capacity,request3,links$endNode_distance,40.0,9,0.8888888888888888,0.33333333333333337,61904421.01108975,68703255.33514726,9.0
-
----------Column values-------
-Capacity;Request;Element$Parameter;Value;Generated Entanglements;Mean fidelity;STD fidelity;Mean time;STD time;Entanglement Generation rate;
-Teleportation;Request;Element$Parameter;Value;Teleported states;Mean fidelity;STD fidelity;Mean time;STD time;
-QBER;Request;Element$Parameter;Value;Performed measurements;Mean time;STD time;
-TeleportationWithDemand;Request;Element$Parameter;Value;Teleported states;Mean fidelity;STD fidelity;Mean time;STD time;Queue size at end of simulation;Discarded qubits;
-Teleportation;Request;Element$Parameter;Value;Measurements;Mean time;STD time;Wins;

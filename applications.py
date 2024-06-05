@@ -3,12 +3,13 @@ from netsquid.protocols import LocalProtocol, NodeProtocol, Signals
 from netsquid.components.component import Message
 from icecream import ic
 import numpy as np
+
 from netsquid.util.simtools import sim_time
 from netsquid.qubits import qubitapi as qapi, create_qubits, assign_qstate
 from netsquid.qubits import ketstates as ks
 from protocols import RouteProtocol
 from netsquid.qubits import set_qstate_formalism, QFormalism
-from netsquid.components.instructions import INSTR_MEASURE_BELL
+from netsquid.components.instructions import INSTR_MEASURE_BELL, INSTR_CNOT, INSTR_CCX, INSTR_H
 from netsquid.components import QuantumProgram
 from protocols import SwapCorrectProgram
 from network import ClassicalConnection
@@ -176,6 +177,11 @@ class TeleportationApplication(GeneralApplication):
         return
     
     def run(self):
+        if self._app == 'LogicalTeleportation': #Shor coding/uncoding
+            codingprogram = ShorCodingProgram()
+            decodingprogram = ShorDecodingProgram()
+            coded_qubit = False #Initially no logical qubit available
+            
         self.start_subprotocols()
 
         #Though in this simulations positions in nodes are always 0, we query in case this is changed in the future
@@ -237,7 +243,36 @@ class TeleportationApplication(GeneralApplication):
                     else:
                         #We have a qubit ready for teleportation
                         waiting_state = False
+                        
+            elif self._app == 'LogicalTeleportation':
+                if not coded_qubit:
+                    #Build state
+                    alpha = complex(self._qubits[tx_qubit][0])
+                    beta = complex(self._qubits[tx_qubit][1])
+                    norm = cmath.sqrt(np.conjugate(alpha)*alpha + np.conjugate(beta)*beta)
+                    state = np.array([[alpha], [beta]], dtype=complex)/norm
+                    logical_qubit_pos = 1
+                    coded_qubit = True
 
+                    #Build qubit from state and assign it to memory position 4
+                    trans_qubit = create_qubits(9)
+                    #Only 0 state is supported for this simulation
+                    assign_qstate(trans_qubit[0], state)
+                    first_node.qmemory.put(trans_qubit, [4,5,6,7,8,9,10,11,12], replace = True)
+                    
+                    #Code physical qubit into logical
+                    yield first_node.qmemory.execute_program(codingprogram, qubit_mapping=[4,5,6,7,8,9,10,11,12])
+                    
+                    #Get first qubit to be transmitted
+                    qubit = first_node.qmemory.peek(logical_qubit_pos+3, skip_noise=False)
+                    
+                    #Set start of logical teleportation
+                    logical_start_time = sim_time()
+                else:
+                    #get next coded qubit that must be transmitted
+                    logical_qubit_pos += 1
+                    qubit = first_node.qmemory.peek(logical_qubit_pos+3, skip_noise=False)
+                    
             #Start time measurement
             start_time = sim_time()
 
@@ -251,11 +286,11 @@ class TeleportationApplication(GeneralApplication):
                 
                 #Wait for  entanglement to be generated on both ends
                 yield self.await_signal(self.subprotocols[f"RouteProtocol_{self._path['request']}"],Signals.SUCCESS)
-
+                
                 #Measure in Bell basis positions 0 and 2
                 yield first_node.qmemory.execute_program(self._program, qubit_mapping=[mem_posTeleport,mem_posA_1])
                 m, = self._program.output["m"]
-
+                
                 # Send result to right node on end
                 first_node.ports[f"ccon_R_{self._path['nodes'][0]}_{self._path['request']}_teleport"].tx_output(Message(m))
 
@@ -300,6 +335,33 @@ class TeleportationApplication(GeneralApplication):
                         'error': error,
                         'time': sim_time() - start_time
                     }
+                    
+                elif self._app == 'LogicalTeleportation':
+                    if logical_qubit_pos == 9:
+                        #Get last teleported qubit
+                        last_node.qmemory.put(result_qubit, logical_qubit_pos+3, replace = True)
+                        
+                        #Apply decoding circuit
+                        yield last_node.qmemory.execute_program(decodingprogram, qubit_mapping=[4,5,6,7,8,9,10,11,12])
+                        
+                        #Get qubit in position 4, whith decoded state
+                        result_qubit, = last_node.qmemory.pop(4)
+                        
+                        #Measure fidelity with respect to original state
+                        fid = qapi.fidelity(result_qubit, state, squared = True)
+                        qapi.discard(result_qubit)
+                        result = {
+                            'posA': mem_posA_1,
+                            'posB': mem_posB_1,
+                            'Fidelity': fid,
+                            'time': sim_time() - logical_start_time
+                        }
+                        #Prepare for next logical qubit
+                        coded_qubit = False
+                    else: #Nothing to do, must teleport next physical qubit
+                        #get qubit in position 0 an move it to memory position for decoding
+                        last_node.qmemory.put(result_qubit, logical_qubit_pos+3, replace = True)
+                        continue #do not execute send_signal to datacollector yet
 
                 #send result to datacollector
                 self.send_signal(Signals.SUCCESS, result) 
@@ -484,3 +546,51 @@ class CHSHApplication(GeneralApplication):
 
             #send result to datacollector
             self.send_signal(Signals.SUCCESS, result)
+            
+class ShorCodingProgram(QuantumProgram):
+    '''
+    This program take the qubit and codes it into Shor code, using 9 qubits
+    '''
+    default_num_qubits = 9
+    
+    def program(self):
+        
+        q1, q2, q3, q4, q5, q6, q7, q8, q9 = self.get_qubit_indices(9)
+        self.apply(INSTR_CNOT, [q1,q4])
+        self.apply(INSTR_CNOT, [q1,q7])
+        self.apply(INSTR_H, q1)
+        self.apply(INSTR_H, q4)
+        self.apply(INSTR_H, q7)
+        self.apply(INSTR_CNOT, [q1,q2])
+        self.apply(INSTR_CNOT, [q4,q5])
+        self.apply(INSTR_CNOT, [q7,q8])
+        self.apply(INSTR_CNOT, [q1,q3])
+        self.apply(INSTR_CNOT, [q4,q6])
+        self.apply(INSTR_CNOT, [q7,q9])
+        yield self.run()
+    
+class ShorDecodingProgram(QuantumProgram):
+    '''
+    This program take the 9 qubits and decodes into original qubit
+    '''
+    default_num_quits = 9
+    
+    def program(self):
+        q1, q2, q3, q4, q5, q6, q7, q8, q9 = self.get_qubit_indices(9)
+        
+        self.apply(INSTR_CNOT, [q1,q2])
+        self.apply(INSTR_CNOT, [q4,q5])
+        self.apply(INSTR_CNOT, [q7,q8])
+        self.apply(INSTR_CNOT, [q1,q3])
+        self.apply(INSTR_CNOT, [q4,q6])
+        self.apply(INSTR_CNOT, [q7,q9])
+        self.apply(INSTR_CCX, [q2,q3,q1])
+        self.apply(INSTR_CCX, [q5,q6,q4])
+        self.apply(INSTR_CCX, [q9,q8,q7])
+        self.apply(INSTR_H, q1)
+        self.apply(INSTR_H, q4)
+        self.apply(INSTR_H, q7)
+        self.apply(INSTR_CNOT, [q1,q4])
+        self.apply(INSTR_CNOT, [q1,q7])
+        self.apply(INSTR_CCX, [q7,q4,q1])
+        yield self.run()

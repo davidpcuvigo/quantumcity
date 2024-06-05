@@ -1,7 +1,6 @@
 import numpy as np
 from icecream import ic
 from random import uniform, gauss
-
 from netsquid.qubits import ketstates as ks
 from netsquid.components import Message, QuantumProcessor, QuantumProgram, PhysicalInstruction, ClassicalChannel
 from netsquid.components.models.qerrormodels import DepolarNoiseModel, DephaseNoiseModel, QuantumErrorModel
@@ -83,8 +82,9 @@ class RouteProtocol(LocalProtocol):
             #If protocol is being instanced with purification from the beggining we need to add second link protocols
             self._init_second_link_protocols('distil')
 
-        # calculate total distance and delay, in order to set timer to detect lost quit
+        # calculate total distance and delay, in order to set timer to detect lost qubit
         self._total_delay = 0
+        max_source_delay = 0
         for comm in path['comms']:
             link_name = comm['links'][0].split('-')[0]
             #Add time corresponding to transmission
@@ -94,14 +94,18 @@ class RouteProtocol(LocalProtocol):
             #Add time corresponding to qsource emission
             emission_delay = float(networkmanager.get_config('links',link_name,'source_delay')) \
                 if networkmanager.get_config('links',link_name,'source_delay') != 'NOT_FOUND' else 0
-            self._total_delay += emission_delay
-            
+            if emission_delay > max_source_delay:
+                max_source_delay = emission_delay
+        self._total_delay += max_source_delay
+        
         #We need to add some nanoseconds to timer, to discard false timeout positives
         # when tomeout and correct transmission matches. If distances are short we 
         # can receive a lost qubit signal when it is not correct
         self._total_delay += 100
         
-        #We should add time corresponging to BEll measurements in switches and x/Z in end node
+        #We should add time corresponging to Bell measurements in switches and X/Z in end node
+        max_swap_time = 0
+        correction_time = 0
         for node in path['nodes'][1:]:
             if networkmanager.get_config('nodes',node,'type') == 'switch':
                 gate_duration = networkmanager.get_config('nodes',node,'gate_duration') \
@@ -110,18 +114,22 @@ class RouteProtocol(LocalProtocol):
                     if networkmanager.get_config('nodes',node,'gate_duration_CX') != 'NOT_FOUND' else gate_duration
                 measurements_duration = networkmanager.get_config('nodes',node,'measurements_duration') \
                     if networkmanager.get_config('nodes',node,'measurements_duration') != 'NOT_FOUND' else gate_duration
-                self._total_delay += gate_duration + gate_duration_CX + measurements_duration
+                if gate_duration + gate_duration_CX + measurements_duration > max_swap_time:
+                    max_swap_time = gate_duration + gate_duration_CX + measurements_duration
             else:
                 num_switches = len(path['nodes']) - 2
                 gate_duration = networkmanager.get_config('nodes',node,'gate_duration') \
                     if networkmanager.get_config('nodes',node,'gate_duration') != 'NOT_FOUND' else 0
                 #Worse case: X and Z corrections to apply
-                self._total_delay += 2 * gate_duration 
-            
+                correction_time = 2 * gate_duration
+                
+        self._total_delay += max_swap_time + correction_time 
+ 
         #When several requests are processed, we should also add time related to Bell measurements for those requests
         if phase == 'application':
-            self._total_delay += (len(networkmanager.get_paths()) -1) * (gate_duration + gate_duration_CX + measurements_duration)
-    
+            #Add 3% as margin for possible delays
+            self._total_delay += (len(networkmanager.get_paths()) -1) * (gate_duration + gate_duration_CX + measurements_duration) *1.03
+
     def signal_sources(self,index=[1]):
         '''
         Signals all sources in the path in order to generate EPR
@@ -217,12 +225,12 @@ class RouteProtocol(LocalProtocol):
                     self.signal_sources(index=[1])
 
                     timer_event = self._schedule_after(self._total_delay, evtypetimer)
-                    #ic(f"{self.name} {self._total_delay}")
 
                     evexpr_protocol = (self.await_port_input(self._portleft_1)) & \
                         (self.await_signal(self.subprotocols[f"CorrectProtocol_{self._path['request']}_1"], Signals.SUCCESS))
                     #if timer is triggered, qubit has been lost in a link. Else entanglement
                     # swapping has succeeded
+
                     evexpr = yield evexpr_timer | evexpr_protocol
                     
                     if evexpr.second_term.value: #swapping ok
@@ -251,7 +259,6 @@ class RouteProtocol(LocalProtocol):
                                     self.await_signal(self.subprotocols[f"CorrectProtocol_{self._path['request']}_2"], Signals.SUCCESS))
 
                                 timer_event = self._schedule_after(self._total_delay, evtypetimer)
-                                #ic(f"{self.name} {self._total_delay}")
 
                             else: #we keep the qubit in the first link and trigger EPRs in the second
                                 #trigger all sources in the path
@@ -262,7 +269,6 @@ class RouteProtocol(LocalProtocol):
                                     self.await_signal(self.subprotocols[f"CorrectProtocol_{self._path['request']}_2"], Signals.SUCCESS))
 
                                 timer_event = self._schedule_after(self._total_delay, evtypetimer)
-                                #ic(f"{self.name} {self._total_delay}")
 
                             #Wait for qubits in both links and corrections in both or timer is over
                             evexpr_proto = yield evexpr_timer | evexpr_protocol
@@ -351,9 +357,9 @@ class SwapProtocol(NodeProtocol):
             if inst.duration > max_duration:
                 max_duration = inst.duration
         timer_duration = max_duration*0.1 if max_duration > 1000 else 100
-        
+
         while True:
-            
+                    
             yield (self.await_port_input(self._qmem_input_port_l) &
                    self.await_port_input(self._qmem_input_port_r))
 
@@ -363,6 +369,7 @@ class SwapProtocol(NodeProtocol):
             #More than two requests can arrive at the same time to qprocessor
             not_serviced = True
             while not_serviced:
+                
                 if self.name == self.node.get_request('first'): #First in queue, can be serviced   
 
                     #Check for future removal. We manage qprocessor with FIFO queue
@@ -376,7 +383,6 @@ class SwapProtocol(NodeProtocol):
                     not_serviced = False
                 else: #Must wait for other to complete
                     yield self.await_timer(duration=timer_duration) #Nothing to do, just wait
-
 
             m, = self._program.output["m"]
             # Send result to right node on end
