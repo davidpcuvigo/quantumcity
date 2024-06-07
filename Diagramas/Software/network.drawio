@@ -1,0 +1,37 @@
+<mxfile host="Electron" modified="2024-06-07T14:37:54.822Z" agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/24.4.13 Chrome/124.0.6367.207 Electron/30.0.6 Safari/537.36" etag="oJ7QaPN0ma7mHhoejd-P" version="24.4.13" type="device">
+  <diagram name="Página-1" id="BFWpW8ed2js9RLZM_n8J">
+    <mxGraphModel dx="954" dy="613" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="BpFvu23jViUPZzOstbcE-2" value="network.py" style="shape=umlFrame;whiteSpace=wrap;html=1;pointerEvents=0;width=70;height=30;" vertex="1" parent="1">
+          <mxGeometry x="330" y="190" width="410" height="210" as="geometry" />
+        </mxCell>
+        <mxCell id="BpFvu23jViUPZzOstbcE-3" value="&lt;p style=&quot;margin:0px;margin-top:4px;text-align:center;&quot;&gt;&lt;b&gt;Switch&lt;/b&gt;&lt;/p&gt;" style="verticalAlign=top;align=left;overflow=fill;html=1;whiteSpace=wrap;" vertex="1" parent="1">
+          <mxGeometry x="350" y="240" width="100" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="BpFvu23jViUPZzOstbcE-4" value="&lt;p style=&quot;margin:0px;margin-top:4px;text-align:center;&quot;&gt;&lt;b&gt;EndNode&lt;/b&gt;&lt;/p&gt;" style="verticalAlign=top;align=left;overflow=fill;html=1;whiteSpace=wrap;" vertex="1" parent="1">
+          <mxGeometry x="485" y="240" width="100" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="BpFvu23jViUPZzOstbcE-5" value="&lt;p style=&quot;margin:0px;margin-top:4px;text-align:center;&quot;&gt;&lt;b&gt;NetworkManager&lt;/b&gt;&lt;/p&gt;" style="verticalAlign=top;align=left;overflow=fill;html=1;whiteSpace=wrap;" vertex="1" parent="1">
+          <mxGeometry x="610" y="240" width="110" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="BpFvu23jViUPZzOstbcE-6" value="&lt;p style=&quot;margin:0px;margin-top:4px;text-align:center;&quot;&gt;&lt;b&gt;Quantum Channel&lt;/b&gt;&lt;/p&gt;" style="verticalAlign=top;align=left;overflow=fill;html=1;whiteSpace=wrap;" vertex="1" parent="1">
+          <mxGeometry x="350" y="300" width="100" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="BpFvu23jViUPZzOstbcE-7" value="&lt;p style=&quot;margin:0px;margin-top:4px;text-align:center;&quot;&gt;&lt;b&gt;Classical Channel&lt;/b&gt;&lt;/p&gt;" style="verticalAlign=top;align=left;overflow=fill;html=1;whiteSpace=wrap;" vertex="1" parent="1">
+          <mxGeometry x="490" y="300" width="100" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="BpFvu23jViUPZzOstbcE-9" value="&lt;p style=&quot;margin:0px;margin-top:4px;text-align:center;&quot;&gt;&lt;b&gt;QSource&lt;/b&gt;&lt;/p&gt;" style="verticalAlign=top;align=left;overflow=fill;html=1;whiteSpace=wrap;" vertex="1" parent="1">
+          <mxGeometry x="620" y="300" width="90" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="BpFvu23jViUPZzOstbcE-10" value="&lt;p style=&quot;margin:0px;margin-top:4px;text-align:center;&quot;&gt;&lt;b&gt;Quantum Processor&lt;/b&gt;&lt;/p&gt;" style="verticalAlign=top;align=left;overflow=fill;html=1;whiteSpace=wrap;" vertex="1" parent="1">
+          <mxGeometry x="570" y="350" width="90" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="BpFvu23jViUPZzOstbcE-12" value="&lt;p style=&quot;margin:0px;margin-top:4px;text-align:center;&quot;&gt;&lt;b&gt;FibreDepolGaussModel&lt;/b&gt;&lt;/p&gt;" style="verticalAlign=top;align=left;overflow=fill;html=1;whiteSpace=wrap;" vertex="1" parent="1">
+          <mxGeometry x="370" y="350" width="140" height="30" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
