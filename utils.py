@@ -693,6 +693,11 @@ def validate_conf(config):
                 node_tx_memories[request_props['origin']][2] == 'not_set' 
             ):
                 raise ValueError(f"request {request_name}: If application is TeleportationWithDemand, you must specify queue memory options")
+            
+            #If application it TeleportationWithDemand demand_rate must be specified
+            if request_props['application'] == 'TeleportationWithDemand' and 'demand_rate' not in request_props.keys():
+                raise ValueError(f"request {request_name}: If application is TeleportationWithDemand, demand_rate must be specified")
+            
             #If QBER, qber_states parameter must be specified
             if request_props['application'] =='QBER' and 'qber_states' not in request_props.keys():
                 raise ValueError(f"request {request_name}: If application is QBER, states to teleport must be specified in qber_states property")

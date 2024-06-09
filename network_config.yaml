@@ -18,11 +18,17 @@ nodes:
       gate_duration: 30000
       gate_noise_model: DephaseNoiseModel
       dephase_gate_rate: 0
+      teleport_queue_size: 9
+      teleport_queue_technology: Quantum
+      teleport_strategy: Oldest
   - node2:
       type: endNode
       gate_duration: 30000
       gate_noise_model: DephaseNoiseModel
       dephase_gate_rate: 0
+      teleport_queue_size: 9
+      teleport_queue_technology: Quantum
+      teleport_strategy: Oldest
 
 links:
   - nodeswitch1: #name of link
@@ -47,4 +53,7 @@ requests:
       minfidelity: 0.0
       maxtime: 16000000000 # nanoseconds
       #path_fidel_rounds: 100
-      application: Capacity
+      application: CHSH
+      teleport: [[1,0]]
+      demand_rate: 1000
+      qber_states: [[1,0]]
