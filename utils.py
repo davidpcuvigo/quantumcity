@@ -712,8 +712,10 @@ def validate_conf(config):
             if request_props['application'] == 'LogicalTeleportation':
                 if (node_tx_memories[request_props['origin']][0] == 'not_set' or
                     node_tx_memories[request_props['origin']][1] == 'not_set' or 
+                    node_tx_memories[request_props['origin']][1] != 'Quantum' or
                     node_tx_memories[request_props['destination']][0] == 'not_set' or
-                    node_tx_memories[request_props['destination']][1] == 'not_set'):
+                    node_tx_memories[request_props['destination']][1] == 'not_set' or
+                    node_tx_memories[request_props['destination']][1] != 'Quantum'):
                         raise ValueError(f"request {request_name}: If application is LogicalTeleportation, you must specify memory options")
                 if len(request_props['teleport']) != 1:
                     raise ValueError(f"request {request_name}: If application is LogicalTeleportation, only one qubit can be specified")
