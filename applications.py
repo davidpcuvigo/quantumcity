@@ -260,7 +260,7 @@ class TeleportationApplication(GeneralApplication):
                     #Assign state to first physical qubit
                     assign_qstate(trans_qubit[0], state)
                     #Discard qubits from positions. If memory have noise, setting put with
-                    # replace = True won't work.
+                    # replace = True won't work. We must discard first.
                     try: 
                         first_node.qmemory.discard([4,5,6,7,8,9,10,11,12])
                     except: #The first time there is no qubit
