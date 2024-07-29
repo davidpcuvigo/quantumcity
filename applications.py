@@ -256,9 +256,16 @@ class TeleportationApplication(GeneralApplication):
 
                     #Build qubit from state and assign it to memory position 4
                     trans_qubit = create_qubits(9)
-                    #Only 0 state is supported for this simulation
+
+                    #Assign state to first physical qubit
                     assign_qstate(trans_qubit[0], state)
-                    first_node.qmemory.put(trans_qubit, [4,5,6,7,8,9,10,11,12], replace = True)
+                    #Discard qubits from positions. If memory have noise, setting put with
+                    # replace = True won't work. We must discard first.
+                    try: 
+                        first_node.qmemory.discard([4,5,6,7,8,9,10,11,12])
+                    except: #The first time there is no qubit
+                        pass
+                    first_node.qmemory.put(trans_qubit, [4,5,6,7,8,9,10,11,12], replace = False)
                     
                     #Code physical qubit into logical
                     yield first_node.qmemory.execute_program(codingprogram, qubit_mapping=[4,5,6,7,8,9,10,11,12])

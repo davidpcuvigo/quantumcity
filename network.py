@@ -771,6 +771,7 @@ class NetworkManager():
 class FibreDepolarizeModel(QuantumErrorModel):
     """Custom non-physical error model used to show the effectiveness
     of repeater chains.
+    Taken from Netsquid's official examples.
 
     The default values are chosen to make a nice figure,
     and don't represent any physical system.

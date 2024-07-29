@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 #Simulation configuration file
 
 name: Red de pruebas
@@ -178,4 +179,3 @@ requests:
       application: LogicalTeleportation
       teleport: [[1,0]]
       #demand_rate: 200
-      

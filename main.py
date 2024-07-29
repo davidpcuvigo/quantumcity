@@ -39,8 +39,13 @@ file = './network_config.yaml'
 with open(file,'r') as config_file:
     config = yaml.safe_load(config_file)
 
-#TODO: Ask for execution mode: fixed or evolution
-# Si evolution pedir parámetro, valor de inicio, paso y valor de fin
+#Create output directory in case it doesn't exist
+try:
+    os.stat('./output')
+except:
+    os.mkdir('./output')
+
+#Ask for execution mode: fixed or evolution
 mode = input('Do you want to perform fixed parameter simulation or evolution? (F: Fixed, E: Evolution): ')
 if mode == 'F':
     steps = 1

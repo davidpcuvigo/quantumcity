@@ -1,0 +1,34 @@
+<mxfile host="Electron" modified="2024-06-15T09:52:36.383Z" agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/24.4.13 Chrome/124.0.6367.207 Electron/30.0.6 Safari/537.36" etag="ApsvOw87BTUgcmychWzp" version="24.4.13" type="device">
+  <diagram name="Página-1" id="edF8W0Q497IK1EB0pzuH">
+    <mxGraphModel dx="880" dy="481" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="583" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="tggHVzq4LPrHIdIMNGgh-1" value="&lt;div&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/div&gt;" style="shape=folder;fontStyle=1;spacingTop=10;tabWidth=40;tabHeight=14;tabPosition=left;html=1;whiteSpace=wrap;" parent="1" vertex="1">
+          <mxGeometry x="150" y="60" width="280" height="160" as="geometry" />
+        </mxCell>
+        <mxCell id="tggHVzq4LPrHIdIMNGgh-2" value="network.py" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" parent="1" vertex="1">
+          <mxGeometry x="174" y="124" width="60" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="tggHVzq4LPrHIdIMNGgh-3" value="protocols.py" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" parent="1" vertex="1">
+          <mxGeometry x="315" y="124" width="60" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="tggHVzq4LPrHIdIMNGgh-4" value="routing_protocols.py" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" parent="1" vertex="1">
+          <mxGeometry x="160" y="157" width="140" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="tggHVzq4LPrHIdIMNGgh-5" value="applications.py" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" parent="1" vertex="1">
+          <mxGeometry x="298" y="157" width="110" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="tggHVzq4LPrHIdIMNGgh-6" value="utils.py" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" parent="1" vertex="1">
+          <mxGeometry x="301" y="90" width="60" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="tggHVzq4LPrHIdIMNGgh-7" value="main.py" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" parent="1" vertex="1">
+          <mxGeometry x="166" y="90" width="60" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="edGlkioqzcB3jy-F3Ynt-1" value="network_config.yaml" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="220" y="190" width="140" height="30" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
