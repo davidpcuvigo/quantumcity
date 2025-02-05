@@ -1,0 +1,40 @@
+@startuml
+' Define each box (script) as a package
+package "Routing_protocols" {
+    class LinkFidelityProtocol
+    class PathFidelityProtocol
+}
+
+package "Protocols" {
+    class RouteProtocol
+    class SwapProtocol
+    class SwapCorrectProgram
+    class CorrectProtocol
+    class DistilProtocol
+}
+
+package "Network" {
+    class Switch
+    class EndNode
+    class NetworkManager
+    class FibreDepolarizeModel
+    class FibreDepolGaussModel
+}
+
+package "Applications" {
+    class GeneralApplication
+    class CapacityApplication
+    class TeleportationApplication
+    class DemandGeneratorProtocol
+    class TeleportCorrectProtocol
+    class CHSHApplication
+    class ShorCodingProgram
+    class ShorDecodingProgram
+}
+
+' Layout hints to make the diagram more squared
+LinkFidelityProtocol -[hidden]- PathFidelityProtocol
+RouteProtocol -[hidden]- SwapProtocol
+switch -[hidden]- EndNode
+GeneralApplication -[hidden]- CapacityApplication
+@enduml

@@ -1,0 +1,67 @@
+digraph G {
+    // General graph settings for a balanced layout
+    rankdir=TB; // Overall graph layout
+    splines=ortho;
+    node [shape=box, fontsize=10, style=filled, color=lightgrey, fixedsize=true, width=1.5, height=0.5, margin=0.1];
+
+    // Subgraph for Routing_protocols
+    subgraph cluster_Routing_protocols {
+        label="Routing_protocols";
+        color=lightblue;
+        fontsize=12;
+
+        // Arrange nodes horizontally within the subgraph
+        LinkFidelityProtocol [label="LinkFidelityProtocol"];
+        PathFidelityProtocol [label="PathFidelityProtocol"];
+        { rank=same; LinkFidelityProtocol; PathFidelityProtocol; }
+    }
+
+    // Subgraph for Protocols
+    subgraph cluster_Protocols {
+        label="Protocols";
+        color=lightgreen;
+        fontsize=12;
+
+        RouteProtocol [label="RouteProtocol"];
+        SwapProtocol [label="SwapProtocol"];
+        SwapCorrectProgram [label="SwapCorrectProgram"];
+        CorrectProtocol [label="CorrectProtocol"];
+        DistilProtocol [label="DistilProtocol"];
+        { rank=same; RouteProtocol; SwapProtocol; }
+        { rank=same; SwapCorrectProgram; CorrectProtocol; DistilProtocol; }
+    }
+
+    // Subgraph for Network
+    subgraph cluster_Network {
+        label="Network";
+        color=lightyellow;
+        fontsize=12;
+
+        switch [label="switch"];
+        EndNode [label="EndNode"];
+        NetworkManager [label="NetworkManager"];
+        FibreDepolarizeModel [label="FibreDepolarizeModel"];
+        FibreDepolGaussModel [label="FibreDepolGaussModel"];
+        { rank=same; switch; EndNode; }
+        { rank=same; NetworkManager; FibreDepolarizeModel; FibreDepolGaussModel; }
+    }
+
+    // Subgraph for Applications
+    subgraph cluster_Applications {
+        label="Applications";
+        color=lightpink;
+        fontsize=12;
+
+        GeneralApplication [label="GeneralApplication"];
+        CapacityApplication [label="CapacityApplication"];
+        TeleportationApplication [label="TeleportationApplication"];
+        DemandGeneratorProtocol [label="DemandGeneratorProtocol"];
+        TeleportCorrectProtocol [label="TeleportCorrectProtocol"];
+        CHSHApplication [label="CHSHApplication"];
+        ShorCodingProgram [label="ShorCodingProgram"];
+        ShorDecodingProgram [label="ShorDecodingProgram"];
+        { rank=same; GeneralApplication; CapacityApplication; TeleportationApplication; }
+        { rank=same; DemandGeneratorProtocol; TeleportCorrectProtocol; CHSHApplication; }
+        { rank=same; ShorCodingProgram; ShorDecodingProgram; }
+    }
+}

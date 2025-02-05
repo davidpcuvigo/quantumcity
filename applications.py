@@ -479,8 +479,6 @@ class TeleportCorrectProtocol(NodeProtocol):
                 qubit_ready = False
                 self.send_signal(Signals.SUCCESS)
                 
-                
-                
 
 class CHSHApplication(GeneralApplication):
     '''

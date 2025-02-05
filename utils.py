@@ -352,7 +352,7 @@ def validate_conf(config):
             else:
                 raise ValueError(f"Node {nodename}: No type specified")
 
-        for link in links:
+        for i,link in enumerate(links):
             link_props = list(link.values())[0]
             link_name = list(link.keys())[0]
             #link names cannot contain hyphens or underscore
@@ -438,7 +438,9 @@ def validate_conf(config):
                 raise ValueError(f"link {link_name}: When T1T2NoiseModel is selected for quantum channel, t1_qchannel_time and t2_qhannel_time must be defined")
     
             #Check allowed values of loss model
-            allowed_qchannel_loss_model = ['FibreLossModel','None']
+            allowed_qchannel_loss_model = ['FibreLossModel',
+                                            'FreeSpaceLossModel_GroundToDrone','FreeSpaceLossModel_DroneToDrone','FreeSpaceLossModel_DroneToGround',
+                                            'FixedSatelliteLossModel','None','DownwardsChannel','UpwardsChannel','AerialHorizontalChannel']
             if 'qchannel_loss_model' in link_props.keys() \
                 and link_props['qchannel_loss_model'] not in allowed_qchannel_loss_model:
                 raise ValueError(f"link {link_name}: Unsupported quantum channel loss model")
@@ -449,10 +451,18 @@ def validate_conf(config):
                 and ('p_loss_init' not in link_props.keys() or 'p_loss_length' not in link_props.keys()):
                 raise ValueError(f"link {link_name}: When FibreLossModel is selected for quantum channel, p_loss_init and p_loss_length must be defined")
             
+            ####
+            if 'qchannel_loss_model' in link_props.keys() and  \
+                link_props['qchannel_loss_model'] == 'UpwardsChannel'  \
+                and not ('AerialHorizontalChannel' not in list(links[i+1].values())[0]['qchannel_loss_model'] or 'DownwardsChannel' not in list(links[i+1].values())[0]['qchannel_loss_model']):
+                raise ValueError(f"link {link_name}: When constructing an air channel the order must be: Upwards, AerialHorizontal (skippable), Downwards. \n Now you have {link_props['qchannel_loss_model']} followed by {list(links[i+1].values())[0]['qchannel_loss_model']}.")
+            
+            
             #Check allowed values of classical channel models
             allowed_classical_model = ['FibreDelayModel','GaussianDelayModel']
             if 'classical_delay_model' in link_props.keys() \
                 and link_props['classical_delay_model'] not in allowed_classical_model:
+                
                 raise ValueError(f"link {link_name}: Unsupported classical channel delay model")
 
             #If quantum channel noise model is T1T2NoiseModel t1 & t2 times must be declared
@@ -735,7 +745,7 @@ def check_parameter(element, parameter):
     result = True
 
     #Only three type of objects are allowed
-    if element not in ['nodes','links','requests']:
+    if element not in ['nodes','links','requests','atmospheric_parameters']:
         result = False
 
     #Check that specified parameter allows evolution
@@ -755,6 +765,13 @@ def check_parameter(element, parameter):
     elif element == 'requests' and parameter not in ['minfidelity','maxtime','path_fidel_rounds',
                                                     'demand_rate']:
         result = False
+    elif element == 'atmospheric_parameters' and parameter not in ['endNode_distance','switch_distance','lastNode_distance',
+                                                 'source_fidelity_sq','source_delay','photon_speed_fibre',
+                                                 'p_depol_init','p_depol_length','dephase_qchannel_rate',
+                                                 'depolar_qchannel_rate','p_loss_init','p_loss_length',
+                                                 't1_qchannel_time','t2_qchannel_time','classical_delay_model',
+                                                 'gaussian_delay_mean','gaussian_delay_std']:
+        result=  False
     
     return(result)
 

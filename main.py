@@ -156,7 +156,7 @@ for value in vals:
                           'Request': key,
                             'Parameter': element + '$' + prop, 
                             'Value': value,
-                            'Generated Entanglements': len(detail[1].dataframe),
+                            'Generated Entanglements': (detail[1].dataframe),
                             'Mean Fidelity': 0 if len(detail[1].dataframe) == 0 else detail[1].dataframe['Fidelity'].mean(),
                             'STD Fidelity': 0 if len(detail[1].dataframe) == 0 else detail[1].dataframe['Fidelity'].std(),
                             'Mean Time': 0 if len(detail[1].dataframe) == 0 else detail[1].dataframe['time'].mean(),
