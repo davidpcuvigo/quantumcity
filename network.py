@@ -451,23 +451,19 @@ class NetworkManager():
                                                           integration_time=float(self.get_config('atmospheric_parameters','integration_time')),
                                                           )    
                 elif self.get_config('links',link_name,'qchannel_loss_model') == 'AerialHorizontalChannel':
-                    Cn2_horizontal=cn2.hufnagel_valley(float(self.get_config('atmospheric_parameters','balloon_height')),float(self.get_config('atmospheric_parameters','avg_wind_v')),float(self.get_config('atmospheric_parameters','cn0')))
+                    Cn2_horizontal=cn2.hufnagel_valley(1e3*float(self.get_config('atmospheric_parameters','balloon_height')),float(self.get_config('atmospheric_parameters','avg_wind_v')),float(self.get_config('atmospheric_parameters','cn0')))
                     qchannel_loss_model = HorizontalChannel(W0=float(self.get_config('atmospheric_parameters','W0_balloon')), #converted to m
-                                                          rx_aperture=float(self.get_config('atmospheric_parameters','Drx_ground')), #converted to m
+                                                          rx_aperture=float(self.get_config('atmospheric_parameters','Drx_balloon')), #converted to m
                                                           obs_ratio=float(self.get_config('atmospheric_parameters','obstruction_ratio')),
                                                           Cn2=Cn2_horizontal,
                                                           wavelength=1e-9*float(self.get_config('atmospheric_parameters','wavelength')), #converted to m
                                                           pointing_error=float(self.get_config('atmospheric_parameters','pointing_error')),
                                                           tracking_efficiency=float(self.get_config('atmospheric_parameters','tracking_efficiency')),
                                                           )
-#                elif self.get_config('links',link_name,'qchannel_loss_model') == 'FreeSpaceLossModel_GroundToDrone':
-#                    qchannel_loss_model = FreeSpaceLossModel()
-#                elif self.get_config('links',link_name,'qchannel_loss_model') == 'FreeSpaceLossModel_DroneToDrone':
-#                    qchannel_loss_model = FreeSpaceLossModel(rx_aperture_type='drone',Cn2_type='drone_drone')
-#                elif self.get_config('links',link_name,'qchannel_loss_model') == 'FreeSpaceLossModel_DroneToGround':
-#                    qchannel_loss_model = FreeSpaceLossModel(rx_aperture_type='drone')
-#                elif self.get_config('links',link_name,'qchannel_loss_model') == 'FixedSatelliteLossModel':
-#                    qchannel_loss_model = FixedSatelliteLossModel()
+                elif self.get_config('links',link_name,'qchannel_loss_model') == 'FreeSpaceLossModel':
+                    qchannel_loss_model = FreeSpaceLossModel()                   
+                elif self.get_config('links',link_name,'qchannel_loss_model') == 'FixedSatelliteLossModel':
+                    qchannel_loss_model = FixedSatelliteLossModel()
                 else:
                     qchannel_loss_model = None
                 qchannel = QuantumChannel(f"qchannel_{qsource_origin.name}_{qsource_dest.name}_{link_name}_{index_qsource}", 
@@ -2210,11 +2206,12 @@ class DownlinkChannel(QuantumErrorModel):
             del kwargs['channel']
 
         prob_loss = self._compute_loss_probability(length = kwargs['length'], n_samples = len(qubits))
+        print(str(prob_loss) + 'down')
         for idx, qubit in enumerate(qubits):
             if qubit is None:
                 continue
             self.lose_qubit(qubits, idx, prob_loss[idx], rng = self.properties['rng'])
-        
+            
 class CachedChannel(QuantumErrorModel):
     """Class that performs error operation on qubits from precalculated probability of loss samples saved in an array
     to speed up execution time.
@@ -2465,6 +2462,7 @@ class UplinkChannel(DownlinkChannel):
         eta_smf_max = smf.eta_0(self.obs_ratio, beta_opt)
 
         mean_transmittance = np.sum(eta_ch*pdt)*self.Tatm*smf.eta_ao(bj2)*eta_s*eta_smf_max*np.exp(-var_aniso)*detector_efficiency
+        print(str(mean_transmittance) + 'up')
         return mean_transmittance
 
 class FibreDepolarizeModel(QuantumErrorModel):
@@ -2563,12 +2561,12 @@ class FreeSpaceLossModel(QuantumErrorModel):
         Random number generator to use. If ``None`` then
         :obj:`~netsquid.util.simtools.get_random_state` is used.
     """
-    def __init__(self, rx_aperture_type='ground', Cn2_type='ground_drone', wavelength=1550*1e-9, Tatm=1, rng=None):
+    def __init__(self, wavelength=1550*1e-9, Tatm=1, rng=None):
         super().__init__()
         self.rng = rng if rng else simtools.get_random_state()
         self.W0 = wavelength/(5e-6*np.pi)
-        self.rx_aperture = 0.4 if rx_aperture_type=='drone' else 1
-        self.Cn2 = 10e-18 if Cn2_type=='drone_drone' else 10e-16
+        self.rx_aperture = 0.4 
+        self.Cn2 = 10e-18 
         self.wavelength = wavelength
         self.Tatm = Tatm
         self.required_properties = ['length']
@@ -2752,8 +2750,8 @@ class FixedSatelliteLossModel(FreeSpaceLossModel):
         Random number generator to use. If ``None`` then
         :obj:`~netsquid.util.simtools.get_random_state` is used.
     """
-    def __init__(self, txDiv=5e-6, sigmaPoint=0.5e-6, rx_aperture=1, Cn2=0, wavelength=1550*1e-9, Tatm=1, rng=None):
-        super().__init__(0.21*wavelength/txDiv,rx_aperture,Cn2,wavelength,Tatm,rng)
+    def __init__(self, txDiv=5e-6, sigmaPoint=0.5e-6, wavelength=1550*1e-9, Tatm=1, rng=None):
+        super().__init__(wavelength,Tatm,rng)
         self.txDiv = txDiv
         self.sigmaPoint = sigmaPoint
         self.required_properties = ['length']

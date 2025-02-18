@@ -439,8 +439,9 @@ def validate_conf(config):
     
             #Check allowed values of loss model
             allowed_qchannel_loss_model = ['FibreLossModel',
-                                            'FreeSpaceLossModel_GroundToDrone','FreeSpaceLossModel_DroneToDrone','FreeSpaceLossModel_DroneToGround',
-                                            'FixedSatelliteLossModel','None','DownwardsChannel','UpwardsChannel','AerialHorizontalChannel']
+                                            'FreeSpaceLossModel','FixedSatelliteLossModel',
+                                            'None',
+                                            'DownwardsChannel','UpwardsChannel','AerialHorizontalChannel']
             if 'qchannel_loss_model' in link_props.keys() \
                 and link_props['qchannel_loss_model'] not in allowed_qchannel_loss_model:
                 raise ValueError(f"link {link_name}: Unsupported quantum channel loss model")
@@ -454,7 +455,7 @@ def validate_conf(config):
             ####
             if 'qchannel_loss_model' in link_props.keys() and  \
                 link_props['qchannel_loss_model'] == 'UpwardsChannel'  \
-                and not ('AerialHorizontalChannel' not in list(links[i+1].values())[0]['qchannel_loss_model'] or 'DownwardsChannel' not in list(links[i+1].values())[0]['qchannel_loss_model']):
+                and not ('AerialHorizontalChannel' not in list(links[i+1].values())[0]['qchannel_loss_model'] or 'DownwardsChannel' not in list(links[i+1].values())[0]['qchannel_loss_model']) and len(links) > 1:
                 raise ValueError(f"link {link_name}: When constructing an air channel the order must be: Upwards, AerialHorizontal (skippable), Downwards. \n Now you have {link_props['qchannel_loss_model']} followed by {list(links[i+1].values())[0]['qchannel_loss_model']}.")
             
             

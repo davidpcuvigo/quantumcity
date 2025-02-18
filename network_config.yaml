@@ -1,15 +1,15 @@
 #Simulation configuration file
 
 name: Red de pruebas
-link_fidel_rounds: 10 #Number of fidelity measures to estimate link fidelity
-path_fidel_rounds: 10 #Default number of measures to perform when estimating E2E path fidelity
+link_fidel_rounds: 100 #Number of fidelity measures to estimate link fidelity
+path_fidel_rounds: 100 #Default number of measures to perform when estimating E2E path fidelity
 epr_pair: 'PHI_PLUS' #Allowed values are PHI_PLUS or PSI_PLUS
-simulation_duration: 1000 #Duration of application simulation phase
+simulation_duration: 100000000 #Duration of application simulation phase
 
 nodes:
   - switch1: #name of switch
       type: switch
-      num_memories: 6
+      num_memories: 4
       gate_duration: 200
       gate_duration_X: 200
       gate_duration_Z: 200
@@ -21,7 +21,7 @@ nodes:
       t2_mem_time: 13e6
   - switch2: #name of switch
       type: switch
-      num_memories: 6
+      num_memories: 4
       gate_duration: 200
       gate_duration_X: 200
       gate_duration_Z: 200
@@ -60,36 +60,24 @@ nodes:
       teleport_queue_technology: Quantum
       teleport_strategy: Oldest
 links:
-  - nodeswitch1: #name of link
+  - nodeswitch: #name of link
       end1: node1
       end2: switch1
-      distance: 10
+      distance: 20
       source_fidelity_sq: 1
       photon_speed_fibre: 300e3
       classical_delay_model: FibreDelayModel
       qchannel_loss_model: UpwardsChannel
-      p_loss_init: 0.05
-      p_loss_length: 0.3
-  - interwitch1: #name of link
+  - switchnode: #name of link
       end1: switch1
-      end2: switch2
-      distance: 30
-      source_fidelity_sq: 1
-      photon_speed_fibre: 300e3
-      classical_delay_model: FibreDelayModel
-      qchannel_loss_model: AerialHorizontalChannel
-      p_loss_init: 0.05
-      p_loss_length: 0.3
-  - nodeswitch2: #name of link
-      end1: switch2
       end2: node2
-      distance: 10
+      distance: 20
       source_fidelity_sq: 1
       photon_speed_fibre: 300e3
       classical_delay_model: FibreDelayModel
       qchannel_loss_model: DownwardsChannel
-      p_loss_init: 0.05
-      p_loss_length: 0.3
+
+
 
 
 requests:
@@ -99,32 +87,30 @@ requests:
       minfidelity: 0
       maxtime: 16000000000 # nanoseconds
       #path_fidel_rounds: 100
-      application: QBER
+      application: Capacity
       qber_states: [[1,0]]
       #demand_rate: 200
 
 atmospheric_parameters: #only if channels are not fiber based
     - wavelength: 1550 #[nm]
     - attenuation: 0.18 #[dB/km]
-    - ground_detector_efficiency: 0.85 #[]
-    - aerial_detector_efficiency: 0.25 #[]
+    - ground_detector_efficiency: 1 #[]
+    - aerial_detector_efficiency: 1 #[]
     - ground_station_altitude: 20 #[m]
     - cn0: 9.6e-14 #refractive index structure constant at ground level [m^(-2/3)]
-    - tracking_efficiency: 0.1 #[]
-    - obstruction_ratio: 0.3 #obstruction ratio of the receiving telescope []
+    - tracking_efficiency: 1 #[]
+    - obstruction_ratio: 0.03 #obstruction ratio of the receiving telescope []
     - avg_wind_v: 10 #[m/s]
-    - pointing_error: 1e-6 #[rad]
+    - pointing_error: 0e-6 #[rad]
     - integral_gain: 1 #integral gain of the AO system []
     - control_delay: 2e-3 #control delay of the AO system [s]
     - integration_time: 1e-3 #integration time of the AO system [s]
     - N_max: 150 #Maximum radial order in wavefront decomposition
-    - balloon_height: 35 #[km]
+    - balloon_height: 20 #[km]
     - T_atm: 1 #Atmospheric transmittance []
     - W0_ground: 0.4 #Initial beam waist radius on the ground [m]
     - W0_balloon: 0.4 #Initial beam waist radius on the balloon [m]
     - Drx_ground: 0.4 #Diameter of the receiving telescope on the ground [m]
     - Drx_balloon: 0.4 #Diameter of the receiving telescope on the balloon [m]
     - N_AO: 6 #Maximum radial order corrected by AO on the ground []
-    - source_rate: 80 #[MHz]
-    - mu: 0.01 #Mean photon number per pulse[]
     - zenith_angle: 0 #[deg]

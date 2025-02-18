@@ -72,7 +72,6 @@ class LinkFidelityProtocol(LocalProtocol):
                 qubit_a, = self._origin.qmemory.peek([self._memory_left])
                 qubit_b, = self._dest.qmemory.peek([self._memory_right])
                 self.fidelities.append(ns.qubits.fidelity([qubit_a, qubit_b], epr_state, squared=True))
-                print('holaa')
             else:
                 #qubit is lost, we set a fidelity of 0
                 #We set a value different from 0 to avoid later log of 0
@@ -80,7 +79,6 @@ class LinkFidelityProtocol(LocalProtocol):
             
             #trigger new fidelity measurement
             trig_origin.subcomponents[f"qsource_{trig_origin.name}_{self._link}_0"].trigger()
-
 class PathFidelityProtocol(LocalProtocol):
 
     def __init__(self, networkmanager, path, num_runs, purif_rounds= 0, name=None):

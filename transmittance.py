@@ -46,8 +46,8 @@ def horizontal(altitude, distance, wavelength):
         "wllong": P.long,
         "wlstep": P.step,
     }
-    print(dir(lowtran))
-    TR = lowtran.golowtran(context).squeeze()
+    
+    TR = lowtran.lowtran(context).squeeze()
 
     return TR.sel(wavelength_nm = [wavelength], method = "nearest")["transmission"].values[0]
 
