@@ -63,19 +63,19 @@ links:
   - nodeswitch: #name of link
       end1: node1
       end2: switch1
-      distance: 20
+      distance: 35
       source_fidelity_sq: 1
       photon_speed_fibre: 300e3
       classical_delay_model: FibreDelayModel
-      qchannel_loss_model: UpwardsChannel
+      qchannel_loss_model: AerialHorizontalChannel
   - switchnode: #name of link
       end1: switch1
       end2: node2
-      distance: 20
+      distance: 35
       source_fidelity_sq: 1
       photon_speed_fibre: 300e3
       classical_delay_model: FibreDelayModel
-      qchannel_loss_model: DownwardsChannel
+      qchannel_loss_model: AerialHorizontalChannel
 
 
 
@@ -106,7 +106,7 @@ atmospheric_parameters: #only if channels are not fiber based
     - control_delay: 2e-3 #control delay of the AO system [s]
     - integration_time: 1e-3 #integration time of the AO system [s]
     - N_max: 150 #Maximum radial order in wavefront decomposition
-    - balloon_height: 20 #[km]
+    - balloon_height: 35 #[km]
     - T_atm: 1 #Atmospheric transmittance []
     - W0_ground: 0.4 #Initial beam waist radius on the ground [m]
     - W0_balloon: 0.4 #Initial beam waist radius on the balloon [m]
