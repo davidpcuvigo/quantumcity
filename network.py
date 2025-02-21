@@ -2212,7 +2212,6 @@ class DownlinkChannel(QuantumErrorModel):
             del kwargs['channel']
 
         prob_loss = self._compute_loss_probability(length = kwargs['length'], n_samples = len(qubits))
-        print(str(prob_loss) + 'down')
         for idx, qubit in enumerate(qubits):
             if qubit is None:
                 continue
@@ -2277,7 +2276,7 @@ class CachedChannel(QuantumErrorModel):
             if qubit is None:
                 continue
             prob_loss = random.choice(self.loss_array)
-            # print(prob_loss)
+
             self.lose_qubit(qubits, idx, prob_loss, rng=self.properties['rng'])
 
 class UplinkChannel(DownlinkChannel):
@@ -2468,7 +2467,6 @@ class UplinkChannel(DownlinkChannel):
         eta_smf_max = smf.eta_0(self.obs_ratio, beta_opt)
 
         mean_transmittance = np.sum(eta_ch*pdt)*self.Tatm*smf.eta_ao(bj2)*eta_s*eta_smf_max*np.exp(-var_aniso)*detector_efficiency
-        print(str(mean_transmittance) + 'up')
         return mean_transmittance
 
 class FibreDepolarizeModel(QuantumErrorModel):
