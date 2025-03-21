@@ -259,7 +259,7 @@ atmospheric_parameters: #only if channels are not fiber based
     - ground_detector_efficiency: 1 #[]
     - aerial_detector_efficiency: 1 #[]
     - ground_station_altitude: 20 #[m]
-    - cn0: 9.6e-16 #refractive index structure constant at ground level [m^(-2/3)]
+    - cn0: 9.6e-14 #refractive index structure constant at ground level [m^(-2/3)]
     - tracking_efficiency: 1 #[]
     - obstruction_ratio: 0.03 #obstruction ratio of the receiving telescope []
     - avg_wind_v: 10 #[m/s]

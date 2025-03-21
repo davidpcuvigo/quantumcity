@@ -151,7 +151,7 @@ for value in vals:
     report_info[value] = net.get_info_report()
 
     print('----------------')
-
+    print(dc.items())
     #Acumulate results in general dataframe in case we want evolution
     for key,detail in dc.items():
         if detail[0] == 'Capacity':

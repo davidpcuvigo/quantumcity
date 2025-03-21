@@ -214,6 +214,75 @@ links:
       p_loss_length: 0.18
 
 
+  - switches10: #name of link
+      end1: switch11
+      end2: switch12
+      distance: 30
+      source_fidelity_sq: 1
+      photon_speed_fibre: 300e3
+      classical_delay_model: FibreDelayModel
+      qchannel_loss_model: FibreLossModel
+      p_loss_init: 0.0
+      p_loss_length: 0.2
+
+
+  - switches12: #name of link
+      end1: switch12
+      end2: switch13
+      distance: 30
+      source_fidelity_sq: 1
+      photon_speed_fibre: 300e3
+      classical_delay_model: FibreDelayModel
+      qchannel_loss_model: FibreLossModel
+      p_loss_init: 0.0
+      p_loss_length: 0.2
+
+
+  - switches3: #name of link
+      end1: switch3
+      end2: switch4
+      distance: 150
+      source_fidelity_sq: 1
+      photon_speed_fibre: 300e3
+      classical_delay_model: FibreDelayModel
+      qchannel_loss_model: FibreLossModel
+      p_loss_init: 0.3
+      p_loss_length: 0.18
+
+
+  - switches4: #name of link
+      end1: switch4
+      end2: switch5
+      distance: 150
+      source_fidelity_sq: 1
+      photon_speed_fibre: 300e3
+      classical_delay_model: FibreDelayModel
+      qchannel_loss_model: FibreLossModel
+      p_loss_init: 0.3
+      p_loss_length: 0.18
+
+  - switches5: #name of link
+      end1: switch5
+      end2: switch6
+      distance: 150
+      source_fidelity_sq: 1
+      photon_speed_fibre: 300e3
+      classical_delay_model: FibreDelayModel
+      qchannel_loss_model: FibreLossModel
+      p_loss_init: 0.3
+      p_loss_length: 0.18
+
+  - switches6: #name of link
+      end1: switch6
+      end2: switch7
+      distance: 150
+      source_fidelity_sq: 1
+      photon_speed_fibre: 300e3
+      classical_delay_model: FibreDelayModel
+      qchannel_loss_model: FibreLossModel
+      p_loss_init: 0.3
+      p_loss_length: 0.18
+
 requests:
   - request1: #name of request
       origin: node1

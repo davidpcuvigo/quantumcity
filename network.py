@@ -2295,7 +2295,7 @@ class CachedChannel(QuantumErrorModel):
             if qubit is None:
                 continue
             prob_loss = random.choice(self.loss_array)
-
+            print(prob_loss)
             self.lose_qubit(qubits, idx, prob_loss, rng=self.properties['rng'])
 
 class UplinkChannel(DownlinkChannel):
