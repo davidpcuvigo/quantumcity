@@ -28,7 +28,7 @@ pointing_error = 1e-7 #Pointing error variance
 Qonnector_meas_succ = 0.25 #Detector efficiency at the receiver
 rx_aperture_drone = 0.3 #Aperture of the receiving telescope[0.1 -> 0.3]
 tracking_efficiency = 0.80
-h_balloons = [18,23,28,33] #Altitude range of the balloon
+h_balloons = [30] #Altitude range of the balloon
 
 dist_balloons = [1,10,15,20,25,50,60,75,100,125,150,175,200,225,250,275,300,350,400] #Distance between balloons
 

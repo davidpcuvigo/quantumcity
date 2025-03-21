@@ -441,7 +441,7 @@ def validate_conf(config):
             allowed_qchannel_loss_model = ['FibreLossModel',
                                             'FreeSpaceLossModel','FixedSatelliteLossModel',
                                             'None',
-                                            'DownwardsChannel','UpwardsChannel','AerialHorizontalChannel']
+                                            'DownlinkChannel','UplinkChannel','AerialHorizontalChannel']
             if 'qchannel_loss_model' in link_props.keys() \
                 and link_props['qchannel_loss_model'] not in allowed_qchannel_loss_model:
                 raise ValueError(f"link {link_name}: Unsupported quantum channel loss model")
@@ -454,9 +454,9 @@ def validate_conf(config):
             
             ####
             if 'qchannel_loss_model' in link_props.keys() and  \
-                link_props['qchannel_loss_model'] == 'UpwardsChannel'  \
-                and not ('AerialHorizontalChannel' not in list(links[i+1].values())[0]['qchannel_loss_model'] or 'DownwardsChannel' not in list(links[i+1].values())[0]['qchannel_loss_model']) and len(links) > 1:
-                raise ValueError(f"link {link_name}: When constructing an air channel the order must be: Upwards, AerialHorizontal (skippable), Downwards. \n Now you have {link_props['qchannel_loss_model']} followed by {list(links[i+1].values())[0]['qchannel_loss_model']}.")
+                link_props['qchannel_loss_model'] == 'UplinkChannel'  \
+                and not ('AerialHorizontalChannel' not in list(links[i-1].values())[0]['qchannel_loss_model'] or 'DownlinkChannel' not in list(links[i+1].values())[0]['qchannel_loss_model']) and len(links) > 1:
+                raise ValueError(f"link {link_name}: When constructing an air channel the order must be: Uplink, AerialHorizontal (skippable), Downlink. \n Now you have {link_props['qchannel_loss_model']} followed by {list(links[i+1].values())[0]['qchannel_loss_model']}.")
             
             
             #Check allowed values of classical channel models
@@ -633,7 +633,8 @@ def validate_conf(config):
             'application': 'string',
             'teleport': 'list',
             'qber_states': 'list',
-            'demand_rate': 'float'}
+            'demand_rate': 'float',
+            'keysize': 'integer'}
         
         #Check if a node is in more than one request
         #No need to do so, if this happens, the second request will indicate that no resources are available
@@ -690,7 +691,7 @@ def validate_conf(config):
                     raise ValueError(f"request {request_name}: missing property {prop}")
             
             #Check for valid applications
-            if request_props['application'] not in ['Capacity','QBER','Teleportation','TeleportationWithDemand','CHSH','LogicalTeleportation']:
+            if request_props['application'] not in ['Capacity','QBER','Teleportation','TeleportationWithDemand','CHSH','LogicalTeleportation','E91']:
                 raise ValueError(f"request {request_name}: Unsupported application")
             
             #If TeleportApplication, teleport parameter must be specified

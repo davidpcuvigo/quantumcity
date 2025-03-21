@@ -1,10 +1,10 @@
+
+
 from utils import dc_setup
 from netsquid.protocols import LocalProtocol, NodeProtocol, Signals
 from netsquid.components.component import Message
 from icecream import ic
 import numpy as np
-import netsquid as ns
-import random
 
 from netsquid.util.simtools import sim_time
 from netsquid.qubits import qubitapi as qapi, create_qubits, assign_qstate
@@ -60,7 +60,7 @@ class GeneralApplication(LocalProtocol):
     
 class CapacityApplication(GeneralApplication):
     '''
-    This class implements and application that generates end to end entanglement continously
+    This class implements an application that generates end to end entanglement continously
     and measures the fidelity of the entangled pairs
     Constructor parameters:
         - path: dictionary with path parameters
@@ -107,6 +107,110 @@ class CapacityApplication(GeneralApplication):
             }
             #send result to datacollector
             self.send_signal(Signals.SUCCESS, result)
+
+
+import random
+import netsquid as ns
+import numpy as np
+
+class E91Application(GeneralApplication):
+    def __init__(self, path, networkmanager, name=None, keysize=1):
+        name = name if name else f"E91 Application Undefined"
+        super().__init__(path, networkmanager, name=name)
+
+        np.random.seed(333) # SET SEED
+
+
+        ket_0 = np.array([[1], [0]])
+        ket_1 = np.array([[0], [1]])
+
+        ket_pi_4=(ket_0+ket_1)/np.sqrt(2)
+        ket_pi_8=np.cos(np.pi / 8)*ket_0 + np.cos(np.pi / 8)*ket_1
+        ket_pi_m8=np.cos(-np.pi / 8)*ket_0 + np.cos(-np.pi / 8)*ket_1
+
+
+        # Calculate the projection operators
+        P_z0 = np.outer(ket_0, ket_0.conjugate().transpose())
+        P_z1 = np.outer(ket_1, ket_1.conjugate().transpose())
+        P_zpi_4=np.outer(ket_pi_4, ket_pi_4.conjugate().transpose())
+        P_zpi_8=np.outer(ket_pi_8, ket_pi_8.conjugate().transpose())
+        P_zpi_m8=np.outer(ket_pi_m8, ket_pi_m8.conjugate().transpose())
+
+        self.keysize=keysize
+
+
+        self.pos_basis={
+            "Z0":ns.Operator("Z0", P_z0),
+            "Zpi_4":ns.Operator("Zpi_4", P_zpi_4),
+            "Zpi_8":ns.Operator("Zpi_8", P_zpi_8),
+            "Zpi_m8":ns.Operator("Zpi_m8", P_zpi_m8)
+        }
+
+
+        
+        self.basis_set=[]
+        self.iterations=keysize
+        self.keydisc=[]
+
+
+        self.basis_set_Alice=[self.pos_basis["Z0"], self.pos_basis["Zpi_8"], self.pos_basis["Zpi_4"]]
+        self.basis_set_Bob=[self.pos_basis["Z0"], self.pos_basis["Zpi_8"], self.pos_basis["Zpi_m8"]]
+
+        
+
+    def run(self):
+
+
+        self.start_subprotocols()
+        first_link = self._path['comms'][0]['links'][0]
+        last_link = self._path['comms'][-1]['links'][0]
+        mem_posA_1 = self._networkmanager.get_mem_position(self._path['nodes'][0],first_link.split('-')[0],first_link.split('-')[1])
+        mem_posB_1 = self._networkmanager.get_mem_position(self._path['nodes'][-1],last_link.split('-')[0],last_link.split('-')[1])
+
+
+
+
+        iter=0
+        key_creation_rate=0 # for calculating fidelity
+        while True:
+            
+            iter+=1
+            start_time = sim_time()
+            #Send signal for entanglement generation
+            self.send_signal(self._ent_request) # Request 
+
+            
+
+            yield self.await_signal(self.subprotocols[f"RouteProtocol_{self._path['request']}"],Signals.SUCCESS)
+            qa, = self._networkmanager.network.get_node(self._path['nodes'][0]).qmemory.pop(positions=[mem_posA_1])
+            qb, = self._networkmanager.network.get_node(self._path['nodes'][-1]).qmemory.pop(positions=[mem_posB_1])
+
+            #print("Hola 4.0")
+            meas_A,prob_A = qapi.measure(qa, observable=random.choice(self.basis_set_Alice))
+            meas_B,prob_B = qapi.measure(qb, observable=random.choice(self.basis_set_Bob))
+
+            if(meas_A==meas_B):
+                self.keydisc.append(meas_A)
+                key_creation_rate=key_creation_rate+1
+            # print(f"{ns.sim_time():5.1f}: {self.node.name} measured "f"{meas_A} with probability {prob_A:.2f}")
+            # print(f"{ns.sim_time():5.1f}: {self.node.name} measured "f"{meas_B} with probability {prob_B:.2f}")
+            
+
+            if iter==self.keysize:
+                key_creation_rate=key_creation_rate/iter # Avg fidelity
+                result = {
+                        'spawned_untreated_key': self.keydisc,
+                        'key_creation_rate': key_creation_rate,
+                        'time': sim_time() - start_time
+                    }
+                
+                #print(f"Result {result}")
+
+                #En vez de ponerlo en modo bucle, yo pondria aqui el check para la cantidad de qubits usados y ya esta.
+
+                self.send_signal(Signals.SUCCESS, result)
+
+
 
 
 class TeleportationApplication(GeneralApplication):
@@ -287,7 +391,7 @@ class TeleportationApplication(GeneralApplication):
 
             #If position is not being used, we can store the qubit
             if 2 in self._networkmanager.network.get_node(self._path['nodes'][0]).qmemory.unused_positions:
-                #store qubit un memory position
+                #store qubit in memory position
                 first_node.qmemory.put(qubit, 2, replace = False)
  
                 #Request entanglement to RouteProtocol
@@ -413,198 +517,7 @@ class DemandGeneratorProtocol(NodeProtocol):
             
             #Add qubit to queue in origin
             self.node.request_teleport(state, self._teleport_strategy)
-import random
-import netsquid as ns
-import numpy as np
 
-class E91Application(GeneralApplication):
-    def __init__(self, path, networkmanager, name=None, keysize=1):
-        name = name if name else f"E91 Application Undefined"
-        super().__init__(path, networkmanager, name=name)
-
-        np.random.seed(333) # SET SEED
-
-
-        ket_0 = np.array([[1], [0]])
-        ket_1 = np.array([[0], [1]])
-
-        ket_pi_4=(ket_0+ket_1)/np.sqrt(2)
-        ket_pi_8=np.cos(np.pi / 8)*ket_0 + np.cos(np.pi / 8)*ket_1
-        ket_pi_m8=np.cos(-np.pi / 8)*ket_0 + np.cos(-np.pi / 8)*ket_1
-
-
-        # Calculate the projection operators
-        P_z0 = np.outer(ket_0, ket_0.conjugate().transpose())
-        P_z1 = np.outer(ket_1, ket_1.conjugate().transpose())
-        P_zpi_4=np.outer(ket_pi_4, ket_pi_4.conjugate().transpose())
-        P_zpi_8=np.outer(ket_pi_8, ket_pi_8.conjugate().transpose())
-        P_zpi_m8=np.outer(ket_pi_m8, ket_pi_m8.conjugate().transpose())
-
-        self.keysize=keysize
-
-
-        self.pos_basis={
-            "Z0":ns.Operator("Z0", P_z0),
-            "Zpi_4":ns.Operator("Zpi_4", P_zpi_4),
-            "Zpi_8":ns.Operator("Zpi_8", P_zpi_8),
-            "Zpi_m8":ns.Operator("Zpi_m8", P_zpi_m8)
-        }
-
-
-        
-        self.basis_set=[]
-        self.iterations=keysize
-        self.keydisc=[]
-
-
-        self.basis_set_Alice=[self.pos_basis["Z0"], self.pos_basis["Zpi_8"], self.pos_basis["Zpi_4"]]
-        self.basis_set_Bob=[self.pos_basis["Z0"], self.pos_basis["Zpi_8"], self.pos_basis["Zpi_m8"]]
-
-        
-
-    def run(self):
-
-
-        self.start_subprotocols()
-        first_link = self._path['comms'][0]['links'][0]
-        last_link = self._path['comms'][-1]['links'][0]
-        mem_posA_1 = self._networkmanager.get_mem_position(self._path['nodes'][0],first_link.split('-')[0],first_link.split('-')[1])
-        mem_posB_1 = self._networkmanager.get_mem_position(self._path['nodes'][-1],last_link.split('-')[0],last_link.split('-')[1])
-
-        iter=0
-        key_creation_rate=0 # for calculating fidelity
-        while True:
-            
-            iter+=1
-            start_time = sim_time()
-            #Send signal for entanglement generation
-            self.send_signal(self._ent_request) # Request 
-
-            
-
-            yield self.await_signal(self.subprotocols[f"RouteProtocol_{self._path['request']}"],Signals.SUCCESS)
-            qa, = self._networkmanager.network.get_node(self._path['nodes'][0]).qmemory.pop(positions=[mem_posA_1])
-            qb, = self._networkmanager.network.get_node(self._path['nodes'][-1]).qmemory.pop(positions=[mem_posB_1])
-
-            #print("Hola 4.0")
-            meas_A,prob_A = qapi.measure(qa, observable=random.choice(self.basis_set_Alice))
-            meas_B,prob_B = qapi.measure(qb, observable=random.choice(self.basis_set_Bob))
-
-            if(meas_A==meas_B):
-                self.keydisc.append(meas_A)
-                key_creation_rate=key_creation_rate+1
-            # print(f"{ns.sim_time():5.1f}: {self.node.name} measured "f"{meas_A} with probability {prob_A:.2f}")
-            # print(f"{ns.sim_time():5.1f}: {self.node.name} measured "f"{meas_B} with probability {prob_B:.2f}")
-            
-
-            if iter==self.keysize:
-                key_creation_rate=key_creation_rate/iter # Avg fidelity
-                result = {
-                        'spawned_untreated_key': self.keydisc,
-                        'key_creation_rate': key_creation_rate,
-                        'time': sim_time() - start_time
-                    }
-                
-                #print(f"Result {result}")
-
-                #En vez de ponerlo en modo bucle, yo pondria aqui el check para la cantidad de qubits usados y ya esta.
-
-                self.send_signal(Signals.SUCCESS, result)
-
-
-class BBM92Application(GeneralApplication):
-    def __init__(self, path, networkmanager, name=None, keysize=1):
-        name = name if name else f"BBM92 Application Undefined"
-        super().__init__(path, networkmanager, name=name)
-
-        np.random.seed(333) # SET SEED
-
-
-        ket_0 = np.array([[1], [0]])
-        ket_1 = np.array([[0], [1]])
-
-        ket_pi_4=(ket_0+ket_1)/np.sqrt(2)
-        ket_pi_8=np.cos(np.pi / 8)*ket_0 + np.cos(np.pi / 8)*ket_1
-        ket_pi_m8=np.cos(-np.pi / 8)*ket_0 + np.cos(-np.pi / 8)*ket_1
-
-
-        # Calculate the projection operators
-        P_z0 = np.outer(ket_0, ket_0.conjugate().transpose())
-        P_z1 = np.outer(ket_1, ket_1.conjugate().transpose())
-        P_zpi_4=np.outer(ket_pi_4, ket_pi_4.conjugate().transpose())
-        P_zpi_8=np.outer(ket_pi_8, ket_pi_8.conjugate().transpose())
-        P_zpi_m8=np.outer(ket_pi_m8, ket_pi_m8.conjugate().transpose())
-
-        self.keysize=keysize
-
-
-        self.pos_basis={
-            "Z0":ns.Operator("Z0", P_z0),
-            "Zpi_4":ns.Operator("Zpi_4", P_zpi_4),
-            "Zpi_8":ns.Operator("Zpi_8", P_zpi_8),
-            "Zpi_m8":ns.Operator("Zpi_m8", P_zpi_m8)
-        }
-
-
-        
-        self.basis_set=[]
-        self.iterations=keysize
-        self.keydisc=[]
-
-
-        self.basis_set_Alice=[self.pos_basis["Z0"], self.pos_basis["Zpi_8"], self.pos_basis["Zpi_4"]]
-        self.basis_set_Bob=[self.pos_basis["Z0"], self.pos_basis["Zpi_8"], self.pos_basis["Zpi_m8"]]
-
-        
-
-    def run(self):
-
-
-        self.start_subprotocols()
-        first_link = self._path['comms'][0]['links'][0]
-        last_link = self._path['comms'][-1]['links'][0]
-        mem_posA_1 = self._networkmanager.get_mem_position(self._path['nodes'][0],first_link.split('-')[0],first_link.split('-')[1])
-        mem_posB_1 = self._networkmanager.get_mem_position(self._path['nodes'][-1],last_link.split('-')[0],last_link.split('-')[1])
-
-        iter=0
-        key_creation_rate=0 # for calculating fidelity
-        while True:
-            
-            iter+=1
-            start_time = sim_time()
-            #Send signal for entanglement generation
-            self.send_signal(self._ent_request) # Request 
-
-            
-
-            yield self.await_signal(self.subprotocols[f"RouteProtocol_{self._path['request']}"],Signals.SUCCESS)
-            qa, = self._networkmanager.network.get_node(self._path['nodes'][0]).qmemory.pop(positions=[mem_posA_1])
-            qb, = self._networkmanager.network.get_node(self._path['nodes'][-1]).qmemory.pop(positions=[mem_posB_1])
-
-            #print("Hola 4.0")
-            meas_A,prob_A = qapi.measure(qa, observable=random.choice(self.basis_set_Alice))
-            meas_B,prob_B = qapi.measure(qb, observable=random.choice(self.basis_set_Bob))
-
-            if(meas_A==meas_B):
-                self.keydisc.append(meas_A)
-                key_creation_rate=key_creation_rate+1
-            # print(f"{ns.sim_time():5.1f}: {self.node.name} measured "f"{meas_A} with probability {prob_A:.2f}")
-            # print(f"{ns.sim_time():5.1f}: {self.node.name} measured "f"{meas_B} with probability {prob_B:.2f}")
-            
-
-            if iter==self.keysize:
-                key_creation_rate=key_creation_rate/iter # Avg fidelity
-                result = {
-                        'spawned_untreated_key': self.keydisc,
-                        'key_creation_rate': key_creation_rate,
-                        'time': sim_time() - start_time
-                    }
-                
-                #print(f"Result {result}")
-
-                #En vez de ponerlo en modo bucle, yo pondria aqui el check para la cantidad de qubits usados y ya esta.
-
-                self.send_signal(Signals.SUCCESS, result)
 
 class TeleportCorrectProtocol(NodeProtocol):
     """Perform corrections for a swap on an end-node.
@@ -672,6 +585,8 @@ class TeleportCorrectProtocol(NodeProtocol):
                 qubit_ready = False
                 self.send_signal(Signals.SUCCESS)
                 
+                
+                
 
 class CHSHApplication(GeneralApplication):
     '''
@@ -719,7 +634,7 @@ class CHSHApplication(GeneralApplication):
 
             #Wait for  entanglement to be generated on both ends
             yield self.await_signal(self.subprotocols[f"RouteProtocol_{self._path['request']}"],Signals.SUCCESS)
-
+            print("Gutten Tag")
             #Generate x and y, which will be use for Alice and Bob measurements
             x = randint(0,1)
             y = randint(0,1)

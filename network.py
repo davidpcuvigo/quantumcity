@@ -40,7 +40,7 @@ __all__ = [
 
 RE = 6371 # Earth's radius [km]
 c = 299792458 
-
+counter=0
 # Zernike indices look-up table
 max_n_wfs = 150 # Maximum radial index n returned by WFS 
 array_of_zernike_index = smf.get_zernikes_index_range(max_n_wfs)
@@ -357,11 +357,74 @@ class NetworkManager():
                 endnode = EndNode(name, queue_size, qmemory=self._create_qprocessor(f"qproc_{name}",num_memories, nodename=name))
                 end_nodes.append(endnode)
             else:
-                raise ValueError('Undefined network element found')
-
+               raise ValueError('Undefined network element found')
         network_nodes = switches+end_nodes
         self.network.add_nodes(network_nodes)
+    
+        available_links= [self.get_config('links',list(link.keys())[0],'qchannel_loss_model') for link in self._config['links']]
+        counter_1=0
+        counter_2=0
+        counter_3=0
+        if ('AerialHorizontalChannel' in available_links) and counter_1 == 0:
+            counter_1 += 1    
+            aerial_channels= []
+            for link in self._config['links']:
+                if self.get_config('links',list(link.keys())[0],'qchannel_loss_model') == 'AerialHorizontalChannel':
+                    aerial_channels.append(link)
+            
+            horizontal_distance=np.mean([list(link.values())[0]['distance'] for link in aerial_channels])
 
+            Cn2_horizontal=cn2.hufnagel_valley(1e3*float(self.get_config('atmospheric_parameters','balloon_height')),float(self.get_config('atmospheric_parameters','avg_wind_v')),float(self.get_config('atmospheric_parameters','cn0')))
+            horchannel = HorizontalChannel(W0=float(self.get_config('atmospheric_parameters','W0_balloon')), 
+                                                        rx_aperture=float(self.get_config('atmospheric_parameters','Drx_balloon')), 
+                                                        obs_ratio=float(self.get_config('atmospheric_parameters','obstruction_ratio')),
+                                                        Cn2=Cn2_horizontal,
+                                                        wavelength=1e-9*float(self.get_config('atmospheric_parameters','wavelength')), #converted to m
+                                                        pointing_error=float(self.get_config('atmospheric_parameters','pointing_error')),
+                                                        tracking_efficiency=float(self.get_config('atmospheric_parameters','tracking_efficiency')),
+                                                        )
+            horizontal_errors=horchannel._compute_loss_probability((float(horizontal_distance)),n_samples=(int(1e3)))
+        if 'DownlinkChannel' in available_links and counter_2 == 0:
+            counter_2 += 1     
+            downchannel = DownlinkChannel(W0=float(self.get_config('atmospheric_parameters','W0_balloon')), #converted to m
+                                                            rx_aperture=float(self.get_config('atmospheric_parameters','Drx_ground')), #converted to m
+                                                            obs_ratio=float(self.get_config('atmospheric_parameters','obstruction_ratio')),
+                                                            n_max=float(self.get_config('atmospheric_parameters','N_max')),
+                                                            Cn0=float(self.get_config('atmospheric_parameters','cn0')),
+                                                            wind_speed=float(self.get_config('atmospheric_parameters','avg_wind_v')),
+                                                            wavelength=1e-9*float(self.get_config('atmospheric_parameters','wavelength')), #converted to m
+                                                            ground_station_alt=1e-3*float(self.get_config('atmospheric_parameters','ground_station_altitude')), #converted to km
+                                                            aerial_platform_alt=float(self.get_config('atmospheric_parameters','balloon_height')),
+                                                            zenith_angle=float(self.get_config('atmospheric_parameters','zenith_angle')),
+                                                            pointing_error=float(self.get_config('atmospheric_parameters','pointing_error')),
+                                                            tracking_efficiency=float(self.get_config('atmospheric_parameters','tracking_efficiency')),
+                                                            Tatm=float(self.get_config('atmospheric_parameters','T_atm')),
+                                                            integral_gain=float(self.get_config('atmospheric_parameters','integral_gain')),
+                                                            control_delay=float(self.get_config('atmospheric_parameters','control_delay')),
+                                                            integration_time=float(self.get_config('atmospheric_parameters','integration_time')),
+                                                            )
+            downlink_errors=downchannel._compute_loss_probability((float(self.get_config('atmospheric_parameters','balloon_height'))-1e-3*float(self.get_config('atmospheric_parameters','ground_station_altitude'))),n_samples=(int(1e3)))
+        if 'UplinkChannel' in available_links and counter_3 == 0:
+            counter_3 += 1    
+            upchannel = UplinkChannel(D_tx=float(self.get_config('atmospheric_parameters','W0_ground')),
+                                                            R_rx=float(self.get_config('atmospheric_parameters','Drx_balloon')), 
+                                                            obs_ratio=float(self.get_config('atmospheric_parameters','obstruction_ratio')),
+                                                            n_max=float(self.get_config('atmospheric_parameters','N_max')),
+                                                            Cn0=float(self.get_config('atmospheric_parameters','cn0')),
+                                                            wind_speed=float(self.get_config('atmospheric_parameters','avg_wind_v')),
+                                                            wavelength=1e-9*float(self.get_config('atmospheric_parameters','wavelength')), #converted to m
+                                                            ground_station_alt=1e-3*float(self.get_config('atmospheric_parameters','ground_station_altitude')), #converted to km
+                                                            aerial_platform_alt=float(self.get_config('atmospheric_parameters','balloon_height')),
+                                                            zenith_angle=float(self.get_config('atmospheric_parameters','zenith_angle')),
+                                                            pointing_error=float(self.get_config('atmospheric_parameters','pointing_error')),
+                                                            tracking_efficiency=float(self.get_config('atmospheric_parameters','tracking_efficiency')),
+                                                            Tatm=float(self.get_config('atmospheric_parameters','T_atm')),
+                                                            integral_gain=float(self.get_config('atmospheric_parameters','integral_gain')),
+                                                            control_delay=float(self.get_config('atmospheric_parameters','control_delay')),
+                                                            integration_time=float(self.get_config('atmospheric_parameters','integration_time')),
+                                                            )
+            uplink_errors=upchannel._compute_loss_probability((float(self.get_config('atmospheric_parameters','balloon_height'))-1e-3*float(self.get_config('atmospheric_parameters','ground_station_altitude'))),n_samples=(int(1e3)))
+                                    
         #links creation
         for link in self._config['links']:
             link_name = list(link.keys())[0]
@@ -376,7 +439,8 @@ class NetworkManager():
             # Add Quantum Sources to nodes
             num_qsource = props['number_links'] if 'number_links' in props.keys() else 2
             epr_state = ks.b00 if self._config['epr_pair'] == 'PHI_PLUS' else ks.b01
-
+            
+            
             state_sampler = StateSampler(
                 [epr_state, ks.s00, ks.s01, ks.s10, ks.s11],
                 [props['source_fidelity_sq'], (1 - props['source_fidelity_sq'])/4, (1 - props['source_fidelity_sq'])/4,
@@ -414,58 +478,13 @@ class NetworkManager():
                 if self.get_config('links',link_name,'qchannel_loss_model') == 'FibreLossModel':
                     qchannel_loss_model = FibreLossModel(p_loss_init=float(self.get_config('links',link_name,'p_loss_init')),
                                                            p_loss_length=float(self.get_config('links',link_name,'p_loss_length')))
-                elif self.get_config('links',link_name,'qchannel_loss_model') == 'DownwardsChannel':
-                    downchannel = DownlinkChannel(W0=float(self.get_config('atmospheric_parameters','W0_balloon')), #converted to m
-                                                          rx_aperture=float(self.get_config('atmospheric_parameters','Drx_ground')), #converted to m
-                                                          obs_ratio=float(self.get_config('atmospheric_parameters','obstruction_ratio')),
-                                                          n_max=float(self.get_config('atmospheric_parameters','N_max')),
-                                                          Cn0=float(self.get_config('atmospheric_parameters','cn0')),
-                                                          wind_speed=float(self.get_config('atmospheric_parameters','avg_wind_v')),
-                                                          wavelength=1e-9*float(self.get_config('atmospheric_parameters','wavelength')), #converted to m
-                                                          ground_station_alt=1e-3*float(self.get_config('atmospheric_parameters','ground_station_altitude')), #converted to km
-                                                          aerial_platform_alt=float(self.get_config('atmospheric_parameters','balloon_height')),
-                                                          zenith_angle=float(self.get_config('atmospheric_parameters','zenith_angle')),
-                                                          pointing_error=float(self.get_config('atmospheric_parameters','pointing_error')),
-                                                          tracking_efficiency=float(self.get_config('atmospheric_parameters','tracking_efficiency')),
-                                                          Tatm=float(self.get_config('atmospheric_parameters','T_atm')),
-                                                          integral_gain=float(self.get_config('atmospheric_parameters','integral_gain')),
-                                                          control_delay=float(self.get_config('atmospheric_parameters','control_delay')),
-                                                          integration_time=float(self.get_config('atmospheric_parameters','integration_time')),
-                                                          )
-                    errors=downchannel._compute_loss_probability((float(self.get_config('atmospheric_parameters','balloon_height'))-1e-3*float(self.get_config('atmospheric_parameters','ground_station_altitude'))),n_samples=(int(self.get_config('simulation_duration','simulation_duration'))))
-                    qchannel_loss_model=CachedChannel(errors)
-                elif self.get_config('links',link_name,'qchannel_loss_model') == 'UpwardsChannel':
-                    upchannel = UplinkChannel(D_tx=float(self.get_config('atmospheric_parameters','W0_ground')),
-                                                          R_rx=float(self.get_config('atmospheric_parameters','Drx_balloon')), 
-                                                          obs_ratio=float(self.get_config('atmospheric_parameters','obstruction_ratio')),
-                                                          n_max=float(self.get_config('atmospheric_parameters','N_max')),
-                                                          Cn0=float(self.get_config('atmospheric_parameters','cn0')),
-                                                          wind_speed=float(self.get_config('atmospheric_parameters','avg_wind_v')),
-                                                          wavelength=1e-9*float(self.get_config('atmospheric_parameters','wavelength')), #converted to m
-                                                          ground_station_alt=1e-3*float(self.get_config('atmospheric_parameters','ground_station_altitude')), #converted to km
-                                                          aerial_platform_alt=float(self.get_config('atmospheric_parameters','balloon_height')),
-                                                          zenith_angle=float(self.get_config('atmospheric_parameters','zenith_angle')),
-                                                          pointing_error=float(self.get_config('atmospheric_parameters','pointing_error')),
-                                                          tracking_efficiency=float(self.get_config('atmospheric_parameters','tracking_efficiency')),
-                                                          Tatm=float(self.get_config('atmospheric_parameters','T_atm')),
-                                                          integral_gain=float(self.get_config('atmospheric_parameters','integral_gain')),
-                                                          control_delay=float(self.get_config('atmospheric_parameters','control_delay')),
-                                                          integration_time=float(self.get_config('atmospheric_parameters','integration_time')),
-                                                          )
-                    errors=upchannel._compute_loss_probability((float(self.get_config('atmospheric_parameters','balloon_height'))-1e-3*float(self.get_config('atmospheric_parameters','ground_station_altitude'))),n_samples=(int(self.get_config('simulation_duration','simulation_duration'))))
-                    qchannel_loss_model=CachedChannel(errors)    
+                elif self.get_config('links',link_name,'qchannel_loss_model') == 'DownlinkChannel':
+                    
+                    qchannel_loss_model=CachedChannel(downlink_errors)
+                elif self.get_config('links',link_name,'qchannel_loss_model') == 'UplinkChannel':
+                    qchannel_loss_model=CachedChannel(uplink_errors)    
                 elif self.get_config('links',link_name,'qchannel_loss_model') == 'AerialHorizontalChannel':
-                    Cn2_horizontal=cn2.hufnagel_valley(1e3*float(self.get_config('atmospheric_parameters','balloon_height')),float(self.get_config('atmospheric_parameters','avg_wind_v')),float(self.get_config('atmospheric_parameters','cn0')))
-                    horchannel = HorizontalChannel(W0=float(self.get_config('atmospheric_parameters','W0_balloon')), 
-                                                          rx_aperture=float(self.get_config('atmospheric_parameters','Drx_balloon')), 
-                                                          obs_ratio=float(self.get_config('atmospheric_parameters','obstruction_ratio')),
-                                                          Cn2=Cn2_horizontal,
-                                                          wavelength=1e-9*float(self.get_config('atmospheric_parameters','wavelength')), #converted to m
-                                                          pointing_error=float(self.get_config('atmospheric_parameters','pointing_error')),
-                                                          tracking_efficiency=float(self.get_config('atmospheric_parameters','tracking_efficiency')),
-                                                          )
-                    errors=horchannel._compute_loss_probability((float(self.get_config('atmospheric_parameters','balloon_height'))-1e-3*float(self.get_config('atmospheric_parameters','ground_station_altitude'))),n_samples=(int(self.get_config('simulation_duration','simulation_duration'))))
-                    qchannel_loss_model=CachedChannel(errors)    
+                    qchannel_loss_model=CachedChannel(horizontal_errors)    
                 elif self.get_config('links',link_name,'qchannel_loss_model') == 'FreeSpaceLossModel':
                     qchannel_loss_model = FreeSpaceLossModel()                   
                 elif self.get_config('links',link_name,'qchannel_loss_model') == 'FixedSatelliteLossModel':

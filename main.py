@@ -9,7 +9,7 @@ from netsquid.util import simlog
 from utils import generate_report, validate_conf, check_parameter, load_config, create_plot
 import yaml
 import datetime
-from applications import CapacityApplication, TeleportationApplication, CHSHApplication
+from applications import E91Application, CapacityApplication, TeleportationApplication, CHSHApplication
 import copy
 
 try:
@@ -134,6 +134,9 @@ for value in vals:
             qubits = net.get_config('requests',path['request'],'teleport')
             epr_pair = net.get_config('epr_pair','epr_pair')
             app = TeleportationApplication(path, net, qubits, epr_pair, 'LogicalTeleportation', name = f"LogicalTeleportationApplication_{path['request']}")
+        elif application == "E91":
+            keysize=int(net.get_config('requests',path['request'],'keysize')) # TODO: How can I do this exactly?
+            app=E91Application(path, net, name= "E91", keysize=keysize)
         else:
             raise ValueError('Unsupported application')
 
@@ -225,6 +228,12 @@ for value in vals:
                             'Mean Time': 0 if len(detail[1].dataframe) == 0 else detail[1].dataframe['time'].mean(),
                             'STD Time': 0 if len(detail[1].dataframe) == 0 else detail[1].dataframe['time'].std()
                             }
+        elif detail[0]=='E91': # TODO: what to unpack here?
+            sim_result={'Application':detail[0],
+                        'Request': key,
+                        'spawned_untreated_key': 0 if len(detail[1].dataframe) == 0 else detail[1].dataframe['spawned_untreated_key'],
+                        'key_creation_rate': 0 if len(detail[1].dataframe) == 0 else detail[1].dataframe['key_creation_rate']
+            }        
         else:
             raise ValueError('Unsupported application')
 
@@ -289,6 +298,11 @@ for key,value in simulation_data.items():
         print(f"         STD fidelity: {value['STD Fidelity'].tolist()}")
         print(f"         Mean time: {value['Mean Time'].tolist()} nanoseconds")
         print(f"         STD time: {value['STD Time'].tolist()} nanoseconds")
+    elif value.iloc[0]['Application'] == 'E91':
+        print("Report or E91 core:")
+        print(f"\t\tSpawned key: {value['spawned_untreated_key'].tolist()}")
+        print(f"\t\tKey creation efficiency factor: {value['key_creation_rate']} ")
+
     print()
     #If evolution, plot graphs
     if mode == 'E': create_plot(value,key,value.iloc[0]['Application'])
